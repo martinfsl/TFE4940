@@ -1,6 +1,10 @@
-numpy
-matplotlib
+numpy==2.1.0
+matplotlib==3.9.2
 
 tensorflow
 keras
 sionna
+
+torch==2.2.2
+
+tqdm==4.66.5
