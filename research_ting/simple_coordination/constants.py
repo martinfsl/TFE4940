@@ -4,7 +4,7 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 100
+NUM_CHANNELS = 10
 NUM_USERS = 1
 ACTIONS = np.arange(0, NUM_CHANNELS, 1)
 

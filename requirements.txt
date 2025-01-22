@@ -1,9 +1,11 @@
-numpy==2.1.0
-matplotlib==3.9.2
-
 tensorflow
 keras
 sionna
+
+# numpy==2.1.0
+numpy < 2
+
+matplotlib==3.9.2
 
 torch==2.2.2
 
