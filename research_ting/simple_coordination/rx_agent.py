@@ -11,9 +11,9 @@ from constants import *
 ### Defining classes RNNQN and RNNQN-agent
 #################################################################################
 
-class txRNNQN(nn.Module):
+class rxRNNQN(nn.Module):
     def __init__(self):
-        super(txRNNQN, self).__init__()
+        super(rxRNNQN, self).__init__()
 
         self.input_size = NUM_CHANNELS + 1
         self.hidden_size = 128
@@ -41,7 +41,7 @@ class txRNNQN(nn.Module):
 
         return q_values, hidden
 
-class txRNNQNAgent:
+class rxRNNQNAgent:
     def __init__(self, gamma = GAMMA, epsilon = EPSILON):
         self.gamma = gamma
         self.epsilon = epsilon
@@ -49,15 +49,15 @@ class txRNNQNAgent:
         self.learning_rate = LEARNING_RATE
 
         # Power
-        self.power = TX_USER_TRANSMIT_POWER
+        self.power = RX_USER_TRANSMIT_POWER
         self.h_tr_variance = H_TR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to receiver
 
         # Parameters for the RNN network A
         self.batch_size = DQN_BATCH_SIZE
         self.memory = []
 
-        self.q_network = txRNNQN()
-        self.target_network = txRNNQN()
+        self.q_network = rxRNNQN()
+        self.target_network = rxRNNQN()
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
 
     def get_transmit_power(self):

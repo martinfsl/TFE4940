@@ -28,6 +28,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from tx_agent import txRNNQN, txRNNQNAgent
+from rx_agent import rxRNNQN, rxRNNQNAgent
 from jammer import UserEnvironment
 
 #################################################################################
@@ -291,3 +292,5 @@ if __name__ == '__main__':
     total_params = sum(p.numel() for p in tx_agent.q_network.parameters())
     total_params = sum(p.numel() for p in tx_agent.target_network.parameters())
     print(f"Number of parameters: {total_params}")
+
+    np.savetxt("research_ting/simple_coordination/aa_comparison/average_reward_only_tx.txt", average_rewards)

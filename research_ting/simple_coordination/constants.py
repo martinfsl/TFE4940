@@ -42,7 +42,8 @@ SINR_THRESHOLD = 5
 USE_SINR_AS_REWARD = False
 
 # User transmit power and variance
-USER_TRANSMIT_POWER = 6
+TX_USER_TRANSMIT_POWER = 6
+RX_USER_TRANSMIT_POWER = 6
 H_TR_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to receiver
 
 # Jammer transmit power and variance
