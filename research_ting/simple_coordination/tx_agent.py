@@ -11,9 +11,9 @@ from constants import *
 ### Defining classes RNNQN and RNNQN-agent
 #################################################################################
 
-class RNNQN(nn.Module):
+class txRNNQN(nn.Module):
     def __init__(self):
-        super(RNNQN, self).__init__()
+        super(txRNNQN, self).__init__()
 
         self.input_size = NUM_CHANNELS + 1
         self.hidden_size = 128
@@ -41,7 +41,7 @@ class RNNQN(nn.Module):
 
         return q_values, hidden
 
-class RNNQNAgent:
+class txRNNQNAgent:
     def __init__(self, gamma = GAMMA, epsilon = EPSILON):
         self.gamma = gamma
         self.epsilon = epsilon
@@ -56,8 +56,8 @@ class RNNQNAgent:
         self.batch_size = DQN_BATCH_SIZE
         self.memory = []
 
-        self.q_network = RNNQN()
-        self.target_network = RNNQN()
+        self.q_network = txRNNQN()
+        self.target_network = txRNNQN()
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
 
     def get_transmit_power(self):
