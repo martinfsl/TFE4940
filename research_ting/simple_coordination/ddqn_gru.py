@@ -35,24 +35,27 @@ from jammer import UserEnvironment
 ### Calculate the reward using SINR
 #################################################################################
 
-def received_signal_rx(channel, received_power, channel_noise_receiver):
-    sinr = 10*np.log10(received_power / channel_noise_receiver[channel]) # SINR at the receiver
+def received_signal_rx(tx_channel, rx_channel, received_power, channel_noise_receiver):
+    sinr = 10*np.log10(received_power / channel_noise_receiver[rx_channel]) # SINR at the receiver
 
-    return sinr > SINR_THRESHOLD
+    return (sinr > SINR_THRESHOLD) and (np.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
 
-def received_signal_tx(channel, received_power, channel_noise_transmitter):
-    sinr = 10*np.log10(received_power / channel_noise_transmitter[channel]) # SINR at the receiver
+def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_transmitter):
+    sinr = 10*np.log10(received_power / channel_noise_transmitter[tx_channel]) # SINR at the receiver
 
-    return sinr > SINR_THRESHOLD
+    return (sinr > SINR_THRESHOLD) and (np.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
 
 #################################################################################
 ### Train the DQN, extended state space
 #################################################################################
 
-def train_dqn_extended_state_space(tx_agent, other_users):
+def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
     print("Training the DDQN")
-    accumulated_rewards = []
-    average_rewards = []
+    tx_accumulated_rewards = []
+    tx_average_rewards = []
+
+    rx_accumulated_rewards = []
+    rx_average_rewards = []
 
     # Initialize the start channel for the sweep
     for ou in other_users:
@@ -61,27 +64,35 @@ def train_dqn_extended_state_space(tx_agent, other_users):
 
     ###################################
     # Initializing the first state
-    curr_state = []
+    tx_state = []
+    rx_state = []
 
     prev_tx_channel = 0
+    prev_rx_channel = 0
 
     # Initialize the channel noise for the current (and first) time step
     channel_noise_transmitter = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+    channel_noise_receiver = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
 
     # Select actions for the jammers and other interfering users
     for ou in other_users:
         ou_action = ou.select_and_get_action()
 
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
+        channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
 
     # Set the current state based on the observed power spectrum
-    curr_state = channel_noise_transmitter.tolist()
-    curr_state.append(prev_tx_channel)
+    tx_state = channel_noise_transmitter.tolist()
+    tx_state.append(prev_tx_channel)
+
+    rx_state = channel_noise_receiver.tolist()
+    rx_state.append(prev_rx_channel)
     ###################################
 
     for episode in tqdm(range(NUM_EPISODES)):
         # The agent chooses an action based on the current state
-        tx_channel = tx_agent.choose_action(curr_state)
+        tx_channel = tx_agent.choose_action(tx_state)
+        rx_channel = rx_agent.choose_action(rx_state)
 
         # Set a new channel noise for the next state
         channel_noise_transmitter = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -95,8 +106,11 @@ def train_dqn_extended_state_space(tx_agent, other_users):
             channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
 
         # Add the new observed power spectrum to the next state
-        next_state = channel_noise_transmitter.tolist()
-        next_state.append(tx_channel)
+        tx_next_state = channel_noise_transmitter.tolist()
+        tx_next_state.append(tx_channel)
+
+        rx_next_state = channel_noise_receiver.tolist()
+        rx_next_state.append(rx_channel)
 
         for ou in other_users:
             if ou.behavior == "spectrum sensing":
@@ -104,40 +118,56 @@ def train_dqn_extended_state_space(tx_agent, other_users):
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
-        if received_signal_rx(tx_channel, tx_agent.get_transmit_power(), channel_noise_receiver):
+        if received_signal_rx(tx_channel, rx_channel, tx_agent.get_transmit_power(), channel_noise_receiver):
+            rx_reward = REWARD_SUCCESSFUL
+            
             # ACK is received at the transmitter
-            if received_signal_tx(tx_channel, tx_agent.get_transmit_power(), channel_noise_transmitter): # power should be changed to rx_agent later
-                reward = REWARD_SUCCESSFUL
+            if received_signal_tx(tx_channel, rx_channel, rx_agent.get_transmit_power(), channel_noise_transmitter): # power should be changed to rx_agent later
+                tx_reward = REWARD_SUCCESSFUL
+            else:
+                tx_reward = REWARD_INTERFERENCE
         else:
-            reward = REWARD_INTERFERENCE
+            rx_reward = REWARD_INTERFERENCE
+            tx_reward = REWARD_INTERFERENCE
 
         if episode == 0:
-            accumulated_rewards.append(reward)
-            average_rewards.append(reward)
+            tx_accumulated_rewards.append(tx_reward)
+            tx_average_rewards.append(tx_reward)
+
+            rx_accumulated_rewards.append(rx_reward)
+            rx_average_rewards.append(rx_reward)
         else:
-            accumulated_rewards.append(accumulated_rewards[-1] + reward)
-            average_rewards.append(accumulated_rewards[-1]/len(accumulated_rewards))
+            tx_accumulated_rewards.append(tx_accumulated_rewards[-1] + tx_reward)
+            tx_average_rewards.append(tx_accumulated_rewards[-1]/len(tx_accumulated_rewards))
+
+            rx_accumulated_rewards.append(rx_accumulated_rewards[-1] + rx_reward)
+            rx_average_rewards.append(rx_accumulated_rewards[-1]/len(rx_accumulated_rewards))
 
         # Store the experience in the agent's memory
         # Replay the agent's memory
-        tx_agent.store_experience_in(curr_state, tx_channel, reward, next_state)
+        tx_agent.store_experience_in(tx_state, tx_channel, tx_reward, tx_next_state)
         tx_agent.replay()
+
+        rx_agent.store_experience_in(rx_state, rx_channel, rx_reward, rx_next_state)
+        rx_agent.replay()
 
         # Periodic update of the target Q-network
         if episode % 10 == 0:
             tx_agent.update_target_q_network()
+            rx_agent.update_target_q_network()
 
-        curr_state = next_state
+        tx_state = tx_next_state
+        rx_state = rx_next_state
 
     print("Training complete")
 
-    return average_rewards
+    return tx_average_rewards, rx_average_rewards
 
 #################################################################################
 ### Test the DQN, extended state space
 #################################################################################
 
-def test_dqn_extended_state_space(tx_agent, other_users):
+def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
     print("Testing the DDQN")
     num_successful_transmissions = 0
     num_channel_selected = np.zeros(NUM_CHANNELS)
@@ -218,22 +248,30 @@ def test_dqn_extended_state_space(tx_agent, other_users):
 ### Plotting the results
 #################################################################################
 
-def plot_results(average_rewards, probability_channel_selected, jammer_type):
+def plot_results(tx_average_rewards, rx_average_rewards, jammer_type):
     plt.figure(1, figsize=(12, 8))
 
     plt.subplot(2, 1, 1)
-    plt.plot(average_rewards)
+    plt.plot(tx_average_rewards)
     plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
     plt.xlabel("Episode")
-    plt.ylabel("Average reward")
-    plt.title("Average reward over episodes during training")
+    plt.ylabel("Tx average reward")
+    plt.title("Tx average reward over episodes during training")
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(rx_average_rewards)
+    plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
+    plt.xlabel("Episode")
+    plt.ylabel("Rx average reward")
+    plt.title("Rx average reward over episodes during training")
     plt.legend()
     
-    plt.subplot(2, 1, 2)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_channel_selected)
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection during testing")
+    # plt.subplot(3, 1, 3)
+    # plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_channel_selected)
+    # plt.xlabel("Channel")
+    # plt.ylabel("Probability of channel selection")
+    # plt.title("Probability of channel selection during testing")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"DDQN GRU, {NUM_CHANNELS} channels, 1 {jammer_type}, {DQN_BATCH_SIZE} sequence length")
@@ -256,6 +294,7 @@ if __name__ == '__main__':
         print(f"Run: {run+1}")
 
         tx_agent = txRNNQNAgent()
+        rx_agent = rxRNNQNAgent()
 
         list_of_other_users = []
 
@@ -275,22 +314,28 @@ if __name__ == '__main__':
         list_of_other_users.append(spec_sense_1)
         jammer_type = "spectrum sensing"
 
-        average_rewards = train_dqn_extended_state_space(tx_agent, list_of_other_users)
+        tx_average_rewards, rx_average_rewards = train_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
 
-        num_successful_transmissions, probability_channel_selected = test_dqn_extended_state_space(tx_agent, list_of_other_users)
+        # num_successful_transmissions, probability_channel_selected = test_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
 
-        print("Finished testing the DQN:")
-        print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
-        success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
+        # print("Finished testing the DQN:")
+        # print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
+        # success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
 
-    plot_results(average_rewards, probability_channel_selected, jammer_type)
+    # plot_results(tx_average_rewards, rx_average_rewards, probability_channel_selected, jammer_type)
+    plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
 
     if num_runs > 1:
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
 
-    total_params = sum(p.numel() for p in tx_agent.q_network.parameters())
-    total_params = sum(p.numel() for p in tx_agent.target_network.parameters())
-    print(f"Number of parameters: {total_params}")
+    tx_total_params = sum(p.numel() for p in tx_agent.q_network.parameters())
+    tx_total_params = sum(p.numel() for p in tx_agent.target_network.parameters())
+    print(f"Number of parameters in transmitter: {tx_total_params}")
 
-    np.savetxt("research_ting/simple_coordination/aa_comparison/average_reward_only_tx.txt", average_rewards)
+    rx_total_params = sum(p.numel() for p in rx_agent.q_network.parameters())
+    rx_total_params = sum(p.numel() for p in rx_agent.target_network.parameters())
+    print(f"Number of parameters in receiver: {rx_total_params}")
+
+    np.savetxt("research_ting/simple_coordination/aa_comparison/average_reward_both_tx.txt", tx_average_rewards)
+    np.savetxt("research_ting/simple_coordination/aa_comparison/average_reward_both_rx.txt", rx_average_rewards)
