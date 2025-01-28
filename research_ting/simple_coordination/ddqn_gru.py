@@ -170,7 +170,8 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
     print("Testing the DDQN")
     num_successful_transmissions = 0
-    num_channel_selected = np.zeros(NUM_CHANNELS)
+    num_tx_channel_selected = np.zeros(NUM_CHANNELS)
+    num_rx_channel_selected = np.zeros(NUM_CHANNELS)
 
     # Initialize the start channel for the sweep
     for ou in other_users:
@@ -179,30 +180,39 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
         
     ###################################
     # Initializing the first state
-    curr_state = []
+    tx_state = []
+    rx_state = []
 
     prev_tx_channel = 0
+    prev_rx_channel = 0
 
     # Initialize the channel noise for the current (and first) time step
     channel_noise_transmitter = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+    channel_noise_receiver = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
 
     # Select actions for the jammers and other interfering users
     for ou in other_users:
         ou_action = ou.select_and_get_action()
 
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
+        channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
 
     # Set the current state based on the observed power spectrum
-    curr_state = channel_noise_transmitter.tolist()
-    curr_state.append(prev_tx_channel)
+    tx_state = channel_noise_transmitter.tolist()
+    tx_state.append(prev_tx_channel)
+
+    rx_state = channel_noise_receiver.tolist()
+    rx_state.append(prev_rx_channel)
 
     ###################################
 
     for run in tqdm(range(NUM_TEST_RUNS)):
 
         # The agent chooses an action based on the current state
-        tx_channel = tx_agent.choose_action(curr_state)
-        num_channel_selected[tx_channel] += 1
+        tx_channel = tx_agent.choose_action(tx_state)
+        rx_channel = rx_agent.choose_action(rx_state)
+        num_tx_channel_selected[tx_channel] += 1
+        num_rx_channel_selected[rx_channel] += 1
 
         # Set a new channel noise for the next state
         channel_noise_transmitter = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -216,11 +226,11 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
             channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
 
         # Add the new observed power spectrum to the next state
-        next_state = channel_noise_transmitter.tolist()
-        next_state.append(tx_channel)
+        tx_next_state = channel_noise_transmitter.tolist()
+        tx_next_state.append(tx_channel)
 
-        # Calculate the SINR
-        transmit_power = tx_agent.get_transmit_power()
+        rx_next_state = channel_noise_receiver.tolist()
+        rx_next_state.append(rx_channel)
 
         for ou in other_users:
             if ou.behavior == "spectrum sensing":
@@ -228,30 +238,38 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
-        if received_signal_rx(tx_channel, tx_agent.get_transmit_power(), channel_noise_receiver):
+        if received_signal_rx(tx_channel, rx_channel, tx_agent.get_transmit_power(), channel_noise_receiver):
+            rx_reward = REWARD_SUCCESSFUL
+            
             # ACK is received at the transmitter
-            if received_signal_tx(tx_channel, tx_agent.get_transmit_power(), channel_noise_transmitter): # power should be changed to rx_agent later
-                reward = REWARD_SUCCESSFUL
+            if received_signal_tx(tx_channel, rx_channel, rx_agent.get_transmit_power(), channel_noise_transmitter): # power should be changed to rx_agent later
+                tx_reward = REWARD_SUCCESSFUL
+            else:
+                tx_reward = REWARD_INTERFERENCE
         else:
-            reward = REWARD_INTERFERENCE
-        if reward >= 0:
+            rx_reward = REWARD_INTERFERENCE
+            tx_reward = REWARD_INTERFERENCE
+        # If the tx_reward is positive, then both the communication link was successful both ways
+        if tx_reward >= 0:
             num_successful_transmissions += 1
 
         # Set the state for the next iteration based on the new observed power spectrum
-        curr_state = next_state
+        tx_state = tx_next_state
+        rx_state = rx_next_state
 
-    probability_channel_selected = num_channel_selected / np.sum(num_channel_selected)
+    probability_tx_channel_selected = num_tx_channel_selected / np.sum(num_tx_channel_selected)
+    probability_rx_channel_selected = num_rx_channel_selected / np.sum(num_rx_channel_selected)
 
-    return num_successful_transmissions, probability_channel_selected
+    return num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected
 
 #################################################################################
 ### Plotting the results
 #################################################################################
 
-def plot_results(tx_average_rewards, rx_average_rewards, jammer_type):
+def plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, jammer_type):
     plt.figure(1, figsize=(12, 8))
 
-    plt.subplot(2, 1, 1)
+    plt.subplot(2, 2, 1)
     plt.plot(tx_average_rewards)
     plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
     plt.xlabel("Episode")
@@ -259,7 +277,7 @@ def plot_results(tx_average_rewards, rx_average_rewards, jammer_type):
     plt.title("Tx average reward over episodes during training")
     plt.legend()
 
-    plt.subplot(2, 1, 2)
+    plt.subplot(2, 2, 2)
     plt.plot(rx_average_rewards)
     plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
     plt.xlabel("Episode")
@@ -267,11 +285,17 @@ def plot_results(tx_average_rewards, rx_average_rewards, jammer_type):
     plt.title("Rx average reward over episodes during training")
     plt.legend()
     
-    # plt.subplot(3, 1, 3)
-    # plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_channel_selected)
-    # plt.xlabel("Channel")
-    # plt.ylabel("Probability of channel selection")
-    # plt.title("Probability of channel selection during testing")
+    plt.subplot(2, 2, 3)
+    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected)
+    plt.xlabel("Channel")
+    plt.ylabel("Probability of channel selection")
+    plt.title("Probability of channel selection for Tx during testing")
+
+    plt.subplot(2, 2, 4)
+    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_rx_channel_selected)
+    plt.xlabel("Channel")
+    plt.ylabel("Probability of channel selection")
+    plt.title("Probability of channel selection for Rx during testing")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"DDQN GRU, {NUM_CHANNELS} channels, 1 {jammer_type}, {DQN_BATCH_SIZE} sequence length")
@@ -316,14 +340,14 @@ if __name__ == '__main__':
 
         tx_average_rewards, rx_average_rewards = train_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
 
-        # num_successful_transmissions, probability_channel_selected = test_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
+        num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected = test_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
 
-        # print("Finished testing the DQN:")
-        # print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
-        # success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
+        print("Finished testing the DQN:")
+        print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
+        success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
 
-    # plot_results(tx_average_rewards, rx_average_rewards, probability_channel_selected, jammer_type)
-    plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
+    plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, jammer_type)
+    # plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
 
     if num_runs > 1:
         print("Success rates: ", success_rates)
@@ -337,5 +361,5 @@ if __name__ == '__main__':
     rx_total_params = sum(p.numel() for p in rx_agent.target_network.parameters())
     print(f"Number of parameters in receiver: {rx_total_params}")
 
-    np.savetxt("research_ting/simple_coordination/aa_comparison/average_reward_both_tx.txt", tx_average_rewards)
-    np.savetxt("research_ting/simple_coordination/aa_comparison/average_reward_both_rx.txt", rx_average_rewards)
+    np.savetxt("research_ting/simple_coordination/aa_comparison/100_channels/average_reward_both_tx_20000.txt", tx_average_rewards)
+    np.savetxt("research_ting/simple_coordination/aa_comparison/100_channels/average_reward_both_rx_20000.txt", rx_average_rewards)

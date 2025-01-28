@@ -4,7 +4,7 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 10
+NUM_CHANNELS = 100
 NUM_USERS = 1
 ACTIONS = np.arange(0, NUM_CHANNELS, 1)
 
@@ -31,7 +31,8 @@ REWARD_SUCCESSFUL = 1
 REWARD_INTERFERENCE = -1
 
 # Number of episodes for training
-NUM_EPISODES = 5000
+# NUM_EPISODES = 5000
+NUM_EPISODES = 20000
 
 # Number of runs for testing
 NUM_TEST_RUNS = 10000
