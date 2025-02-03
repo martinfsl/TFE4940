@@ -4,7 +4,7 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 100
+NUM_CHANNELS = 10
 NUM_USERS = 1
 ACTIONS = np.arange(0, NUM_CHANNELS, 1)
 
@@ -42,7 +42,7 @@ CONSIDER_FADING = True
 SINR_THRESHOLD = 5
 USE_SINR_AS_REWARD = False
 
-CHANNEL_OFFSET_THRESHOLD = 1
+CHANNEL_OFFSET_THRESHOLD = 0
 
 # User transmit power and variance
 TX_USER_TRANSMIT_POWER = 6
