@@ -59,3 +59,7 @@ H_JR_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fadin
 NOISE_VARIANCE = 0.1 # Normalized power, everything is relative to this
 
 # Spectrum sensing jammer parameters
+TRANSITION_STAY = 0.8
+TRANSITION_1 = 0.05
+TRANSITION_2 = 0.03
+TRANSITION_3 = 0.02

@@ -25,6 +25,20 @@ class UserEnvironment:
         self.h_jt_variance = H_JT_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
         self.h_jr_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to receiver
 
+    def tracking_transition(self):
+        curr_channel = self.channel
+        curr_channel_plus_1 = min(self.channel+1, NUM_CHANNELS-1)
+        curr_channel_minus_1 = max(0, self.channel-1)
+        curr_channel_plus_2 = min(self.channel+2, NUM_CHANNELS-1)
+        curr_channel_minus_2 = max(0, self.channel-2)
+        curr_channel_plus_3 = min(self.channel+3, NUM_CHANNELS-1)
+        curr_channel_minus_3 = max(0, self.channel-3)
+
+        options = [curr_channel, curr_channel_plus_1, curr_channel_minus_1, curr_channel_plus_2, curr_channel_minus_2, curr_channel_plus_3, curr_channel_minus_3]
+        probabilities = [TRANSITION_STAY, TRANSITION_1, TRANSITION_1, TRANSITION_2, TRANSITION_2, TRANSITION_3, TRANSITION_3]
+        
+        return random.choices(options, weights=probabilities, k=1)[0]
+
     def choose_action(self):
         if self.behavior == "random":
             return random.randint(0, NUM_CHANNELS-1)
@@ -42,7 +56,7 @@ class UserEnvironment:
         elif self.behavior == "probabilistic":
             return random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0]
         elif self.behavior == "spectrum sensing":
-            return self.channel
+            return self.tracking_transition()
 
     # Function that returns the transmit power of the jammer / interfering user
     # The power is multiplied by the Rayleigh fading magnitude
