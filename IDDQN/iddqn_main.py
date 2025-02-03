@@ -76,7 +76,7 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
     # Select actions for the jammers and other interfering users
     for ou in other_users:
-        ou_action = ou.select_and_get_action()
+        ou_action = ou.choose_action()
 
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
         channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
@@ -100,7 +100,7 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Select actions for the jammers and other interfering users again
         for ou in other_users:
-            ou_action = ou.select_and_get_action()
+            ou_action = ou.choose_action()
 
             channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
             channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
@@ -192,7 +192,7 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
     # Select actions for the jammers and other interfering users
     for ou in other_users:
-        ou_action = ou.select_and_get_action()
+        ou_action = ou.choose_action()
 
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
         channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
@@ -220,7 +220,7 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Select actions for the jammers and other interfering users again
         for ou in other_users:
-            ou_action = ou.select_and_get_action()
+            ou_action = ou.choose_action()
 
             channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
             channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")

@@ -44,11 +44,6 @@ class UserEnvironment:
         elif self.behavior == "spectrum sensing":
             return self.channel
 
-    def select_and_get_action(self):
-        action = self.choose_action()
-        
-        return action
-
     # Function that returns the transmit power of the jammer / interfering user
     # The power is multiplied by the Rayleigh fading magnitude
     def get_transmit_power(self, direction):
