@@ -1,14 +1,3 @@
-#############################################
-"""
-This simulation is closer to how the final simulator should work.
-Here there is a main user that utilizes Q-learning for effective spectrum access.
-There are other users as well, but they use algorithms such as:
-    * Random behavior
-    * Fixed behavior
-    * Probabilistic behavior
-"""
-#############################################
-
 import numpy as np
 import random
 # random.seed(1488)
@@ -50,7 +39,7 @@ def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_tra
 #################################################################################
 
 def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
-    print("Training the DDQN")
+    print("Training")
     tx_accumulated_rewards = []
     tx_average_rewards = []
 
@@ -76,7 +65,7 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
     # Select actions for the jammers and other interfering users
     for ou in other_users:
-        ou_action = ou.select_and_get_action()
+        ou_action = ou.choose_action()
 
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
         channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
@@ -100,7 +89,7 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Select actions for the jammers and other interfering users again
         for ou in other_users:
-            ou_action = ou.select_and_get_action()
+            ou_action = ou.choose_action()
 
             channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
             channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
@@ -168,7 +157,7 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 #################################################################################
 
 def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
-    print("Testing the DDQN")
+    print("Testing")
     num_successful_transmissions = 0
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
     num_rx_channel_selected = np.zeros(NUM_CHANNELS)
@@ -192,7 +181,7 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
     # Select actions for the jammers and other interfering users
     for ou in other_users:
-        ou_action = ou.select_and_get_action()
+        ou_action = ou.choose_action()
 
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
         channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
@@ -220,7 +209,7 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Select actions for the jammers and other interfering users again
         for ou in other_users:
-            ou_action = ou.select_and_get_action()
+            ou_action = ou.choose_action()
 
             channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
             channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
@@ -342,7 +331,7 @@ if __name__ == '__main__':
 
         num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected = test_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
 
-        print("Finished testing the DQN:")
+        print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
         success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
 
