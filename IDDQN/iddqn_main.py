@@ -350,5 +350,6 @@ if __name__ == '__main__':
     rx_total_params = sum(p.numel() for p in rx_agent.target_network.parameters())
     print(f"Number of parameters in receiver: {rx_total_params}")
 
-    # np.savetxt("research_ting/simple_coordination/aa_comparison/100_channels/average_reward_both_tx_20000.txt", tx_average_rewards)
-    # np.savetxt("research_ting/simple_coordination/aa_comparison/100_channels/average_reward_both_rx_20000.txt", rx_average_rewards)
+    np.savetxt(f"Comparison/08_02/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels/average_reward_both_tx.txt", tx_average_rewards)
+    np.savetxt(f"Comparison/08_02/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels/average_reward_both_rx.txt", rx_average_rewards)
+    np.savetxt(f"Comparison/08_02/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels/success_rates.txt", success_rates)

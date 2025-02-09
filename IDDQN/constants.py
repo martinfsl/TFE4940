@@ -4,7 +4,7 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 10
+NUM_CHANNELS = 100
 NUM_USERS = 1
 ACTIONS = np.arange(0, NUM_CHANNELS, 1)
 
@@ -32,16 +32,21 @@ REWARD_INTERFERENCE = -1
 
 # Number of episodes for training
 # NUM_EPISODES = 5000
-NUM_EPISODES = 20000
+# NUM_EPISODES = 20000
+# NUM_EPISODES = 50000
+NUM_EPISODES = 100000
 
 # Number of runs for testing
-NUM_TEST_RUNS = 10000
+# NUM_TEST_RUNS = 10000
+# NUM_TEST_RUNS = 50000
+NUM_TEST_RUNS = 100000
 
 # Bool variable to decide whether fading is to be considered
 CONSIDER_FADING = True
 SINR_THRESHOLD = 5
 USE_SINR_AS_REWARD = False
 
+# How close the frequency band that Rx selects needs to be to the Tx's frequency band
 CHANNEL_OFFSET_THRESHOLD = 0
 
 # User transmit power and variance
