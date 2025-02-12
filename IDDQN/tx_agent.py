@@ -15,7 +15,7 @@ class txRNNQN(nn.Module):
     def __init__(self):
         super(txRNNQN, self).__init__()
 
-        self.input_size = NUM_CHANNELS + 1
+        self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size = 128
         self.num_layers = 2
         self.num_channels = NUM_CHANNELS
@@ -69,16 +69,28 @@ class txRNNQNAgent:
 
         return received_power
     
-    def choose_action(self, state):
+    def get_observation(self, state, action):
+        # Create an array of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
+        # The first elements are the state values centered around the action channel and the last element is the action channel
+        observation = np.zeros(NUM_SENSE_CHANNELS + 1)
+        half_sense_channels = NUM_SENSE_CHANNELS // 2
+
+        for i in range(-half_sense_channels, half_sense_channels + 1):
+            index = (action + i) % len(state)
+            observation[i + half_sense_channels] = state[index]
+
+        observation[-1] = action
+        return observation
+    
+    def choose_action(self, observation):
         if random.uniform(0, 1) < self.epsilon:
             if self.epsilon > EPSILON_MIN:
                 self.epsilon *= EPSILON_REDUCTION
-            
             return random.choice(range(NUM_CHANNELS))
         else:
-            state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
+            observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
             hidden = self.q_network.init_hidden(1)
-            q_values, _ = self.q_network(state, hidden)
+            q_values, _ = self.q_network(observation, hidden)
             return torch.argmax(q_values).item()
 
     # Functions for the RNN network A

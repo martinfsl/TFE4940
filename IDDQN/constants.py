@@ -67,3 +67,7 @@ TRANSITION_STAY = 0.8
 TRANSITION_1 = 0.05
 TRANSITION_2 = 0.03
 TRANSITION_3 = 0.02
+
+# Number of sensed channels
+# How many channels the Tx and Rx can sense at a time (including the channel they are on)
+NUM_SENSE_CHANNELS = 15

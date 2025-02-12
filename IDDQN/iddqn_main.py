@@ -56,8 +56,8 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
     tx_state = []
     rx_state = []
 
-    prev_tx_channel = 0
-    prev_rx_channel = 0
+    tx_channel = 0
+    rx_channel = 0
 
     # Initialize the channel noise for the current (and first) time step
     channel_noise_transmitter = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -70,18 +70,17 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
         channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
 
-    # Set the current state based on the observed power spectrum
+    # Set the current state based on the total power spectrum
     tx_state = channel_noise_transmitter.tolist()
-    tx_state.append(prev_tx_channel)
-
     rx_state = channel_noise_receiver.tolist()
-    rx_state.append(prev_rx_channel)
     ###################################
 
     for episode in tqdm(range(NUM_EPISODES)):
         # The agent chooses an action based on the current state
-        tx_channel = tx_agent.choose_action(tx_state)
-        rx_channel = rx_agent.choose_action(rx_state)
+        tx_observation = tx_agent.get_observation(tx_state, tx_channel)
+        tx_channel = tx_agent.choose_action(tx_observation)
+        rx_observation = rx_agent.get_observation(rx_state, rx_channel)
+        rx_channel = rx_agent.choose_action(rx_observation)
 
         # Set a new channel noise for the next state
         channel_noise_transmitter = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -96,10 +95,9 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Add the new observed power spectrum to the next state
         tx_next_state = channel_noise_transmitter.tolist()
-        tx_next_state.append(tx_channel)
-
+        tx_next_observation = tx_agent.get_observation(tx_next_state, tx_channel)
         rx_next_state = channel_noise_receiver.tolist()
-        rx_next_state.append(rx_channel)
+        rx_next_observation = rx_agent.get_observation(rx_next_state, rx_channel)
 
         for ou in other_users:
             if ou.behavior == "spectrum sensing":
@@ -134,10 +132,10 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Store the experience in the agent's memory
         # Replay the agent's memory
-        tx_agent.store_experience_in(tx_state, tx_channel, tx_reward, tx_next_state)
+        tx_agent.store_experience_in(tx_observation, tx_channel, tx_reward, tx_next_observation)
         tx_agent.replay()
 
-        rx_agent.store_experience_in(rx_state, rx_channel, rx_reward, rx_next_state)
+        rx_agent.store_experience_in(rx_observation, rx_channel, rx_reward, rx_next_observation)
         rx_agent.replay()
 
         # Periodic update of the target Q-network
@@ -172,8 +170,8 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
     tx_state = []
     rx_state = []
 
-    prev_tx_channel = 0
-    prev_rx_channel = 0
+    tx_channel = 0
+    rx_channel = 0
 
     # Initialize the channel noise for the current (and first) time step
     channel_noise_transmitter = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -186,20 +184,18 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
         channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
         channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
 
-    # Set the current state based on the observed power spectrum
+    # Set the current state based on the total power spectrum
     tx_state = channel_noise_transmitter.tolist()
-    tx_state.append(prev_tx_channel)
-
     rx_state = channel_noise_receiver.tolist()
-    rx_state.append(prev_rx_channel)
-
     ###################################
 
     for run in tqdm(range(NUM_TEST_RUNS)):
 
         # The agent chooses an action based on the current state
-        tx_channel = tx_agent.choose_action(tx_state)
-        rx_channel = rx_agent.choose_action(rx_state)
+        tx_observation = tx_agent.get_observation(tx_state, tx_channel)
+        tx_channel = tx_agent.choose_action(tx_observation)
+        rx_observation = rx_agent.get_observation(rx_state, rx_channel)
+        rx_channel = rx_agent.choose_action(rx_observation)
         num_tx_channel_selected[tx_channel] += 1
         num_rx_channel_selected[rx_channel] += 1
 
@@ -216,10 +212,7 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Add the new observed power spectrum to the next state
         tx_next_state = channel_noise_transmitter.tolist()
-        tx_next_state.append(tx_channel)
-
         rx_next_state = channel_noise_receiver.tolist()
-        rx_next_state.append(rx_channel)
 
         for ou in other_users:
             if ou.behavior == "spectrum sensing":
@@ -352,13 +345,13 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/09_02/Test_1/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels"
     # relative_path = f"Comparison/parameter_testing/IDDQN_discount_factor/{str(GAMMA).replace('.', '_')}"
-    relative_path = f"Comparison/11_02/IDDQN_without_min"
+    relative_path = f"Comparison/Basic_vs_Realistic_Sensing/Realistic_Sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
