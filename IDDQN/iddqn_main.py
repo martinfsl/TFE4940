@@ -2,6 +2,8 @@ import numpy as np
 import random
 # random.seed(1488)
 
+import os
+
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -9,8 +11,6 @@ import matplotlib.pyplot as plt
 from constants import *
 
 from tqdm import tqdm
-
-import copy
 
 import torch
 import torch.nn as nn
@@ -350,6 +350,15 @@ if __name__ == '__main__':
     rx_total_params = sum(p.numel() for p in rx_agent.target_network.parameters())
     print(f"Number of parameters in receiver: {rx_total_params}")
 
-    np.savetxt(f"Comparison/08_02/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels/average_reward_both_tx.txt", tx_average_rewards)
-    np.savetxt(f"Comparison/08_02/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels/average_reward_both_rx.txt", rx_average_rewards)
-    np.savetxt(f"Comparison/08_02/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels/success_rates.txt", success_rates)
+    # relative_path = f"Comparison/09_02/Test_1/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels"
+    # relative_path = f"Comparison/parameter_testing/IDDQN_discount_factor/{str(GAMMA).replace('.', '_')}"
+    relative_path = f"Comparison/11_02/IDDQN_without_min"
+    if not os.path.exists(relative_path):
+        os.makedirs(relative_path)
+
+    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+
+    # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

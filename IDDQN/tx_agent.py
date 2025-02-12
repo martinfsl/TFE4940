@@ -71,7 +71,9 @@ class txRNNQNAgent:
     
     def choose_action(self, state):
         if random.uniform(0, 1) < self.epsilon:
-            self.epsilon *= EPSILON_REDUCTION
+            if self.epsilon > EPSILON_MIN:
+                self.epsilon *= EPSILON_REDUCTION
+            
             return random.choice(range(NUM_CHANNELS))
         else:
             state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
