@@ -345,7 +345,7 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/09_02/Test_1/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels"
     # relative_path = f"Comparison/parameter_testing/IDDQN_discount_factor/{str(GAMMA).replace('.', '_')}"
-    relative_path = f"Comparison/Basic_vs_Realistic_Sensing/Realistic_Sensing"
+    relative_path = f"Comparison/Basic_vs_Realistic_Sensing/1-sweep/Realistic_Sensing_15"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
