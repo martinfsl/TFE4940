@@ -38,7 +38,7 @@ def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_tra
 ### Train the DQN, extended state space
 #################################################################################
 
-def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
+def train_dqn(tx_agent, rx_agent, other_users):
     print("Training")
     tx_accumulated_rewards = []
     tx_average_rewards = []
@@ -105,11 +105,11 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
-        if received_signal_rx(tx_channel, rx_channel, tx_agent.get_transmit_power(), channel_noise_receiver):
+        if received_signal_rx(tx_channel, rx_channel, tx_agent.get_transmit_power(direction = "receiver"), channel_noise_receiver):
             rx_reward = REWARD_SUCCESSFUL
             
             # ACK is received at the transmitter
-            if received_signal_tx(tx_channel, rx_channel, rx_agent.get_transmit_power(), channel_noise_transmitter): # power should be changed to rx_agent later
+            if received_signal_tx(tx_channel, rx_channel, rx_agent.get_transmit_power(direction = "transmitter"), channel_noise_transmitter): # power should be changed to rx_agent later
                 tx_reward = REWARD_SUCCESSFUL
             else:
                 tx_reward = REWARD_INTERFERENCE
@@ -154,7 +154,7 @@ def train_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 ### Test the DQN, extended state space
 #################################################################################
 
-def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
+def test_dqn(tx_agent, rx_agent, other_users):
     print("Testing")
     num_successful_transmissions = 0
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
@@ -220,11 +220,11 @@ def test_dqn_extended_state_space(tx_agent, rx_agent, other_users):
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
-        if received_signal_rx(tx_channel, rx_channel, tx_agent.get_transmit_power(), channel_noise_receiver):
+        if received_signal_rx(tx_channel, rx_channel, tx_agent.get_transmit_power(direction = "receiver"), channel_noise_receiver):
             rx_reward = REWARD_SUCCESSFUL
             
             # ACK is received at the transmitter
-            if received_signal_tx(tx_channel, rx_channel, rx_agent.get_transmit_power(), channel_noise_transmitter): # power should be changed to rx_agent later
+            if received_signal_tx(tx_channel, rx_channel, rx_agent.get_transmit_power(direction = "transmitter"), channel_noise_transmitter): # power should be changed to rx_agent later
                 tx_reward = REWARD_SUCCESSFUL
             else:
                 tx_reward = REWARD_INTERFERENCE
@@ -320,9 +320,9 @@ if __name__ == '__main__':
         list_of_other_users.append(spec_sense_1)
         jammer_type = "spectrum sensing"
 
-        tx_average_rewards, rx_average_rewards = train_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
+        tx_average_rewards, rx_average_rewards = train_dqn(tx_agent, rx_agent, list_of_other_users)
 
-        num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected = test_dqn_extended_state_space(tx_agent, rx_agent, list_of_other_users)
+        num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected = test_dqn(tx_agent, rx_agent, list_of_other_users)
 
         print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
@@ -345,13 +345,13 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/09_02/Test_1/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels"
     # relative_path = f"Comparison/parameter_testing/IDDQN_discount_factor/{str(GAMMA).replace('.', '_')}"
-    relative_path = f"Comparison/Basic_vs_Realistic_Sensing/1-sweep/Realistic_Sensing_15"
+    relative_path = f"Comparison/Basic_vs_Realistic_Sensing/tracking/Realistic_Sensing_15"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx_v2.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx_v2.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates_v2.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

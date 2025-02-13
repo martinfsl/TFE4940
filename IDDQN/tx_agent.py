@@ -51,6 +51,7 @@ class txRNNQNAgent:
         # Power
         self.power = TX_USER_TRANSMIT_POWER
         self.h_tr_variance = H_TR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to receiver
+        self.h_tj_variance = H_JT_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to jammer
 
         # Parameters for the RNN network A
         self.batch_size = DQN_BATCH_SIZE
@@ -60,9 +61,12 @@ class txRNNQNAgent:
         self.target_network = txRNNQN()
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
 
-    def get_transmit_power(self):
+    def get_transmit_power(self, direction):
         if CONSIDER_FADING:
-            h = np.abs(np.random.normal(0, self.h_tr_variance, 1) + 1j*np.random.normal(0, self.h_tr_variance, 1))
+            if direction == "receiver":
+                h = np.abs(np.random.normal(0, self.h_tr_variance, 1) + 1j*np.random.normal(0, self.h_tr_variance, 1))
+            elif direction == "jammer":
+                h = np.abs(np.random.normal(0, self.h_tj_variance, 1) + 1j*np.random.normal(0, self.h_tj_variance, 1))
             received_power = (h*self.power)[0]
         else:
             received_power = self.power

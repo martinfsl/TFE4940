@@ -70,4 +70,7 @@ TRANSITION_3 = 0.02
 
 # Number of sensed channels
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
-NUM_SENSE_CHANNELS = 5
+NUM_SENSE_CHANNELS = 15
+
+# Number of channels the jammer can sense
+NUM_JAMMER_SENSE_CHANNELS = 15
