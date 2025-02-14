@@ -87,7 +87,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations.append(jammer_observation)
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_channel)
 
         # Set a new channel noise for the next state
         tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -114,11 +114,6 @@ def train_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_next_states.append(jammer_channel_noises[i].tolist())
             jammer_next_observations.append(jammers[i].get_observation(jammer_next_states[i], jammer_channels[i]))
-
-        # Set the channel for the jammers that are tracking
-        for jammer in jammers:
-            if jammer.behavior == "tracking":
-                jammer.channel = tx_channel
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
@@ -219,7 +214,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations.append(jammer_observation)
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_channel)
 
         num_tx_channel_selected[tx_channel] += 1
         num_rx_channel_selected[rx_channel] += 1
@@ -247,10 +242,6 @@ def test_dqn(tx_agent, rx_agent, jammers):
         jammer_next_states = []
         for i in range(len(jammers)):
             jammer_next_states.append(jammer_channel_noises[i].tolist())
-
-        for jammer in jammers:
-            if jammer.behavior == "tracking":
-                jammer.channel = tx_channel
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
@@ -318,6 +309,35 @@ def plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"DDQN GRU, {NUM_CHANNELS} channels, 1 {jammer_type}, {DQN_BATCH_SIZE} sequence length")
+    # plt.show()
+
+#################################################################################
+### Plotting the probability of selections
+#################################################################################
+
+def plot_probability_selection(probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected, jammer_type):
+    plt.figure(2, figsize=(8, 4))
+
+    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected)
+    plt.xlabel("Channel")
+    plt.ylabel("Probability of channel selection")
+    plt.title("Probability of channel selection for Tx during testing")
+
+
+    plt.figure(3, figsize=(8, 4))
+
+    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_rx_channel_selected)
+    plt.xlabel("Channel")
+    plt.ylabel("Probability of channel selection")
+    plt.title("Probability of channel selection for Rx during testing")
+
+    for i in range(len(probability_jammer_channel_selected)):
+        plt.figure(4+i, figsize=(8, 4))
+        plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_jammer_channel_selected[i])
+        plt.xlabel("Channel")
+        plt.ylabel("Probability of channel selection")
+        plt.title(f"Probability of channel selection for Jammer {i+1} during testing")
+
     plt.show()
 
 #################################################################################
@@ -368,6 +388,8 @@ if __name__ == '__main__':
     plot_results(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type)
     # plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
 
+    plot_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type)
+
     if num_runs > 1:
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
@@ -386,9 +408,9 @@ if __name__ == '__main__':
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx_v2.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx_v2.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates_v2.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx_v3.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx_v3.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates_v3.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

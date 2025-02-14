@@ -47,7 +47,7 @@ class Jammer:
         else:
             return []
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, tx_channel):
         if self.behavior == "smart":
             return 0
         else:
@@ -67,7 +67,9 @@ class Jammer:
             elif self.behavior == "probabilistic":
                 return random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0]
             elif self.behavior == "tracking":
-                return self.tracking_transition()
+                curr_jam = self.tracking_transition()
+                self.channel = tx_channel # Update the channel that the jammer is on based on the transmitter's channel
+                return curr_jam
 
     # Function that returns the transmit power of the jammer / interfering user
     # The power is multiplied by the Rayleigh fading magnitude
