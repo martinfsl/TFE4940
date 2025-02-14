@@ -55,42 +55,65 @@ def train_dqn(tx_agent, rx_agent, jammers):
     # Initializing the first state consisting of just noise
     tx_state = []
     rx_state = []
+    jammer_states = []
+    for jammer in jammers:
+        jammer_states.append([])
 
     tx_channel = 0
     rx_channel = 0
+    jammer_channels = [0]*len(jammers)
 
     # Initialize the channel noise for the current (and first) time step
     tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
     rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+    jammer_channel_noises = []
+    for jammer in jammers:
+        jammer_channel_noises.append(np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS)))
 
     # Set the current state based on the total power spectrum
     tx_state = tx_channel_noise.tolist()
     rx_state = rx_channel_noise.tolist()
+    for i in range(len(jammers)):
+        jammer_states[i] = jammer_channel_noises[i].tolist()
     ###################################
 
     for episode in tqdm(range(NUM_EPISODES)):
-        # The agent chooses an action based on the current state
+        # The agents chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_channel)
         tx_channel = tx_agent.choose_action(tx_observation)
         rx_observation = rx_agent.get_observation(rx_state, rx_channel)
         rx_channel = rx_agent.choose_action(rx_observation)
+        jammer_observations = []
+        for i in range(len(jammers)):
+            jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
+            jammer_observations.append(jammer_observation)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
 
         # Set a new channel noise for the next state
         tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
         rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
-
-        # Select actions for the jammers and add their power to the channel noise for the Tx and Rx
+        jammer_channel_noises = []
         for jammer in jammers:
-            jammer_channel = jammer.choose_action()
+            jammer_channel_noises.append(np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS)))
 
-            tx_channel_noise[jammer_channel] += jammer.get_transmit_power(direction = "transmitter")
-            rx_channel_noise[jammer_channel] += jammer.get_transmit_power(direction = "receiver")
+        # Add the power of the jammers to the channel noise for Tx and Rx
+        # Add the power from the Tx to the jammers as well
+        for i in range(len(jammers)):
+            tx_channel_noise[jammer_channels[i]] += jammers[i].get_transmit_power(direction = "transmitter")
+            rx_channel_noise[jammer_channels[i]] += jammers[i].get_transmit_power(direction = "receiver")
+            jammers[i].observed_tx_power = tx_agent.get_transmit_power(direction = "jammer")
+            jammer_channel_noises[i][tx_channel] += jammers[i].observed_tx_power
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.tolist()
         tx_next_observation = tx_agent.get_observation(tx_next_state, tx_channel)
         rx_next_state = rx_channel_noise.tolist()
         rx_next_observation = rx_agent.get_observation(rx_next_state, rx_channel)
+        jammer_next_states = []
+        jammer_next_observations = []
+        for i in range(len(jammers)):
+            jammer_next_states.append(jammer_channel_noises[i].tolist())
+            jammer_next_observations.append(jammers[i].get_observation(jammer_next_states[i], jammer_channels[i]))
 
         # Set the channel for the jammers that are tracking
         for jammer in jammers:
@@ -153,6 +176,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
     num_successful_transmissions = 0
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
     num_rx_channel_selected = np.zeros(NUM_CHANNELS)
+    num_jammer_channel_selected = np.zeros((len(jammers), NUM_CHANNELS))
 
     # Initialize the start channel for the sweep
     for jammer in jammers:
@@ -163,17 +187,26 @@ def test_dqn(tx_agent, rx_agent, jammers):
     # Initializing the first state
     tx_state = []
     rx_state = []
+    jammer_states = []
+    for jammer in jammers:
+        jammer_states.append([])
 
     tx_channel = 0
     rx_channel = 0
+    jammer_channels = [0]*len(jammers)
 
     # Initialize the first state consisting of just noise
     tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
     rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+    jammer_channel_noises = []
+    for jammer in jammers:
+        jammer_channel_noises.append(np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS)))
 
     # Set the current state based on the total power spectrum
     tx_state = tx_channel_noise.tolist()
     rx_state = rx_channel_noise.tolist()
+    for i in range(len(jammers)):
+        jammer_states[i] = jammer_channel_noises[i].tolist()
     ###################################
 
     for run in tqdm(range(NUM_TEST_RUNS)):
@@ -182,23 +215,38 @@ def test_dqn(tx_agent, rx_agent, jammers):
         tx_channel = tx_agent.choose_action(tx_observation)
         rx_observation = rx_agent.get_observation(rx_state, rx_channel)
         rx_channel = rx_agent.choose_action(rx_observation)
+        jammer_observations = []
+        for i in range(len(jammers)):
+            jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
+            jammer_observations.append(jammer_observation)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
+
         num_tx_channel_selected[tx_channel] += 1
         num_rx_channel_selected[rx_channel] += 1
+        for i in range(len(jammers)):
+            num_jammer_channel_selected[i][jammer_channels[i]] += 1
 
         # Set a new channel noise for the next state
         tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
         rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
-
-        # Select actions for the jammers and other interfering users again
+        jammer_channel_noises = []
         for jammer in jammers:
-            jammer_channel = jammer.choose_action()
+            jammer_channel_noises.append(np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS)))
 
-            tx_channel_noise[jammer_channel] += jammer.get_transmit_power(direction = "transmitter")
-            rx_channel_noise[jammer_channel] += jammer.get_transmit_power(direction = "receiver")
+        # Add the power of the jammers to the channel noise for Tx and Rx
+        # Add the power from the Tx to the jammers as well
+        for i in range(len(jammers)):
+            tx_channel_noise[jammer_channels[i]] += jammers[i].get_transmit_power(direction = "transmitter")
+            rx_channel_noise[jammer_channels[i]] += jammers[i].get_transmit_power(direction = "receiver")
+            jammers[i].observed_tx_power = tx_agent.get_transmit_power(direction = "jammer")
+            jammer_channel_noises[i][tx_channel] += jammers[i].observed_tx_power
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.tolist()
         rx_next_state = rx_channel_noise.tolist()
+        jammer_next_states = []
+        for i in range(len(jammers)):
+            jammer_next_states.append(jammer_channel_noises[i].tolist())
 
         for jammer in jammers:
             if jammer.behavior == "tracking":
@@ -227,8 +275,11 @@ def test_dqn(tx_agent, rx_agent, jammers):
 
     probability_tx_channel_selected = num_tx_channel_selected / np.sum(num_tx_channel_selected)
     probability_rx_channel_selected = num_rx_channel_selected / np.sum(num_rx_channel_selected)
+    probability_jammer_channel_selected = []
+    for i in range(len(jammers)):
+        probability_jammer_channel_selected.append(num_jammer_channel_selected[i] / np.sum(num_jammer_channel_selected[i]))
 
-    return num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected
+    return num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected
 
 #################################################################################
 ### Plotting the results
@@ -308,13 +359,13 @@ if __name__ == '__main__':
 
         tx_average_rewards, rx_average_rewards = train_dqn(tx_agent, rx_agent, list_of_other_users)
 
-        num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected = test_dqn(tx_agent, rx_agent, list_of_other_users)
+        num_successful_transmissions, prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_dqn(tx_agent, rx_agent, list_of_other_users)
 
         print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
         success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
 
-    plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, jammer_type)
+    plot_results(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type)
     # plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
 
     if num_runs > 1:
@@ -335,9 +386,9 @@ if __name__ == '__main__':
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    # np.savetxt(f"{relative_path}/average_reward_both_tx_v2.txt", tx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_both_rx_v2.txt", rx_average_rewards)
-    # np.savetxt(f"{relative_path}/success_rates_v2.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx_v2.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx_v2.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates_v2.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

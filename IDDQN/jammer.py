@@ -25,6 +25,8 @@ class Jammer:
         self.h_jt_variance = H_JT_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
         self.h_jr_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to receiver
 
+        self.observed_tx_power = 0
+
     def tracking_transition(self):
         curr_channel = self.channel
         curr_channel_plus_1 = min(self.channel+1, NUM_CHANNELS-1)
@@ -39,24 +41,33 @@ class Jammer:
         
         return random.choices(options, weights=probabilities, k=1)[0]
 
-    def choose_action(self):
-        if self.behavior == "random":
-            return random.randint(0, NUM_CHANNELS-1)
-        elif self.behavior == "fixed": # Should have a probability of not transmitting as well
-            if random.uniform(0, 1) < 0.9:
-                return self.channel
-            else:
-                return random.randint(0, NUM_CHANNELS-1) # Random channel 10% of the time
-        elif self.behavior == "sweep": # Round-robin across all channels + no transmission
-            if self.sweep_counter >= self.sweep_interval:
-                self.index_sweep = (self.index_sweep+1) % NUM_CHANNELS
-                self.sweep_counter = 0
-            self.sweep_counter += 1
-            return self.index_sweep
-        elif self.behavior == "probabilistic":
-            return random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0]
-        elif self.behavior == "tracking":
-            return self.tracking_transition()
+    def get_observation(self, state, action):
+        if self.behavior == "smart":
+            return []
+        else:
+            return []
+
+    def choose_action(self, observation):
+        if self.behavior == "smart":
+            return 0
+        else:
+            if self.behavior == "random":
+                return random.randint(0, NUM_CHANNELS-1)
+            elif self.behavior == "fixed": # Should have a probability of not transmitting as well
+                if random.uniform(0, 1) < 0.9:
+                    return self.channel
+                else:
+                    return random.randint(0, NUM_CHANNELS-1) # Random channel 10% of the time
+            elif self.behavior == "sweep": # Round-robin across all channels + no transmission
+                if self.sweep_counter >= self.sweep_interval:
+                    self.index_sweep = (self.index_sweep+1) % NUM_CHANNELS
+                    self.sweep_counter = 0
+                self.sweep_counter += 1
+                return self.index_sweep
+            elif self.behavior == "probabilistic":
+                return random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0]
+            elif self.behavior == "tracking":
+                return self.tracking_transition()
 
     # Function that returns the transmit power of the jammer / interfering user
     # The power is multiplied by the Rayleigh fading magnitude
