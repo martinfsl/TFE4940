@@ -8,10 +8,10 @@ from constants import *
 #################################################################################
 
 # Class that represents the other users in the environment
-# Possible behaviors = [random, fixed, sweep, probabilistic, spectrum sensing]
+# Possible behaviors = [random, fixed, sweep, probabilistic, tracking]
 # Possible weights = any vector with size NUM_CHANNELS and integers >= 1 ----> ONLY APPLICABLE FOR behavior = probabilistic
-# Initialization can look like: other_user = UserEnvironment(behavior = "probabilistic", weights = [5, 2, 2]) for a system with three channels
-class UserEnvironment:
+# Initialization can look like: jammer = Jammer(behavior = "probabilistic", weights = [5, 2, 2]) for a system with three channels
+class Jammer:
     def __init__(self, behavior = "fixed", channel = 0, weights = [1]*NUM_CHANNELS, sweep_interval = 1):
         self.behavior = behavior # Used to determine how the actions are chosen
         self.channel = channel # Used to choose channel in static, fixed behavior, initialization for spectrum sensing
@@ -55,7 +55,7 @@ class UserEnvironment:
             return self.index_sweep
         elif self.behavior == "probabilistic":
             return random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0]
-        elif self.behavior == "spectrum sensing":
+        elif self.behavior == "tracking":
             return self.tracking_transition()
 
     # Function that returns the transmit power of the jammer / interfering user
