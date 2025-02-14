@@ -38,7 +38,7 @@ def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_tra
 ### Train the DQN, extended state space
 #################################################################################
 
-def train_dqn(tx_agent, rx_agent, other_users):
+def train_dqn(tx_agent, rx_agent, jammers):
     print("Training")
     tx_accumulated_rewards = []
     tx_average_rewards = []
@@ -47,9 +47,9 @@ def train_dqn(tx_agent, rx_agent, other_users):
     rx_average_rewards = []
 
     # Initialize the start channel for the sweep
-    for ou in other_users:
-        if ou.behavior == "sweep":
-            ou.index_sweep = ou.channel
+    for jammer in jammers:
+        if jammer.behavior == "sweep":
+            jammer.index_sweep = jammer.channel
 
     ###################################
     # Initializing the first state
@@ -64,11 +64,11 @@ def train_dqn(tx_agent, rx_agent, other_users):
     channel_noise_receiver = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
 
     # Select actions for the jammers and other interfering users
-    for ou in other_users:
-        ou_action = ou.choose_action()
+    for jammer in jammers:
+        jammer_channel = jammer.choose_action()
 
-        channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
-        channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
+        channel_noise_transmitter[jammer_channel] += jammer.get_transmit_power(direction = "transmitter")
+        channel_noise_receiver[jammer_channel] += jammer.get_transmit_power(direction = "receiver")
 
     # Set the current state based on the total power spectrum
     tx_state = channel_noise_transmitter.tolist()
@@ -87,11 +87,11 @@ def train_dqn(tx_agent, rx_agent, other_users):
         channel_noise_receiver = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
 
         # Select actions for the jammers and other interfering users again
-        for ou in other_users:
-            ou_action = ou.choose_action()
+        for jammer in jammers:
+            jammer_channel = jammer.choose_action()
 
-            channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
-            channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
+            channel_noise_transmitter[jammer_channel] += jammer.get_transmit_power(direction = "transmitter")
+            channel_noise_receiver[jammer_channel] += jammer.get_transmit_power(direction = "receiver")
 
         # Add the new observed power spectrum to the next state
         tx_next_state = channel_noise_transmitter.tolist()
@@ -99,9 +99,9 @@ def train_dqn(tx_agent, rx_agent, other_users):
         rx_next_state = channel_noise_receiver.tolist()
         rx_next_observation = rx_agent.get_observation(rx_next_state, rx_channel)
 
-        for ou in other_users:
-            if ou.behavior == "spectrum sensing":
-                ou.channel = tx_channel
+        for jammer in jammers:
+            if jammer.behavior == "spectrum sensing":
+                jammer.channel = tx_channel
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
@@ -154,16 +154,16 @@ def train_dqn(tx_agent, rx_agent, other_users):
 ### Test the DQN, extended state space
 #################################################################################
 
-def test_dqn(tx_agent, rx_agent, other_users):
+def test_dqn(tx_agent, rx_agent, jammers):
     print("Testing")
     num_successful_transmissions = 0
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
     num_rx_channel_selected = np.zeros(NUM_CHANNELS)
 
     # Initialize the start channel for the sweep
-    for ou in other_users:
-        if ou.behavior == "sweep":
-            ou.index_sweep = ou.channel
+    for jammer in jammers:
+        if jammer.behavior == "sweep":
+            jammer.index_sweep = jammer.channel
         
     ###################################
     # Initializing the first state
@@ -178,11 +178,11 @@ def test_dqn(tx_agent, rx_agent, other_users):
     channel_noise_receiver = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
 
     # Select actions for the jammers and other interfering users
-    for ou in other_users:
-        ou_action = ou.choose_action()
+    for jammer in jammers:
+        jammer_channel = jammer.choose_action()
 
-        channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
-        channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
+        channel_noise_transmitter[jammer_channel] += jammer.get_transmit_power(direction = "transmitter")
+        channel_noise_receiver[jammer_channel] += jammer.get_transmit_power(direction = "receiver")
 
     # Set the current state based on the total power spectrum
     tx_state = channel_noise_transmitter.tolist()
@@ -204,19 +204,19 @@ def test_dqn(tx_agent, rx_agent, other_users):
         channel_noise_receiver = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
 
         # Select actions for the jammers and other interfering users again
-        for ou in other_users:
-            ou_action = ou.choose_action()
+        for jammer in jammers:
+            jammer_channel = jammer.choose_action()
 
-            channel_noise_transmitter[ou_action] += ou.get_transmit_power(direction = "transmitter")
-            channel_noise_receiver[ou_action] += ou.get_transmit_power(direction = "receiver")
+            channel_noise_transmitter[jammer_channel] += jammer.get_transmit_power(direction = "transmitter")
+            channel_noise_receiver[jammer_channel] += jammer.get_transmit_power(direction = "receiver")
 
         # Add the new observed power spectrum to the next state
         tx_next_state = channel_noise_transmitter.tolist()
         rx_next_state = channel_noise_receiver.tolist()
 
-        for ou in other_users:
-            if ou.behavior == "spectrum sensing":
-                ou.channel = tx_channel
+        for jammer in jammers:
+            if jammer.behavior == "spectrum sensing":
+                jammer.channel = tx_channel
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
@@ -349,9 +349,9 @@ if __name__ == '__main__':
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx_v2.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx_v2.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates_v2.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_reward_both_tx_v2.txt", tx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_both_rx_v2.txt", rx_average_rewards)
+    # np.savetxt(f"{relative_path}/success_rates_v2.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

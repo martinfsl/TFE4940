@@ -4,7 +4,7 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 100
+NUM_CHANNELS = 10
 NUM_USERS = 1
 ACTIONS = np.arange(0, NUM_CHANNELS, 1)
 
@@ -14,7 +14,9 @@ channel = [0]*NUM_CHANNELS
 GAMMA = 0.35
 EPSILON = 0.3
 EPSILON_MIN = 0
+EPSILON_MIN_JAMMER = 0.05
 EPSILON_REDUCTION = 0.99
+EPSILON_REDUCTION_JAMMER = 0.999
 
 # Hyperparameters for DQN
 LEARNING_RATE = 0.005
@@ -30,8 +32,8 @@ REWARD_SUCCESSFUL = 1
 REWARD_INTERFERENCE = -1
 
 # Number of episodes for training
-# NUM_EPISODES = 5000
-NUM_EPISODES = 20000
+NUM_EPISODES = 5000
+# NUM_EPISODES = 20000
 # NUM_EPISODES = 50000
 # NUM_EPISODES = 100000
 
@@ -70,7 +72,7 @@ TRANSITION_3 = 0.02
 
 # Number of sensed channels
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
-NUM_SENSE_CHANNELS = 15
+NUM_SENSE_CHANNELS = 5
 
 # Number of channels the jammer can sense
-NUM_JAMMER_SENSE_CHANNELS = 15
+NUM_JAMMER_SENSE_CHANNELS = 5
