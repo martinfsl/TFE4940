@@ -1,6 +1,8 @@
 import random
 import numpy as np
 
+import copy
+
 from constants import *
 
 #################################################################################
@@ -40,14 +42,20 @@ class Jammer:
         probabilities = [TRANSITION_STAY, TRANSITION_1, TRANSITION_1, TRANSITION_2, TRANSITION_2, TRANSITION_3, TRANSITION_3]
         
         return random.choices(options, weights=probabilities, k=1)[0]
+    
+    # Used for the tracking behavior to observe the channels that the transmitter is on
+    def observe_channels(self, observation):
+        return np.argmax(observation) # Return the channel with the highest power
 
     def get_observation(self, state, action):
         if self.behavior == "smart":
             return []
+        elif self.behavior == "tracking":
+            return copy.deepcopy(state)
         else:
             return []
 
-    def choose_action(self, observation, tx_channel):
+    def choose_action(self, observation):
         if self.behavior == "smart":
             return 0
         else:
@@ -67,8 +75,9 @@ class Jammer:
             elif self.behavior == "probabilistic":
                 return random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0]
             elif self.behavior == "tracking":
+                self.channel = self.observe_channels(observation) # Update the channel that the jammer is on based on the observation
                 curr_jam = self.tracking_transition()
-                self.channel = tx_channel # Update the channel that the jammer is on based on the transmitter's channel
+                # self.channel = tx_channel # Update the channel that the jammer is on based on the transmitter's channel, without observation
                 return curr_jam
 
     # Function that returns the transmit power of the jammer / interfering user

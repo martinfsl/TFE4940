@@ -12,6 +12,8 @@ from constants import *
 
 from tqdm import tqdm
 
+import copy
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -87,7 +89,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations.append(jammer_observation)
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_channel)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
 
         # Set a new channel noise for the next state
         tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -155,8 +157,10 @@ def train_dqn(tx_agent, rx_agent, jammers):
             tx_agent.update_target_q_network()
             rx_agent.update_target_q_network()
 
-        tx_state = tx_next_state
-        rx_state = rx_next_state
+        tx_state = copy.deepcopy(tx_next_state)
+        rx_state = copy.deepcopy(rx_next_state)
+        for i in range(len(jammers)):
+            jammer_states[i] = copy.deepcopy(jammer_next_states[i])
 
     print("Training complete")
 
@@ -214,7 +218,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations.append(jammer_observation)
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_channel)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
 
         num_tx_channel_selected[tx_channel] += 1
         num_rx_channel_selected[rx_channel] += 1
@@ -261,8 +265,10 @@ def test_dqn(tx_agent, rx_agent, jammers):
             num_successful_transmissions += 1
 
         # Set the state for the next iteration based on the new observed power spectrum
-        tx_state = tx_next_state
-        rx_state = rx_next_state
+        tx_state = copy.deepcopy(tx_next_state)
+        rx_state = copy.deepcopy(rx_next_state)
+        for i in range(len(jammers)):
+            jammer_states[i] = copy.deepcopy(jammer_next_states[i])
 
     probability_tx_channel_selected = num_tx_channel_selected / np.sum(num_tx_channel_selected)
     probability_rx_channel_selected = num_rx_channel_selected / np.sum(num_rx_channel_selected)
@@ -404,13 +410,14 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/09_02/Test_1/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels"
     # relative_path = f"Comparison/parameter_testing/IDDQN_discount_factor/{str(GAMMA).replace('.', '_')}"
-    relative_path = f"Comparison/Basic_vs_Realistic_Sensing/tracking/Realistic_Sensing_15"
+    # relative_path = f"Comparison/Basic_vs_Realistic_Sensing/tracking/Realistic_Sensing_15"
+    relative_path = f"Comparison/15_02/observation_vs_no_observation/{NUM_CHANNELS}_channels"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx_v3.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx_v3.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates_v3.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx_observation_15.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx_observation_15.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates_observation_15.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

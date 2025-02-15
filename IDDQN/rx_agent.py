@@ -5,6 +5,8 @@ import torch.optim as optim
 import random
 import numpy as np
 
+import copy
+
 from constants import *
 
 #################################################################################
@@ -74,16 +76,20 @@ class rxRNNQNAgent:
         return received_power
 
     def get_observation(self, state, action):
-        # Create an array of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
-        # The first elements are the state values centered around the action channel and the last element is the action channel
-        observation = np.zeros(NUM_SENSE_CHANNELS + 1)
-        half_sense_channels = NUM_SENSE_CHANNELS // 2
+        if NUM_SENSE_CHANNELS < NUM_CHANNELS:
+            # Create an array of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
+            # The first elements are the state values centered around the action channel and the last element is the action channel
+            observation = np.zeros(NUM_SENSE_CHANNELS + 1)
+            half_sense_channels = NUM_SENSE_CHANNELS // 2
 
-        for i in range(-half_sense_channels, half_sense_channels + 1):
-            index = (action + i) % len(state)
-            observation[i + half_sense_channels] = state[index]
+            for i in range(-half_sense_channels, half_sense_channels + 1):
+                index = (action + i) % len(state)
+                observation[i + half_sense_channels] = state[index]
 
-        observation[-1] = action
+            observation[-1] = action
+        else:
+            observation = copy.deepcopy(state)
+            observation.append(action)
         return observation
 
     def choose_action(self, observation):
