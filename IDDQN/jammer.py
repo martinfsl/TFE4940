@@ -5,6 +5,11 @@ import copy
 
 from constants import *
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from jammerSmart import jammerRNNQNAgent, jammerRNNQN
+
 #################################################################################
 ### Defining class for jammers and interfering users
 #################################################################################
@@ -27,7 +32,12 @@ class Jammer:
         self.h_jt_variance = H_JT_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
         self.h_jr_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to receiver
 
+        # Used by the smart jammer
         self.observed_tx_power = 0
+        self.observed_noise = 0
+        self.observed_reward = 0
+        self.num_jammed = 0
+        self.agent = jammerRNNQNAgent()
 
     def tracking_transition(self):
         curr_channel = self.channel
@@ -49,7 +59,9 @@ class Jammer:
 
     def get_observation(self, state, action):
         if self.behavior == "smart":
-            return []
+            observation = copy.deepcopy(state)
+            observation.append(action)
+            return observation
         elif self.behavior == "tracking":
             return copy.deepcopy(state)
         else:
@@ -57,7 +69,15 @@ class Jammer:
 
     def choose_action(self, observation, tx_channel):
         if self.behavior == "smart":
-            return 0
+            if random.uniform(0, 1) < self.agent.epsilon:
+                if self.agent.epsilon > EPSILON_MIN_JAMMER:
+                    self.agent.epsilon *= EPSILON_REDUCTION_JAMMER
+                return random.choice(range(NUM_CHANNELS))
+            else:
+                observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
+                hidden = self.agent.q_network.init_hidden(1)
+                q_values, _ = self.agent.q_network(observation, hidden)
+                return torch.argmax(q_values).item()
         else:
             if self.behavior == "random":
                 return random.randint(0, NUM_CHANNELS-1)
