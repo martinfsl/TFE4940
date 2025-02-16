@@ -55,7 +55,7 @@ class Jammer:
         else:
             return []
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, tx_channel):
         if self.behavior == "smart":
             return 0
         else:

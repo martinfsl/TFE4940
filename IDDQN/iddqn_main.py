@@ -89,7 +89,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations.append(jammer_observation)
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_channel)
 
         # Set a new channel noise for the next state
         tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
@@ -218,7 +218,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations.append(jammer_observation)
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_channel)
 
         num_tx_channel_selected[tx_channel] += 1
         num_rx_channel_selected[rx_channel] += 1
@@ -415,9 +415,9 @@ if __name__ == '__main__':
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx_observation_15.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx_observation_15.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates_observation_15.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx_no_observation_15.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx_no_observation_15.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates_no_observation_15.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
