@@ -200,13 +200,15 @@ class jammerFNNDDQNAgent:
 # Class that represents a smart jammer in the environment
 # The jammer uses a DQN to learn the optimal policy, which is used to predict the frequency band chosen for the Tx-Rx link
 class SmartJammer:
-    def __init__(self):
+    def __init__(self, type = "RNN"):
         self.power = JAMMER_TRANSMIT_POWER
         self.h_jt_variance = H_JT_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
         self.h_jr_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to receiver
 
-        self.agent = jammerRNNQNAgent()
-        # self.agent = jammerFNNDDQNAgent()
+        if type == "RNN":
+            self.agent = jammerRNNQNAgent()
+        elif type == "FNN":
+            self.agent = jammerFNNDDQNAgent()
 
     def choose_action(self, observation):
         return self.agent.choose_action(observation)
