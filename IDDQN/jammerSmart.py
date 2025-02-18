@@ -57,6 +57,17 @@ class jammerRNNQNAgent:
         self.target_network = jammerRNNQN()
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.learning_rate)
 
+    def choose_action(self, observation):
+        if random.uniform(0, 1) < self.epsilon:
+            if self.epsilon > EPSILON_MIN_JAMMER:
+                self.epsilon *= EPSILON_REDUCTION_JAMMER
+            return random.choice(range(NUM_CHANNELS))
+        else:
+            observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
+            hidden = self.q_network.init_hidden(1)
+            q_values, _ = self.q_network(observation, hidden)
+            return torch.argmax(q_values).item()
+
     def update_target_q_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
@@ -95,6 +106,94 @@ class jammerRNNQNAgent:
             total_loss += loss
 
 #################################################################################
+### Defining class for the DDQN for the smart jammer
+#################################################################################
+
+class jammerFNNDDQN(nn.Module):
+    def __init__(self):
+        super(jammerFNNDDQN, self).__init__()
+
+        self.input_size = NUM_CHANNELS + 1
+        self.hidden_size = 128
+        self.num_channels = NUM_CHANNELS
+
+        # Defining the fully connected layers
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+        self.droupout1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.droupout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size, self.num_channels)
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.droupout1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.droupout2(x)
+        x = self.fc3(x)
+
+        return x
+    
+class jammerFNNDDQNAgent:
+    def __init__(self):
+        self.gamma = 0.35
+        self.epsilon = 0.4
+
+        self.learning_rate = 0.0075
+
+        # Parameters for the FNN network
+        self.batch_size = DQN_BATCH_SIZE
+        self.memory = []
+
+        self.q_network = jammerFNNDDQN()
+        self.target_network = jammerFNNDDQN()
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.learning_rate)
+
+    def choose_action(self, observation):
+        if random.uniform(0, 1) < self.epsilon:
+            if self.epsilon > EPSILON_MIN_JAMMER:
+                self.epsilon *= EPSILON_REDUCTION_JAMMER
+            return random.choice(range(NUM_CHANNELS))
+        else:
+            observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
+            q_values = self.q_network(observation).detach().numpy()
+            return np.argmax(q_values)
+
+    def update_target_q_network(self):
+        self.target_network.load_state_dict(self.q_network.state_dict())
+
+    def store_experience_in(self, state, action, reward, next_state):
+        if len(self.memory) >= MAXIMUM_MEMORY_SIZE:
+            self.memory.pop(0)
+
+        self.memory.append((state, action, reward, next_state))
+
+    def replay(self):
+        if len(self.memory) >= MEMORY_SIZE_BEFORE_TRAINING:
+            batch = random.sample(self.memory, self.batch_size)
+
+            total_loss = 0
+            for state, action, reward, next_state in batch:
+                state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
+                action = torch.tensor(action, dtype=torch.long).unsqueeze(0)
+                reward = torch.tensor(reward, dtype=torch.float).unsqueeze(0)
+                next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
+
+                q_values = self.q_network(state)
+                q_value = q_values[0][action]
+
+                q_values_next = self.q_network(next_state)
+                a_argmax = torch.argmax(q_values_next).item()
+
+                target = reward + self.gamma*self.target_network(next_state)[0].detach().numpy()[a_argmax]
+
+                loss = nn.MSELoss()(q_value, target)
+                total_loss += loss
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+#################################################################################
 ### Defining class for a smart jammer
 #################################################################################
 
@@ -107,14 +206,16 @@ class SmartJammer:
         self.h_jr_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to receiver
 
         self.agent = jammerRNNQNAgent()
+        # self.agent = jammerFNNDDQNAgent()
 
     def choose_action(self, observation):
-        if random.uniform(0, 1) < self.agent.epsilon:
-            if self.agent.epsilon > EPSILON_MIN_JAMMER:
-                self.agent.epsilon *= EPSILON_REDUCTION_JAMMER
-            return random.choice(range(NUM_CHANNELS))
-        else:
-            observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
-            hidden = self.agent.q_network.init_hidden(1)
-            q_values, _ = self.agent.q_network(observation, hidden)
-            return torch.argmax(q_values).item()
+        return self.agent.choose_action(observation)
+        
+    def update_target_q_network(self):
+        self.agent.update_target_q_network()
+    
+    def store_experience_in(self, state, action, reward, next_state):
+        self.agent.store_experience_in(state, action, reward, next_state)
+
+    def replay(self):
+        self.agent.replay()

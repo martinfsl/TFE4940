@@ -8,6 +8,8 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 
+from plotting import plot_results, plot_probability_selection, plot_results_smart_jammer
+
 from constants import *
 
 from tqdm import tqdm
@@ -334,115 +336,6 @@ def test_dqn(tx_agent, rx_agent, jammers):
     return num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected
 
 #################################################################################
-### Plotting the results
-#################################################################################
-
-def plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, jammer_type):
-    plt.figure(1, figsize=(12, 8))
-
-    plt.subplot(2, 2, 1)
-    plt.plot(tx_average_rewards)
-    plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
-    plt.xlabel("Episode")
-    plt.ylabel("Tx average reward")
-    plt.title("Tx average reward over episodes during training")
-    plt.legend()
-
-    plt.subplot(2, 2, 2)
-    plt.plot(rx_average_rewards)
-    plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
-    plt.xlabel("Episode")
-    plt.ylabel("Rx average reward")
-    plt.title("Rx average reward over episodes during training")
-    plt.legend()
-    
-    plt.subplot(2, 2, 3)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected)
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Tx during testing")
-
-    plt.subplot(2, 2, 4)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_rx_channel_selected)
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Rx during testing")
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.suptitle(f"DDQN GRU, {NUM_CHANNELS} channels, 1 {jammer_type}, {DQN_BATCH_SIZE} sequence length")
-    # plt.show()
-
-#################################################################################
-### Plotting the probability of selections
-#################################################################################
-
-def plot_probability_selection(probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected, jammer_type):
-    plt.figure(2, figsize=(8, 4))
-
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected)
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Tx during testing")
-
-
-    plt.figure(3, figsize=(8, 4))
-
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_rx_channel_selected)
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Rx during testing")
-
-    for i in range(len(probability_jammer_channel_selected)):
-        plt.figure(4+i, figsize=(8, 4))
-        plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_jammer_channel_selected[i])
-        plt.xlabel("Channel")
-        plt.ylabel("Probability of channel selection")
-        plt.title(f"Probability of channel selection for Jammer {i+1} during testing")
-
-    plt.show()
-
-#################################################################################
-### Plotting the results with the smart jammer
-#################################################################################
-
-def plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected):
-    # Normalize the rewards
-    # tx_average_rewards = (np.array(tx_average_rewards) + 1)/2
-    # rx_average_rewards = (np.array(rx_average_rewards) + 1)/2
-    # jammer_average_rewards = (np.array(jammer_average_rewards) + 1)/2
-    
-    plt.figure(1, figsize=(12, 8))
-
-    plt.subplot(2, 2, 1)
-    plt.plot(tx_average_rewards, label = "Tx")
-    plt.plot(rx_average_rewards, label = "Rx")
-    plt.plot(jammer_average_rewards, label = "Jammer")
-    plt.xlabel("Episode")
-    plt.ylabel("Average Reward")
-    plt.legend()
-    plt.title("Average Reward over episodes during training")
-
-    plt.subplot(2, 2, 2)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected, label = "Tx")
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of Tx channel selection during testing")
-
-    plt.subplot(2, 2, 3)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_rx_channel_selected, label = "Rx")
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of Rx channel selection during testing")
-
-    plt.subplot(2, 2, 4)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_jammer_channel_selected[0], label = f"Jammer")
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title(f"Probability of Smart Jammer channel selection during testing")
-
-    plt.show()
-
-#################################################################################
 ### main()
 #################################################################################
 
@@ -463,17 +356,17 @@ if __name__ == '__main__':
 
         list_of_other_users = []
 
-        # random_1 = UserEnvironment(behavior = "random")
+        # random_1 = Jammer(behavior = "random")
         # list_of_other_users.append(random_1)
         # jammer_type = "random"
 
-        # sweep_1 = UserEnvironment(behavior = "sweep", channel = 2, sweep_interval = 1)
-        # list_of_other_users.append(sweep_1)
-        # jammer_type = "sweeping"
-
-        # prob_1 = UserEnvironment(behavior = "probabilistic", weights = [5, 1, 1, 1, 3]*(NUM_CHANNELS//5))
+        # prob_1 = Jammer(behavior = "probabilistic", weights = [5, 1, 1, 1, 3]*(NUM_CHANNELS//5))
         # list_of_other_users.append(prob_1)
         # jammer_type = "probabilistic [5, 1, 1, 1, 3]"
+
+        # sweep_1 = Jammer(behavior = "sweep", channel = 2, sweep_interval = 1)
+        # list_of_other_users.append(sweep_1)
+        # jammer_type = "sweeping"
 
         # tracking_1 = Jammer(behavior = "tracking", channel = 0)
         # list_of_other_users.append(tracking_1)
@@ -518,14 +411,17 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/parameter_testing/IDDQN_discount_factor/{str(GAMMA).replace('.', '_')}"
     # relative_path = f"Comparison/Basic_vs_Realistic_Sensing/tracking/Realistic_Sensing_15"
     # relative_path = f"Comparison/15_02/observation_vs_no_observation/{NUM_CHANNELS}_channels"
-    relative_path = f"Comparison/tracking_vs_smart/{NUM_CHANNELS}_channels/{jammer_type}"
+    # relative_path = f"Comparison/tracking_vs_smart/{NUM_CHANNELS}_channels/{jammer_type}"
+    # relative_path = f"Comparison/16_02/{NUM_CHANNELS}_channels/{NUM_EPISODES}_episodes/{jammer_type}"
+    # relative_path = f"Comparison/16_02/tracking_obs_vs_no_obs/{NUM_CHANNELS}_channels/no_obs"
+    relative_path = f"Comparison/17_02/drqn_vs_ddqn/ddqn"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx_15.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx_15.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_jammer_15.txt", jammer_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates_15.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
+    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

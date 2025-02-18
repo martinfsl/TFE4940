@@ -8,7 +8,7 @@ from constants import *
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from jammerSmart import jammerRNNQNAgent, jammerRNNQN
+from jammerSmart import jammerRNNQNAgent, jammerRNNQN, SmartJammer
 
 #################################################################################
 ### Defining class for jammers and interfering users
@@ -37,7 +37,7 @@ class Jammer:
         self.observed_noise = 0
         self.observed_reward = 0
         self.num_jammed = 0
-        self.agent = jammerRNNQNAgent()
+        self.agent = SmartJammer()
 
     def tracking_transition(self):
         curr_channel = self.channel
@@ -69,15 +69,7 @@ class Jammer:
 
     def choose_action(self, observation, tx_channel):
         if self.behavior == "smart":
-            if random.uniform(0, 1) < self.agent.epsilon:
-                if self.agent.epsilon > EPSILON_MIN_JAMMER:
-                    self.agent.epsilon *= EPSILON_REDUCTION_JAMMER
-                return random.choice(range(NUM_CHANNELS))
-            else:
-                observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
-                hidden = self.agent.q_network.init_hidden(1)
-                q_values, _ = self.agent.q_network(observation, hidden)
-                return torch.argmax(q_values).item()
+            return self.agent.choose_action(observation)
         else:
             if self.behavior == "random":
                 return random.randint(0, NUM_CHANNELS-1)
