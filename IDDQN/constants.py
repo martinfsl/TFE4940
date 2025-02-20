@@ -14,7 +14,9 @@ channel = [0]*NUM_CHANNELS
 GAMMA = 0.35
 EPSILON = 0.3
 EPSILON_MIN = 0
+EPSILON_MIN_JAMMER = 0.1
 EPSILON_REDUCTION = 0.99
+EPSILON_REDUCTION_JAMMER = 0.999
 
 # Hyperparameters for DQN
 LEARNING_RATE = 0.005
@@ -28,6 +30,7 @@ STATE_SPACE_SIZE = NUM_CHANNELS + 1
 # Rewards
 REWARD_SUCCESSFUL = 1
 REWARD_INTERFERENCE = -1
+REWARD_UNSUCCESSFUL = -1
 
 # Number of episodes for training
 # NUM_EPISODES = 5000
@@ -70,4 +73,8 @@ TRANSITION_3 = 0.02
 
 # Number of sensed channels
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
-NUM_SENSE_CHANNELS = 5
+NUM_SENSE_CHANNELS = 15
+# NUM_SENSE_CHANNELS = NUM_CHANNELS
+
+# Number of channels the jammer can sense
+NUM_JAMMER_SENSE_CHANNELS = 5
