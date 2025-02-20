@@ -368,13 +368,13 @@ if __name__ == '__main__':
         # list_of_other_users.append(sweep_1)
         # jammer_type = "sweeping"
 
-        # tracking_1 = Jammer(behavior = "tracking", channel = 0)
-        # list_of_other_users.append(tracking_1)
-        # jammer_type = "tracking"
+        tracking_1 = Jammer(behavior = "tracking", channel = 0)
+        list_of_other_users.append(tracking_1)
+        jammer_type = "tracking"
 
-        smart = Jammer(behavior = "smart", smart_type = "RNN")
-        list_of_other_users.append(smart)
-        jammer_type = "smart_rnn"
+        # smart = Jammer(behavior = "smart", smart_type = "RNN")
+        # list_of_other_users.append(smart)
+        # jammer_type = "smart_rnn"
 
         # smart = Jammer(behavior = "smart", smart_type = "FNN")
         # list_of_other_users.append(smart)
