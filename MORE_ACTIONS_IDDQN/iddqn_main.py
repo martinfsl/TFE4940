@@ -96,8 +96,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
         # The agents chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_channel)
         tx_channel = tx_agent.choose_action(tx_observation)
+        print("Tx channel: ", tx_channel)
+        tx_channel = tx_channel[0]
         rx_observation = rx_agent.get_observation(rx_state, rx_channel)
         rx_channel = rx_agent.choose_action(rx_observation)
+        print("Rx channel: ", rx_channel)
+        rx_channel = rx_channel[0]
         jammer_observations = []
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
@@ -422,10 +426,10 @@ if __name__ == '__main__':
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
+    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
-    np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
-    np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
+    # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

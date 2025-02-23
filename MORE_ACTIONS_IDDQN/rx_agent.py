@@ -96,12 +96,28 @@ class rxRNNQNAgent:
         if random.uniform(0, 1) < self.epsilon:
             if self.epsilon > EPSILON_MIN:
                 self.epsilon *= EPSILON_REDUCTION
-            return random.choice(range(NUM_CHANNELS))
+            # return random.choice(range(NUM_CHANNELS))
+            # Extract one main action and NUM_EXTRA_ACTIONS extra actions
+            # The extra actions should all be unique and not the same as the main action
+            main_action = random.choice(range(NUM_CHANNELS))
+            extra_actions = random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS)
+            while main_action in extra_actions:
+                extra_actions = random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS)
+            return [main_action, extra_actions]
         else:
             observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
             hidden = self.q_network.init_hidden(1)
             q_values, _ = self.q_network(observation, hidden)
-            return torch.argmax(q_values).item()
+            # return torch.argmax(q_values).item()
+            # Extract one main action and NUM_EXTRA_ACTIONS extra actions
+            # The main action should be the action with the highest Q-value
+            # The extra actions should all be unique and not the same as the main action and should be the actions with the next highest Q-values
+            q_values = q_values.detach().numpy()[0]
+            main_action = np.argmax(q_values)
+            extra_actions = np.argsort(q_values)[-NUM_EXTRA_ACTIONS-1:-1]
+            while main_action in extra_actions:
+                extra_actions = np.argsort(q_values)[-NUM_EXTRA_ACTIONS-1:-1]
+            return [main_action, extra_actions.tolist()]
 
     # Functions for the RNN network A
     def update_target_q_network(self):
