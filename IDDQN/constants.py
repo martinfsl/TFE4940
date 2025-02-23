@@ -58,7 +58,7 @@ H_TR_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fadin
 
 # Jammer transmit power and variance
 JAMMER_TRANSMIT_POWER = 10
-H_JT_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
+H_JT_VARIANCE = 0.05 # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
 H_JR_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to receiver
 # Note: If you want the receiver to see the jammer but not the transmitter, reduce H_JT_VARIANCE, or vice versa if otherwise
 
