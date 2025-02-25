@@ -418,7 +418,7 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/tracking_vs_smart/{NUM_CHANNELS}_channels/{jammer_type}"
     # relative_path = f"Comparison/16_02/{NUM_CHANNELS}_channels/{NUM_EPISODES}_episodes/{jammer_type}"
     # relative_path = f"Comparison/16_02/tracking_obs_vs_no_obs/{NUM_CHANNELS}_channels/no_obs"
-    relative_path = f"Comparison/february_tests/23_02/directive_jamming/only_rx"
+    relative_path = f"Comparison/february_tests/23_02/directive_jamming_100000/both_v2"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

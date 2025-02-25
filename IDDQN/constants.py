@@ -34,9 +34,9 @@ REWARD_UNSUCCESSFUL = -1
 
 # Number of episodes for training
 # NUM_EPISODES = 5000
-NUM_EPISODES = 20000
+# NUM_EPISODES = 20000
 # NUM_EPISODES = 50000
-# NUM_EPISODES = 100000
+NUM_EPISODES = 100000
 
 # Number of runs for testing
 NUM_TEST_RUNS = 10000
@@ -58,7 +58,7 @@ H_TR_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fadin
 
 # Jammer transmit power and variance
 JAMMER_TRANSMIT_POWER = 10
-H_JT_VARIANCE = 0.05 # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
+H_JT_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to transmitter
 H_JR_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fading from jammer to receiver
 # Note: If you want the receiver to see the jammer but not the transmitter, reduce H_JT_VARIANCE, or vice versa if otherwise
 
