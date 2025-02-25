@@ -4,7 +4,7 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 20
+NUM_CHANNELS = 10
 NUM_USERS = 1
 ACTIONS = np.arange(0, NUM_CHANNELS, 1)
 NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense

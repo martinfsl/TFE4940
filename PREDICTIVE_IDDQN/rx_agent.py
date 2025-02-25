@@ -32,7 +32,7 @@ class rxPredNN(nn.Module):
         self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
         self.dropout2 = nn.Dropout(0.3)
         self.fc3 = nn.Linear(self.hidden_size2, self.num_channels)
-        self.softmax = nn.Softmax(dim=1)
+        # self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -40,7 +40,7 @@ class rxPredNN(nn.Module):
         x = torch.relu(self.fc2(x))
         x = self.dropout2(x)
         x = self.fc3(x)
-        x = self.softmax(x)
+        # x = self.softmax(x)
 
         return x
     
@@ -90,7 +90,9 @@ class rxPredAgent:
     def predict_action(self, observation):
         observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
         pred = self.pred_network(observation)
-        return torch.argmax(pred).item()
+        # return torch.argmax(pred).item()
+        # return pred
+        return nn.Softmax(dim=1)(pred)
 
 #################################################################################
 ### Defining classes RNNQN and RNNQN-agent
@@ -145,6 +147,9 @@ class rxRNNQNAgent:
         self.q_network = rxRNNQN()
         self.target_network = rxRNNQN()
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
+
+        # Predictive network
+        self.pred_agent = rxPredAgent()
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:

@@ -152,6 +152,9 @@ def train_dqn(tx_agent, rx_agent, jammers):
         tx_observed_power = rx_agent.get_transmit_power(direction = "transmitter")
         if received_signal_rx(tx_transmit_channel, rx_receive_channel, rx_observed_power, rx_channel_noise):
             rx_reward = REWARD_SUCCESSFUL
+
+            # Update the predictive network in the Rx agent
+            rx_agent.pred_agent.store_experience_in(rx_observation, rx_receive_channel)
             
             # ACK is received at the transmitter
             if received_signal_tx(tx_transmit_channel, rx_receive_channel, tx_observed_power, tx_channel_noise): # power should be changed to rx_agent later
@@ -160,6 +163,11 @@ def train_dqn(tx_agent, rx_agent, jammers):
                 tx_reward = REWARD_INTERFERENCE
         else:
             rx_sensing = sensed_signal_rx(tx_transmit_channel, rx_sense_channels, rx_observed_power, rx_channel_noise)
+
+            # Managed to sense the Tx but not receive the signal
+            if rx_sensing != -1:
+                rx_agent.pred_agent.store_experience_in(rx_observation, rx_sensing)
+
             # if rx_sensing != -1:
             #     print("----------------------------------------")
             #     print("Rx managed to sense the Tx, but not receive the signal")
@@ -209,6 +217,8 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         rx_agent.store_experience_in(rx_observation, rx_receive_channel, rx_reward, rx_next_observation)
         rx_agent.replay()
+
+        rx_agent.pred_agent.train()
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart":
@@ -286,6 +296,17 @@ def test_dqn(tx_agent, rx_agent, jammers):
         rx_channels = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0]
         rx_sense_channels = rx_channels[1]
+
+        if run == 100:
+            # The Rx tries to predict the Tx's channel
+            pred_actions = rx_agent.pred_agent.predict_action(rx_observation)
+            print("----------------------------------------")
+            print("Tx observation: ", tx_observation, "\n")
+            print("Rx observation: ", rx_observation, "\n")
+            print("Predicted Tx channel: ", pred_actions[0], "\n")
+            print("True Tx channel: ", tx_transmit_channel, "\n")
+            print("----------------------------------------")
+
         jammer_observations = []
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
