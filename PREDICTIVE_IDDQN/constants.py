@@ -4,7 +4,7 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 10
+NUM_CHANNELS = 20
 NUM_USERS = 1
 ACTIONS = np.arange(0, NUM_CHANNELS, 1)
 NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
@@ -35,9 +35,9 @@ REWARD_UNSUCCESSFUL = -1
 
 # Number of episodes for training
 # NUM_EPISODES = 5000
-NUM_EPISODES = 20000
+# NUM_EPISODES = 20000
 # NUM_EPISODES = 50000
-# NUM_EPISODES = 100000
+NUM_EPISODES = 100000
 
 # Number of runs for testing
 NUM_TEST_RUNS = 10000

@@ -297,15 +297,15 @@ def test_dqn(tx_agent, rx_agent, jammers):
         rx_receive_channel = rx_channels[0]
         rx_sense_channels = rx_channels[1]
 
-        if run == 100:
-            # The Rx tries to predict the Tx's channel
-            pred_actions = rx_agent.pred_agent.predict_action(rx_observation)
-            print("----------------------------------------")
-            print("Tx observation: ", tx_observation, "\n")
-            print("Rx observation: ", rx_observation, "\n")
-            print("Predicted Tx channel: ", pred_actions[0], "\n")
-            print("True Tx channel: ", tx_transmit_channel, "\n")
-            print("----------------------------------------")
+        # if run == 100:
+        #     # The Rx tries to predict the Tx's channel
+        #     pred_actions = rx_agent.pred_agent.predict_action(rx_observation)
+        #     print("----------------------------------------")
+        #     print("Tx observation: ", tx_observation, "\n")
+        #     print("Rx observation: ", rx_observation, "\n")
+        #     print("Predicted Tx channel: ", pred_actions[0], "\n")
+        #     print("True Tx channel: ", tx_transmit_channel, "\n")
+        #     print("----------------------------------------")
 
         jammer_observations = []
         for i in range(len(jammers)):
@@ -417,13 +417,13 @@ if __name__ == '__main__':
         # list_of_other_users.append(sweep_1)
         # jammer_type = "sweeping"
 
-        tracking_1 = Jammer(behavior = "tracking", channel = 0)
-        list_of_other_users.append(tracking_1)
-        jammer_type = "tracking"
+        # tracking_1 = Jammer(behavior = "tracking", channel = 0)
+        # list_of_other_users.append(tracking_1)
+        # jammer_type = "tracking"
 
-        # smart = Jammer(behavior = "smart", smart_type = "RNN")
-        # list_of_other_users.append(smart)
-        # jammer_type = "smart_rnn"
+        smart = Jammer(behavior = "smart", smart_type = "RNN")
+        list_of_other_users.append(smart)
+        jammer_type = "smart_rnn"
 
         # smart = Jammer(behavior = "smart", smart_type = "FNN")
         # list_of_other_users.append(smart)
@@ -467,14 +467,15 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/tracking_vs_smart/{NUM_CHANNELS}_channels/{jammer_type}"
     # relative_path = f"Comparison/16_02/{NUM_CHANNELS}_channels/{NUM_EPISODES}_episodes/{jammer_type}"
     # relative_path = f"Comparison/16_02/tracking_obs_vs_no_obs/{NUM_CHANNELS}_channels/no_obs"
-    relative_path = f"Comparison/february_tests/18_02/jammer_tests/{jammer_type}"
+    # relative_path = f"Comparison/february_tests/18_02/jammer_tests/{jammer_type}"
+    relative_path = f"Comparison/february_tests/pred_vs_non_pred/rx_pred/{NUM_EPISODES}_episodes/{jammer_type}_v2"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
-    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

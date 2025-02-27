@@ -102,7 +102,8 @@ class rxRNNQN(nn.Module):
     def __init__(self):
         super(rxRNNQN, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1
+        # self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         self.hidden_size = 128
         self.num_layers = 2
         self.num_channels = NUM_CHANNELS
@@ -193,13 +194,14 @@ class rxRNNQNAgent:
                 extra_actions = random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS)
             return [main_action, extra_actions]
         else:
+            # Add the predicted action of Tx to the observation
+            pred_action = self.pred_agent.predict_action(observation).detach().numpy()[0]
+            observation = np.append(observation, pred_action)
+
             observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
             hidden = self.q_network.init_hidden(1)
             q_values, _ = self.q_network(observation, hidden)
-            # return torch.argmax(q_values).item()
-            # Extract one main action and NUM_EXTRA_ACTIONS extra actions
-            # The main action should be the action with the highest Q-value
-            # The extra actions should all be unique and not the same as the main action and should be the actions with the next highest Q-values
+
             q_values = q_values.detach().numpy()[0]
             main_action = np.argmax(q_values)
             extra_actions = np.argsort(q_values)[-NUM_EXTRA_ACTIONS-1:-1]
@@ -227,9 +229,15 @@ class rxRNNQNAgent:
 
             total_loss = 0
             for state, action, reward, next_state in batch:
+                pred_action = self.pred_agent.predict_action(state).detach().numpy()[0]
+                state = np.append(state, pred_action)
                 state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
+
                 action = torch.tensor(action, dtype=torch.long).unsqueeze(0)
                 reward = torch.tensor(reward, dtype=torch.float).unsqueeze(0)
+
+                pred_next_action = self.pred_agent.predict_action(next_state).detach().numpy()[0]
+                next_state = np.append(next_state, pred_next_action)
                 next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
 
                 hidden = self.q_network.init_hidden(1)
