@@ -40,6 +40,14 @@ def sensed_signal_rx(tx_channel, rx_sense_channels, received_power, channel_nois
         return tx_channel
     else:
         return -1
+    
+def sensed_signal_tx(rx_channel, tx_sense_channels, received_power, channel_noise_transmitter):
+    sinr = 10*np.log10(received_power / channel_noise_transmitter[rx_channel])
+
+    if (rx_channel in tx_sense_channels) and (sinr > SINR_THRESHOLD):
+        return rx_channel
+    else:
+        return -1
 
 def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_transmitter):
     sinr = 10*np.log10(received_power / channel_noise_transmitter[tx_channel]) # SINR at the receiver
@@ -105,6 +113,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
         tx_channels = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0]
+        tx_sense_channels = tx_channels[1]
 
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_channels = rx_agent.choose_action(rx_observation)
@@ -159,8 +168,16 @@ def train_dqn(tx_agent, rx_agent, jammers):
             # ACK is received at the transmitter
             if received_signal_tx(tx_transmit_channel, rx_receive_channel, tx_observed_power, tx_channel_noise): # power should be changed to rx_agent later
                 tx_reward = REWARD_SUCCESSFUL
+
+                # Update the predictive network in the Tx agent
+                tx_agent.pred_agent.store_experience_in(tx_observation, tx_transmit_channel)
             else:
                 tx_reward = REWARD_INTERFERENCE
+
+                tx_sensing = sensed_signal_tx(rx_receive_channel, tx_sense_channels, tx_observed_power, tx_channel_noise)
+
+                if tx_sensing != -1:
+                    tx_agent.pred_agent.store_experience_in(tx_observation, tx_sensing)
         else:
             rx_sensing = sensed_signal_rx(tx_transmit_channel, rx_sense_channels, rx_observed_power, rx_channel_noise)
 
@@ -218,6 +235,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
         rx_agent.store_experience_in(rx_observation, rx_receive_channel, rx_reward, rx_next_observation)
         rx_agent.replay()
 
+        tx_agent.pred_agent.train()
         rx_agent.pred_agent.train()
 
         for i in range(len(jammers)):
@@ -292,6 +310,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
         tx_channels = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0]
+        tx_sense_channels = tx_channels[1]
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_channels = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0]
@@ -468,7 +487,7 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/16_02/{NUM_CHANNELS}_channels/{NUM_EPISODES}_episodes/{jammer_type}"
     # relative_path = f"Comparison/16_02/tracking_obs_vs_no_obs/{NUM_CHANNELS}_channels/no_obs"
     # relative_path = f"Comparison/february_tests/18_02/jammer_tests/{jammer_type}"
-    relative_path = f"Comparison/february_tests/pred_vs_non_pred/rx_pred/{NUM_EPISODES}_episodes/{jammer_type}_v2"
+    relative_path = f"Comparison/february_tests/pred_vs_non_pred/both_pred/{NUM_EPISODES}_episodes/{jammer_type}_v2"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

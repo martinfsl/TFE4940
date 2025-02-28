@@ -10,6 +10,85 @@ import copy
 from constants import *
 
 #################################################################################
+### Defining classes for the model predicting Rx's action at the Tx
+#################################################################################
+
+# Create a class for the neural network that predicts the Rx's action at the Tx
+# The input to the neural network is the current observation at the Tx and the output is the predicted Rx's action
+# The neural network is made up off 2 fully connected layers with ReLU activation functions
+# The neural network has a dropout rate of 30%
+class txPredNN(nn.Module):
+    def __init__(self):
+        super(txPredNN, self).__init__()
+
+        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
+        self.output_size = NUM_CHANNELS
+
+        # Defining the fully connected layers
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
+        self.droput1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.droput2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.droput1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.droput2(x)
+        x = self.fc3(x)
+
+        return x
+    
+# Create a class for the agent that uses the neural network to predict the Rx's action at the Tx
+# The agent has a memory to store experiences
+# The agent uses the Adam optimizer to train the neural network
+# The agent uses the cross entropy loss function to train the neural network
+# The output of the neural network is the predicted Rx's action using a softmax function
+class txPredNNAgent:
+    def __init__(self):
+        self.learning_rate = 0.01
+
+        # Parameters for the neural network
+        self.batch_size = 16
+        self.memory = []
+        self.maximum_memory_size = 100
+        
+        self.pred_network = txPredNN()
+        self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
+
+    def store_experience_in(self, state, action):
+        if len(self.memory) >= self.maximum_memory_size:
+            self.memory.pop(0)
+
+        self.memory.append((state, action))
+
+    def train(self):
+        if len(self.memory) >= self.batch_size:
+            batch = random.sample(self.memory, self.batch_size)
+
+            total_loss = 0
+            for state, action in batch:
+                state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
+                action = torch.tensor(action, dtype=torch.long).unsqueeze(0)
+
+                pred = self.pred_network(state)
+                loss = nn.CrossEntropyLoss()(pred, action)
+                total_loss += loss
+                
+            self.optimizer.zero_grad()
+            total_loss.backward()
+            self.optimizer.step()
+
+    def predict_action(self, observation):
+        observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
+        pred = self.pred_network(observation)
+        # return torch.argmax(pred).item()
+        return nn.Softmax(dim=1)(pred)
+
+#################################################################################
 ### Defining classes RNNQN and RNNQN-agent
 #################################################################################
 
@@ -17,7 +96,8 @@ class txRNNQN(nn.Module):
     def __init__(self):
         super(txRNNQN, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1
+        # self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         self.hidden_size = 128
         self.num_layers = 2
         self.num_channels = NUM_CHANNELS
@@ -63,6 +143,9 @@ class txRNNQNAgent:
         self.target_network = txRNNQN()
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
 
+        # Predictive network
+        self.pred_agent = txPredNNAgent()
+
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
             if direction == "receiver":
@@ -105,13 +188,14 @@ class txRNNQNAgent:
                 extra_actions = random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS)
             return [main_action, extra_actions]
         else:
+            # Add the predicted action of Rx to the observation
+            pred_action = self.pred_agent.predict_action(observation).detach().numpy()[0]
+            observation = np.append(observation, pred_action)
+
             observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
             hidden = self.q_network.init_hidden(1)
             q_values, _ = self.q_network(observation, hidden)
-            # return torch.argmax(q_values).item()
-            # Extract one main action and NUM_EXTRA_ACTIONS extra actions
-            # The main action should be the action with the highest Q-value
-            # The extra actions should all be unique and not the same as the main action and should be the actions with the next highest Q-values
+            
             q_values = q_values.detach().numpy()[0]
             main_action = np.argmax(q_values)
             extra_actions = np.argsort(q_values)[-NUM_EXTRA_ACTIONS-1:-1]
@@ -139,9 +223,15 @@ class txRNNQNAgent:
 
             total_loss = 0
             for state, action, reward, next_state in batch:
+                pred_action = self.pred_agent.predict_action(state).detach().numpy()[0]
+                state = np.append(state, pred_action)
                 state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
+
                 action = torch.tensor(action, dtype=torch.long).unsqueeze(0)
                 reward = torch.tensor(reward, dtype=torch.float).unsqueeze(0)
+                
+                pred_next_action = self.pred_agent.predict_action(next_state).detach().numpy()[0]
+                next_state = np.append(next_state, pred_next_action)
                 next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
 
                 hidden = self.q_network.init_hidden(1)
