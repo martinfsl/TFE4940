@@ -24,6 +24,16 @@ from tx_agent import txRNNQN, txRNNQNAgent
 from rx_agent import rxRNNQN, rxRNNQNAgent
 from jammer import Jammer
 
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+print(f"Is CUDA supported by this system? {torch.cuda.is_available()}")
+print(f"Number of GPUs: {torch.cuda.device_count()}")
+print(f"Current device: {torch.cuda.current_device()}")
+print(f"Device name: {torch.cuda.get_device_name(0)}")
+
+print("Device: ", device)
+
 #################################################################################
 ### Calculate the reward using SINR
 #################################################################################
@@ -99,7 +109,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
         noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
         jammer_channel_noises.append(noise)
         if jammer.behavior == "smart":
-            jammer.observed_noise = copy.deepcopy(noise)
+            jammer.observed_noise = noise.copy()
 
     # Set the current state based on the total power spectrum
     tx_state = tx_channel_noise.tolist()
@@ -134,7 +144,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
             noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
             jammer_channel_noises.append(noise)
             if jammer.behavior == "smart":
-                jammer.observed_noise = copy.deepcopy(noise)
+                jammer.observed_noise = noise.copy()
 
         # Add the power of the jammers to the channel noise for Tx and Rx
         # Add the power from the Tx to the jammers as well
@@ -251,10 +261,10 @@ def train_dqn(tx_agent, rx_agent, jammers):
                 if jammers[i].behavior == "smart":
                     jammers[i].agent.update_target_q_network()
 
-        tx_state = copy.deepcopy(tx_next_state)
-        rx_state = copy.deepcopy(rx_next_state)
+        tx_state = tx_next_state.copy()
+        rx_state = rx_next_state.copy()
         for i in range(len(jammers)):
-            jammer_states[i] = copy.deepcopy(jammer_next_states[i])
+            jammer_states[i] = jammer_next_states[i].copy()
 
     print("Training complete")
 
@@ -296,7 +306,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
         noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
         jammer_channel_noises.append(noise)
         if jammer.behavior == "smart":
-            jammer.observed_noise = copy.deepcopy(noise)
+            jammer.observed_noise = noise.copy()
 
     # Set the current state based on the total power spectrum
     tx_state = tx_channel_noise.tolist()
@@ -345,7 +355,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
             noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
             jammer_channel_noises.append(noise)
             if jammer.behavior == "smart":
-                jammer.observed_noise = copy.deepcopy(noise)
+                jammer.observed_noise = noise.copy()
 
         # Add the power of the jammers to the channel noise for Tx and Rx
         # Add the power from the Tx to the jammers as well
@@ -390,10 +400,10 @@ def test_dqn(tx_agent, rx_agent, jammers):
                     jammers[i].num_jammed += 1
 
         # Set the state for the next iteration based on the new observed power spectrum
-        tx_state = copy.deepcopy(tx_next_state)
-        rx_state = copy.deepcopy(rx_next_state)
+        tx_state = tx_next_state.copy()
+        rx_state = rx_next_state.copy()
         for i in range(len(jammers)):
-            jammer_states[i] = copy.deepcopy(jammer_next_states[i])
+            jammer_states[i] = jammer_next_states[i].copy()
 
     probability_tx_channel_selected = num_tx_channel_selected / np.sum(num_tx_channel_selected)
     probability_rx_channel_selected = num_rx_channel_selected / np.sum(num_rx_channel_selected)
@@ -419,8 +429,8 @@ if __name__ == '__main__':
 
         print(f"Run: {run+1}")
 
-        tx_agent = txRNNQNAgent()
-        rx_agent = rxRNNQNAgent()
+        tx_agent = txRNNQNAgent(device=device)
+        rx_agent = rxRNNQNAgent(device=device)
 
         list_of_other_users = []
 
@@ -491,10 +501,10 @@ if __name__ == '__main__':
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
+    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

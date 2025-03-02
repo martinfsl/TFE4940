@@ -19,7 +19,7 @@ from jammerSmart import jammerRNNQNAgent, jammerRNNQN, SmartJammer
 # Possible weights = any vector with size NUM_CHANNELS and integers >= 1 ----> ONLY APPLICABLE FOR behavior = probabilistic
 # Initialization can look like: jammer = Jammer(behavior = "probabilistic", weights = [5, 2, 2]) for a system with three channels
 class Jammer:
-    def __init__(self, behavior = "fixed", channel = 0, weights = [1]*NUM_CHANNELS, sweep_interval = 1, smart_type = "RNN"):
+    def __init__(self, behavior = "fixed", channel = 0, weights = [1]*NUM_CHANNELS, sweep_interval = 1, smart_type = "RNN", device = "cpu"):
         self.behavior = behavior # Used to determine how the actions are chosen
         self.channel = channel # Used to choose channel in static, fixed behavior, initialization for spectrum sensing
         self.weights = weights # Used for probabilistic behavior
@@ -37,7 +37,7 @@ class Jammer:
         self.observed_noise = 0
         self.observed_reward = 0
         self.num_jammed = 0
-        self.agent = SmartJammer(type=smart_type)
+        self.agent = SmartJammer(type=smart_type, device=device)
 
     def tracking_transition(self):
         curr_channel = self.channel
