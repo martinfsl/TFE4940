@@ -295,7 +295,9 @@ both_pred_rx = {"sweeping": both_pred_sweeping_rx_100000_normalized,
                 "smart_fnn": both_pred_smart_fnn_rx_100000_normalized}
 
 # For plotting:
-jammer = "smart_rnn"
+jammer = "tracking"
+
+jammer_name = {"sweeping": "Sweeping", "tracking": "Tracking", "smart_rnn": "Smart RNN", "smart_fnn": "Smart FNN"}
 
 #################################################################################
 
@@ -315,6 +317,6 @@ plt.plot(both_pred_tx[jammer], label = f"Both prediction - Tx - {jammer}")
 
 plt.xlabel('Episode')
 plt.ylabel('Normalized average reward')
-plt.title(f'Normalized average reward during training')
+plt.title(f'Normalized average reward during training against a {jammer_name[jammer]} jammer')
 plt.legend()
 plt.show()

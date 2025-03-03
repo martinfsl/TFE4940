@@ -29,9 +29,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print(f"Is CUDA supported by this system? {torch.cuda.is_available()}")
 print(f"Number of GPUs: {torch.cuda.device_count()}")
-print(f"Current device: {torch.cuda.current_device()}")
-print(f"Device name: {torch.cuda.get_device_name(0)}")
-
+if torch.cuda.is_available():
+    print(f"Current device: {torch.cuda.current_device()}")
+    print(f"Device name: {torch.cuda.get_device_name(0)}")
 print("Device: ", device)
 
 #################################################################################
@@ -489,13 +489,6 @@ if __name__ == '__main__':
     rx_total_params = sum(p.numel() for p in rx_agent.target_network.parameters())
     print(f"Number of parameters in receiver: {rx_total_params}")
 
-    # relative_path = f"Comparison/09_02/Test_1/IDDQN_performance/{NUM_EPISODES}_episodes/{NUM_CHANNELS}_channels"
-    # relative_path = f"Comparison/parameter_testing/IDDQN_discount_factor/{str(GAMMA).replace('.', '_')}"
-    # relative_path = f"Comparison/Basic_vs_Realistic_Sensing/tracking/Realistic_Sensing_15"
-    # relative_path = f"Comparison/15_02/observation_vs_no_observation/{NUM_CHANNELS}_channels"
-    # relative_path = f"Comparison/tracking_vs_smart/{NUM_CHANNELS}_channels/{jammer_type}"
-    # relative_path = f"Comparison/16_02/{NUM_CHANNELS}_channels/{NUM_EPISODES}_episodes/{jammer_type}"
-    # relative_path = f"Comparison/16_02/tracking_obs_vs_no_obs/{NUM_CHANNELS}_channels/no_obs"
     # relative_path = f"Comparison/february_tests/18_02/jammer_tests/{jammer_type}"
     relative_path = f"Comparison/february_tests/pred_vs_non_pred/both_pred/{NUM_EPISODES}_episodes/{jammer_type}_v2"
     if not os.path.exists(relative_path):
