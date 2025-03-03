@@ -441,11 +441,11 @@ if __name__ == '__main__':
         # list_of_other_users.append(tracking_1)
         # jammer_type = "tracking"
 
-        smart = Jammer(behavior = "smart", smart_type = "RNN")
+        smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
         list_of_other_users.append(smart)
         jammer_type = "smart_rnn"
 
-        # smart = Jammer(behavior = "smart", smart_type = "FNN")
+        # smart = Jammer(behavior = "smart", smart_type = "FNN", device = device)
         # list_of_other_users.append(smart)
         # jammer_type = "smart_fnn"
 

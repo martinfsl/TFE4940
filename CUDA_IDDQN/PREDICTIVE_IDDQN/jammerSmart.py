@@ -186,10 +186,10 @@ class jammerFNNDDQNAgent:
 
             total_loss = 0
             for state, action, reward, next_state in batch:
-                state = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
-                action = torch.tensor(action, dtype=torch.long, device=self.device).unsqueeze(0)
-                reward = torch.tensor(reward, dtype=torch.float, device=self.device).unsqueeze(0)
-                next_state = torch.tensor(next_state, dtype=torch.float, device=self.device).unsqueeze(0)
+                state = state.unsqueeze(0)
+                action = action.unsqueeze(0)
+                reward = reward.unsqueeze(0)
+                next_state = next_state.unsqueeze(0)
 
                 q_values = self.q_network(state)
                 q_value = q_values[0][action]
@@ -197,7 +197,7 @@ class jammerFNNDDQNAgent:
                 q_values_next = self.q_network(next_state)
                 a_argmax = torch.argmax(q_values_next).item()
 
-                target = reward + self.gamma*self.target_network(next_state)[0][a_argmax].detach()
+                target = reward + self.gamma*self.target_network(next_state)[0][0][a_argmax].detach()
 
                 loss = nn.MSELoss()(q_value, target)
                 total_loss += loss
