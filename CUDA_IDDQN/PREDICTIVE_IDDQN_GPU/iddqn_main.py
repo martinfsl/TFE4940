@@ -107,7 +107,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
     rx_state = torch.empty(NUM_CHANNELS, device=device)
     jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
 
-    tx_transmit_channel = torch.tensor(0, device=device)
+    tx_transmit_channel = torch.tensor([0], device=device)
     rx_receive_channel = torch.tensor(0, device=device)
     jammer_channels = [torch.tensor(0, device=device) for _ in jammers]
 

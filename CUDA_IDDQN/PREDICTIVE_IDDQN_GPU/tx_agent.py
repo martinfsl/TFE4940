@@ -223,29 +223,35 @@ class txRNNQNAgent:
             self.memory_reward = self.memory_reward[1:]
             self.memory_next_state = self.memory_next_state[1:]
 
-        print("State: ", state)
-        print("Action: ", action)
-        print("Reward: ", reward)
-        print("Next state: ", next_state)
         self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
         self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
         self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
         self.memory_next_state = torch.cat((self.memory_next_state, next_state.unsqueeze(0)), dim=0)
-        print("Memory state: ", self.memory_state)
-        print("Memory action: ", self.memory_action)
-        print("Memory reward: ", self.memory_reward)
-        print("Memory next state: ", self.memory_next_state)
 
     def replay(self):
-        if len(self.memory) >= MEMORY_SIZE_BEFORE_TRAINING:
-            # batch = random.sample(self.memory, self.batch_size)
-
+        if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
             # Selecting a random index and getting the batch from that index onwards
-            index = random.randint(0, len(self.memory)-self.batch_size)
-            batch = self.memory[index:index+self.batch_size]
+            index = random.randint(0, self.memory_state.size(0) - self.batch_size)
+            batch_state = self.memory_state[index:index + self.batch_size]
+            batch_action = self.memory_action[index:index + self.batch_size]
+            batch_reward = self.memory_reward[index:index + self.batch_size]
+            batch_next_state = self.memory_next_state[index:index + self.batch_size]
+
+            zipped = zip(batch_state, batch_action, batch_reward, batch_next_state)
+
+            print("Memory device:")
+            print("State:", self.memory_state.device)
+            print("Action:", self.memory_action.device)
+            print("Reward:", self.memory_reward.device)
+            print("Next state:", self.memory_next_state.device)
+            print("Batch device:")
+            print("State:", batch_state.device)
+            print("Action:", batch_action.device)
+            print("Reward:", batch_reward.device)
+            print("Next state:", batch_next_state.device)
 
             total_loss = 0
-            for state, action, reward, next_state in batch:
+            for state, action, reward, next_state in zipped:
                 pred_action = self.pred_agent.predict_action(state).to(self.device)
                 state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
 
