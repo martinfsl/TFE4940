@@ -237,21 +237,18 @@ class txRNNQNAgent:
             batch_reward = self.memory_reward[index:index + self.batch_size]
             batch_next_state = self.memory_next_state[index:index + self.batch_size]
 
-            zipped = zip(batch_state, batch_action, batch_reward, batch_next_state)
-
-            print("Memory device:")
-            print("State:", self.memory_state.device)
-            print("Action:", self.memory_action.device)
-            print("Reward:", self.memory_reward.device)
-            print("Next state:", self.memory_next_state.device)
-            print("Batch device:")
-            print("State:", batch_state.device)
-            print("Action:", batch_action.device)
-            print("Reward:", batch_reward.device)
-            print("Next state:", batch_next_state.device)
-
             total_loss = 0
-            for state, action, reward, next_state in zipped:
+            for i in range(self.batch_size):
+                state = batch_state[i]
+                action = batch_action[i]
+                reward = batch_reward[i]
+                next_state = batch_next_state[i]
+
+                print("State device: ", state.device)
+                print("Action device: ", action.device)
+                print("Reward device: ", reward.device)
+                print("Next state device: ", next_state.device)
+
                 pred_action = self.pred_agent.predict_action(state).to(self.device)
                 state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
 
