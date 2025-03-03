@@ -102,20 +102,20 @@ def train_dqn(tx_agent, rx_agent, jammers):
     jammer_channels = [0]*len(jammers)
 
     # Initialize the channel noise for the current (and first) time step
-    tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
-    rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+    tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
+    rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
     jammer_channel_noises = []
     for jammer in jammers:
-        noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+        noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
         jammer_channel_noises.append(noise)
         if jammer.behavior == "smart":
-            jammer.observed_noise = noise.copy()
+            jammer.observed_noise = noise.clone()
 
     # Set the current state based on the total power spectrum
-    tx_state = tx_channel_noise.tolist()
-    rx_state = rx_channel_noise.tolist()
+    tx_state = tx_channel_noise.clone()
+    rx_state = rx_channel_noise.clone()
     for i in range(len(jammers)):
-        jammer_states[i] = jammer_channel_noises[i].tolist()
+        jammer_states[i] = jammer_channel_noises[i].clone()
     ###################################
 
     for episode in tqdm(range(NUM_EPISODES)):
@@ -123,12 +123,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
         tx_channels = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0]
-        tx_sense_channels = tx_channels[1]
+        tx_sense_channels = tx_channels[1:]
 
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_channels = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0]
-        rx_sense_channels = rx_channels[1]
+        rx_sense_channels = rx_channels[1:]
 
         jammer_observations = []
         for i in range(len(jammers)):
@@ -137,14 +137,14 @@ def train_dqn(tx_agent, rx_agent, jammers):
             jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel)
 
         # Set a new channel noise for the next state
-        tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
-        rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+        tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
+        rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
         jammer_channel_noises = []
         for jammer in jammers:
-            noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+            noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
             jammer_channel_noises.append(noise)
             if jammer.behavior == "smart":
-                jammer.observed_noise = noise.copy()
+                jammer.observed_noise = noise.clone()
 
         # Add the power of the jammers to the channel noise for Tx and Rx
         # Add the power from the Tx to the jammers as well
@@ -155,14 +155,14 @@ def train_dqn(tx_agent, rx_agent, jammers):
             jammer_channel_noises[i][tx_transmit_channel] += jammers[i].observed_tx_power
 
         # Add the new observed power spectrum to the next state
-        tx_next_state = tx_channel_noise.tolist()
+        tx_next_state = tx_channel_noise.clone()
         tx_next_observation = tx_agent.get_observation(tx_next_state, tx_transmit_channel)
-        rx_next_state = rx_channel_noise.tolist()
+        rx_next_state = rx_channel_noise.clone()
         rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channel)
         jammer_next_states = []
         jammer_next_observations = []
         for i in range(len(jammers)):
-            jammer_next_states.append(jammer_channel_noises[i].tolist())
+            jammer_next_states.append(jammer_channel_noises[i].clone())
             jammer_next_observations.append(jammers[i].get_observation(jammer_next_states[i], jammer_channels[i]))
 
         # Calculate the reward based on the action taken
@@ -261,10 +261,10 @@ def train_dqn(tx_agent, rx_agent, jammers):
                 if jammers[i].behavior == "smart":
                     jammers[i].agent.update_target_q_network()
 
-        tx_state = tx_next_state.copy()
-        rx_state = rx_next_state.copy()
+        tx_state = tx_next_state.clone()
+        rx_state = rx_next_state.clone()
         for i in range(len(jammers)):
-            jammer_states[i] = jammer_next_states[i].copy()
+            jammer_states[i] = jammer_next_states[i].clone()
 
     print("Training complete")
 

@@ -59,38 +59,38 @@ class Jammer:
 
     def get_observation(self, state, action):
         if self.behavior == "smart":
-            observation = copy.deepcopy(state)
-            observation.append(action)
+            observation = state.clone()
+            observation = torch.cat((observation, torch.tensor([action], device=observation.device)))
             return observation
         elif self.behavior == "tracking":
-            return copy.deepcopy(state)
+            return state.clone()
         else:
-            return []
+            return torch.tensor([], device=state.device)
 
     def choose_action(self, observation, tx_channel):
         if self.behavior == "smart":
-            return self.agent.choose_action(observation)
+            return torch.tensor(self.agent.choose_action(observation), device=observation.device)
         else:
             if self.behavior == "random":
-                return random.randint(0, NUM_CHANNELS-1)
+                return torch.tensor(random.randint(0, NUM_CHANNELS-1), device=observation.device)
             elif self.behavior == "fixed": # Should have a probability of not transmitting as well
                 if random.uniform(0, 1) < 0.9:
-                    return self.channel
+                    return torch.tensor(self.channel, device=observation.device)
                 else:
-                    return random.randint(0, NUM_CHANNELS-1) # Random channel 10% of the time
+                    return torch.tensor(random.randint(0, NUM_CHANNELS-1), device=observation.device) # Random channel 10% of the time
             elif self.behavior == "sweep": # Round-robin across all channels + no transmission
                 if self.sweep_counter >= self.sweep_interval:
                     self.index_sweep = (self.index_sweep+1) % NUM_CHANNELS
                     self.sweep_counter = 0
                 self.sweep_counter += 1
-                return self.index_sweep
+                return torch.tensor(self.index_sweep, device=observation.device)
             elif self.behavior == "probabilistic":
-                return random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0]
+                return torch.tensor(random.choices(range(NUM_CHANNELS), weights=self.weights, k=1)[0], device=observation.device)
             elif self.behavior == "tracking":
                 self.channel = self.observe_channels(observation) # Update the channel that the jammer is on based on the observation
                 curr_jam = self.tracking_transition()
                 # self.channel = tx_channel # Update the channel that the jammer is on based on the transmitter's channel, without observation
-                return curr_jam
+                return torch.tensor(curr_jam, device=observation.device)
 
     # Function that returns the transmit power of the jammer / interfering user
     # The power is multiplied by the Rayleigh fading magnitude

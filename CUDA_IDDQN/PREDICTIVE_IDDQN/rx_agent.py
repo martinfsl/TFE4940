@@ -47,7 +47,7 @@ class rxPredNN(nn.Module):
 # The agent uses the Adam optimizer to train the neural network
 # The agent uses the cross entropy loss function to train the neural network
 # The output of the neural network is the predicted Tx's action using a softmax function
-class rxPredAgent:
+class rxPredNNAgent:
     def __init__(self, device = "cpu"):
         self.learning_rate = 0.01
 
@@ -89,11 +89,10 @@ class rxPredAgent:
 
     # Function to predict the Tx's action at the Rx
     def predict_action(self, observation):
-        observation = torch.tensor(observation, dtype=torch.float, device=self.device).unsqueeze(0)
+        # observation = observation.clone().detach()
         pred = self.pred_network(observation)
-        # return torch.argmax(pred).item()
-        # return pred
-        return nn.Softmax(dim=1)(pred)
+
+        return nn.Softmax(dim=0)(pred)
 
 #################################################################################
 ### Defining classes RNNQN and RNNQN-agent
@@ -156,7 +155,7 @@ class rxRNNQNAgent:
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
 
         # Predictive network
-        self.pred_agent = rxPredAgent(device=self.device)
+        self.pred_agent = rxPredNNAgent(device=self.device)
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
@@ -172,9 +171,9 @@ class rxRNNQNAgent:
 
     def get_observation(self, state, action):
         if NUM_SENSE_CHANNELS < NUM_CHANNELS:
-            # Create an array of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
+            # Create a tensor of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
             # The first elements are the state values centered around the action channel and the last element is the action channel
-            observation = np.zeros(NUM_SENSE_CHANNELS + 1)
+            observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
             half_sense_channels = NUM_SENSE_CHANNELS // 2
 
             for i in range(-half_sense_channels, half_sense_channels + 1):
@@ -183,38 +182,37 @@ class rxRNNQNAgent:
 
             observation[-1] = action
         else:
-            observation = copy.deepcopy(state)
-            observation.append(action)
+            observation = state.clone()
+            observation = torch.cat((observation, torch.tensor([action], device=self.device)))
         return observation
 
     def choose_action(self, observation):
         if random.uniform(0, 1) < self.epsilon:
             if self.epsilon > EPSILON_MIN:
                 self.epsilon *= EPSILON_REDUCTION
-            # return random.choice(range(NUM_CHANNELS))
             # Extract one main action and NUM_EXTRA_ACTIONS extra actions
             # The extra actions should all be unique and not the same as the main action
-            main_action = random.choice(range(NUM_CHANNELS))
-            extra_actions = random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS)
+            main_action = torch.tensor(random.choice(range(NUM_CHANNELS)), device=self.device)
+            extra_actions = torch.tensor(random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS), device=self.device)
             while main_action in extra_actions:
-                extra_actions = random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS)
-            return [main_action, extra_actions]
+                extra_actions = torch.tensor(random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS), device=self.device)
+            actions = torch.cat((torch.tensor([main_action], device=self.device), extra_actions))
+            return actions
         else:
             # Add the predicted action of Tx to the observation
-            pred_action = self.pred_agent.predict_action(observation).to("cpu").detach().numpy()[0]
-            observation = np.append(observation, pred_action)
+            pred_action = self.pred_agent.predict_action(observation)
+            
+            observation = torch.cat((observation, pred_action)).unsqueeze(0)
 
-            observation = torch.tensor(observation, dtype=torch.float, device=self.device).unsqueeze(0)
             hidden = self.q_network.init_hidden(1).to(self.device)
             q_values, _ = self.q_network(observation, hidden)
 
-            q_values = q_values.to("cpu") # Add Q-values to CPU to use numpy arrays
-            q_values = q_values.detach().numpy()[0]
-            main_action = np.argmax(q_values)
-            extra_actions = np.argsort(q_values)[-NUM_EXTRA_ACTIONS-1:-1]
-            while main_action in extra_actions:
-                extra_actions = np.argsort(q_values)[-NUM_EXTRA_ACTIONS-1:-1]
-            return [main_action, extra_actions.tolist()]
+            main_action = torch.argmax(q_values).item()
+            _, extra_actions = torch.topk(q_values, NUM_EXTRA_ACTIONS + 1)
+            extra_actions = extra_actions.squeeze()
+            extra_actions = extra_actions[extra_actions != main_action]
+            actions = torch.cat((torch.tensor([main_action], device=self.device), extra_actions))
+            return actions
 
     # Functions for the RNN network A
     def update_target_q_network(self):

@@ -104,7 +104,7 @@ class jammerRNNQNAgent:
             q_values_next, _ = self.q_network(next_state, hidden_next)
             a_argmax = torch.argmax(q_values_next).item()
 
-            target = reward + self.gamma*self.target_network(next_state, hidden_next)[0].to("cpu").detach().numpy()[0][a_argmax]
+            target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][a_argmax].detach()
 
             loss = nn.MSELoss()(q_value, target)
             total_loss += loss
@@ -164,11 +164,12 @@ class jammerFNNDDQNAgent:
         if random.uniform(0, 1) < self.epsilon:
             if self.epsilon > EPSILON_MIN_JAMMER:
                 self.epsilon *= EPSILON_REDUCTION_JAMMER
-            return random.choice(range(NUM_CHANNELS))
+            return torch.tensor(random.choice(range(NUM_CHANNELS)), device=self.device)
+            # return torch.tensor(random.choice(range(NUM_CHANNELS)), device=self.device)
         else:
-            observation = torch.tensor(observation, dtype=torch.float).unsqueeze(0)
-            q_values = self.q_network(observation).detach().numpy()
-            return np.argmax(q_values)
+            # observation = torch.tensor(observation, dtype=torch.float, device=self.device).unsqueeze(0)
+            q_values = self.q_network(observation)
+            return torch.argmax(q_values).item()
 
     def update_target_q_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
@@ -196,7 +197,7 @@ class jammerFNNDDQNAgent:
                 q_values_next = self.q_network(next_state)
                 a_argmax = torch.argmax(q_values_next).item()
 
-                target = reward + self.gamma*self.target_network(next_state)[0].to("cpu").detach().numpy()[a_argmax]
+                target = reward + self.gamma*self.target_network(next_state)[0][a_argmax].detach()
 
                 loss = nn.MSELoss()(q_value, target)
                 total_loss += loss
