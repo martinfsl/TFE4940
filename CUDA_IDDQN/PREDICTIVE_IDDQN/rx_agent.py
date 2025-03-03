@@ -60,7 +60,7 @@ class rxPredNNAgent:
 
         self.pred_network = rxPredNN()
         self.pred_network.to(self.device)
-        self.optimizer = optim.Adam(self.pred_network.parameters(), lr = self.learning_rate)
+        self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
 
     # Function to store experiences in the memory
     def store_experience_in(self, state, action):
@@ -76,9 +76,6 @@ class rxPredNNAgent:
 
             total_loss = 0
             for state, action in batch:
-                state = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
-                action = torch.tensor(action, dtype=torch.long, device=self.device).unsqueeze(0)
-
                 pred = self.pred_network(state)
                 loss = nn.CrossEntropyLoss()(pred, action)
                 total_loss += loss
@@ -167,7 +164,7 @@ class rxRNNQNAgent:
         else:
             received_power = self.power
 
-        return received_power
+        return torch.tensor(received_power, device=self.device)
 
     def get_observation(self, state, action):
         if NUM_SENSE_CHANNELS < NUM_CHANNELS:
@@ -234,16 +231,14 @@ class rxRNNQNAgent:
 
             total_loss = 0
             for state, action, reward, next_state in batch:
-                pred_action = self.pred_agent.predict_action(state).to("cpu").detach().numpy()[0]
-                state = np.append(state, pred_action)
-                state = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
+                pred_action = self.pred_agent.predict_action(state).to(self.device)
+                state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
 
-                action = torch.tensor(action, dtype=torch.long, device=self.device).unsqueeze(0)
-                reward = torch.tensor(reward, dtype=torch.float, device=self.device).unsqueeze(0)
+                action = action.unsqueeze(0)
+                reward = reward.unsqueeze(0)
 
-                pred_next_action = self.pred_agent.predict_action(next_state).to("cpu").detach().numpy()[0]
-                next_state = np.append(next_state, pred_next_action)
-                next_state = torch.tensor(next_state, dtype=torch.float, device=self.device).unsqueeze(0)
+                pred_next_action = self.pred_agent.predict_action(next_state).to(self.device)
+                next_state = torch.cat((next_state, pred_next_action), dim=0).unsqueeze(0)
 
                 hidden = self.q_network.init_hidden(1).to(self.device)
                 q_values, _ = self.q_network(state, hidden)
@@ -253,7 +248,7 @@ class rxRNNQNAgent:
                 q_values_next, _ = self.q_network(next_state, hidden_next)
                 a_argmax = torch.argmax(q_values_next).item()
 
-                target = reward + self.gamma*self.target_network(next_state, hidden_next)[0].to("cpu").detach().numpy()[0][a_argmax]
+                target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
 
                 loss = nn.MSELoss()(q_value, target)
                 total_loss += loss

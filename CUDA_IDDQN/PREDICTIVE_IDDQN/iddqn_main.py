@@ -173,27 +173,27 @@ def train_dqn(tx_agent, rx_agent, jammers):
             rx_reward = REWARD_SUCCESSFUL
 
             # Update the predictive network in the Rx agent
-            rx_agent.pred_agent.store_experience_in(rx_observation, rx_receive_channel)
-            
+            rx_agent.pred_agent.store_experience_in(rx_observation, torch.tensor(rx_receive_channel, device=device))
+
             # ACK is received at the transmitter
             if received_signal_tx(tx_transmit_channel, rx_receive_channel, tx_observed_power, tx_channel_noise): # power should be changed to rx_agent later
                 tx_reward = REWARD_SUCCESSFUL
 
                 # Update the predictive network in the Tx agent
-                tx_agent.pred_agent.store_experience_in(tx_observation, tx_transmit_channel)
+                tx_agent.pred_agent.store_experience_in(tx_observation, torch.tensor(tx_transmit_channel, device=device))
             else:
                 tx_reward = REWARD_INTERFERENCE
 
                 tx_sensing = sensed_signal_tx(rx_receive_channel, tx_sense_channels, tx_observed_power, tx_channel_noise)
 
                 if tx_sensing != -1:
-                    tx_agent.pred_agent.store_experience_in(tx_observation, tx_sensing)
+                    tx_agent.pred_agent.store_experience_in(tx_observation, torch.tensor(tx_sensing, device=device))
         else:
             rx_sensing = sensed_signal_rx(tx_transmit_channel, rx_sense_channels, rx_observed_power, rx_channel_noise)
 
             # Managed to sense the Tx but not receive the signal
             if rx_sensing != -1:
-                rx_agent.pred_agent.store_experience_in(rx_observation, rx_sensing)
+                rx_agent.pred_agent.store_experience_in(rx_observation, torch.tensor(rx_sensing, device=device))
 
             # if rx_sensing != -1:
             #     print("----------------------------------------")
@@ -239,10 +239,10 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         # Store the experience in the agent's memory
         # Replay the agent's memory
-        tx_agent.store_experience_in(tx_observation, tx_transmit_channel, tx_reward, tx_next_observation)
+        tx_agent.store_experience_in(tx_observation, torch.tensor([tx_transmit_channel], device=device), torch.tensor([tx_reward], device=device), tx_next_observation)
         tx_agent.replay()
 
-        rx_agent.store_experience_in(rx_observation, rx_receive_channel, rx_reward, rx_next_observation)
+        rx_agent.store_experience_in(rx_observation, torch.tensor([rx_receive_channel], device=device), torch.tensor([rx_reward], device=device), rx_next_observation)
         rx_agent.replay()
 
         tx_agent.pred_agent.train()
@@ -250,7 +250,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart":
-                jammers[i].agent.store_experience_in(jammer_observations[i], jammer_channels[i], jammers[i].observed_reward, jammer_next_observations[i])
+                jammers[i].agent.store_experience_in(jammer_observations[i], torch.tensor([jammer_channels[i]], device=device), torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
                 jammers[i].agent.replay()
 
         # Periodic update of the target Q-network
@@ -298,21 +298,21 @@ def test_dqn(tx_agent, rx_agent, jammers):
     rx_receive_channel = 0
     jammer_channels = [0]*len(jammers)
 
-    # Initialize the first state consisting of just noise
-    tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
-    rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+    # Initialize the channel noise for the current (and first) time step
+    tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
+    rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
     jammer_channel_noises = []
     for jammer in jammers:
-        noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+        noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
         jammer_channel_noises.append(noise)
         if jammer.behavior == "smart":
-            jammer.observed_noise = noise.copy()
+            jammer.observed_noise = noise.clone()
 
     # Set the current state based on the total power spectrum
-    tx_state = tx_channel_noise.tolist()
-    rx_state = rx_channel_noise.tolist()
+    tx_state = tx_channel_noise.clone()
+    rx_state = rx_channel_noise.clone()
     for i in range(len(jammers)):
-        jammer_states[i] = jammer_channel_noises[i].tolist()
+        jammer_states[i] = jammer_channel_noises[i].clone()
     ###################################
 
     for run in tqdm(range(NUM_TEST_RUNS)):
@@ -320,21 +320,12 @@ def test_dqn(tx_agent, rx_agent, jammers):
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
         tx_channels = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0]
-        tx_sense_channels = tx_channels[1]
+        # tx_sense_channels = tx_channels[1:]
+
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_channels = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0]
-        rx_sense_channels = rx_channels[1]
-
-        # if run == 100:
-        #     # The Rx tries to predict the Tx's channel
-        #     pred_actions = rx_agent.pred_agent.predict_action(rx_observation)
-        #     print("----------------------------------------")
-        #     print("Tx observation: ", tx_observation, "\n")
-        #     print("Rx observation: ", rx_observation, "\n")
-        #     print("Predicted Tx channel: ", pred_actions[0], "\n")
-        #     print("True Tx channel: ", tx_transmit_channel, "\n")
-        #     print("----------------------------------------")
+        # rx_sense_channels = rx_channels[1:]
 
         jammer_observations = []
         for i in range(len(jammers)):
@@ -348,14 +339,14 @@ def test_dqn(tx_agent, rx_agent, jammers):
             num_jammer_channel_selected[i][jammer_channels[i]] += 1
 
         # Set a new channel noise for the next state
-        tx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
-        rx_channel_noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+        tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
+        rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
         jammer_channel_noises = []
         for jammer in jammers:
-            noise = np.abs(np.random.normal(0, NOISE_VARIANCE, NUM_CHANNELS))
+            noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
             jammer_channel_noises.append(noise)
             if jammer.behavior == "smart":
-                jammer.observed_noise = noise.copy()
+                jammer.observed_noise = noise.clone()
 
         # Add the power of the jammers to the channel noise for Tx and Rx
         # Add the power from the Tx to the jammers as well
@@ -366,16 +357,16 @@ def test_dqn(tx_agent, rx_agent, jammers):
             jammer_channel_noises[i][tx_transmit_channel] += jammers[i].observed_tx_power
 
         # Add the new observed power spectrum to the next state
-        tx_next_state = tx_channel_noise.tolist()
-        rx_next_state = rx_channel_noise.tolist()
+        tx_next_state = tx_channel_noise.clone()
+        rx_next_state = rx_channel_noise.clone()
         jammer_next_states = []
         for i in range(len(jammers)):
-            jammer_next_states.append(jammer_channel_noises[i].tolist())
+            jammer_next_states.append(jammer_channel_noises[i].clone())
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
         if received_signal_rx(tx_transmit_channel, rx_receive_channel, tx_agent.get_transmit_power(direction = "receiver"), rx_channel_noise):
-            rx_reward = REWARD_SUCCESSFUL
+            # rx_reward = REWARD_SUCCESSFUL
             
             # ACK is received at the transmitter
             if received_signal_tx(tx_transmit_channel, rx_receive_channel, rx_agent.get_transmit_power(direction = "transmitter"), tx_channel_noise): # power should be changed to rx_agent later
@@ -383,7 +374,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
             else:
                 tx_reward = REWARD_INTERFERENCE
         else:
-            rx_reward = REWARD_INTERFERENCE
+            # rx_reward = REWARD_INTERFERENCE
             tx_reward = REWARD_INTERFERENCE
         # If the tx_reward is positive, then both the communication link was successful both ways
         if tx_reward >= 0:
@@ -400,10 +391,10 @@ def test_dqn(tx_agent, rx_agent, jammers):
                     jammers[i].num_jammed += 1
 
         # Set the state for the next iteration based on the new observed power spectrum
-        tx_state = tx_next_state.copy()
-        rx_state = rx_next_state.copy()
+        tx_state = tx_next_state.clone()
+        rx_state = rx_next_state.clone()
         for i in range(len(jammers)):
-            jammer_states[i] = jammer_next_states[i].copy()
+            jammer_states[i] = jammer_next_states[i].clone()
 
     probability_tx_channel_selected = num_tx_channel_selected / np.sum(num_tx_channel_selected)
     probability_rx_channel_selected = num_rx_channel_selected / np.sum(num_rx_channel_selected)

@@ -67,7 +67,7 @@ class jammerRNNQNAgent:
                 self.epsilon *= EPSILON_REDUCTION_JAMMER
             return random.choice(range(NUM_CHANNELS))
         else:
-            observation = torch.tensor(observation, dtype=torch.float, device=self.device).unsqueeze(0)
+            observation = observation.clone().to(self.device).unsqueeze(0)
             hidden = self.q_network.init_hidden(1).to(self.device)
             q_values, _ = self.q_network(observation, hidden)
             return torch.argmax(q_values).item()
@@ -91,10 +91,10 @@ class jammerRNNQNAgent:
 
         total_loss = 0
         for state, action, reward, next_state in batch:
-            state = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
-            action = torch.tensor(action, dtype=torch.long, device=self.device).unsqueeze(0)
-            reward = torch.tensor(reward, dtype=torch.float, device=self.device).unsqueeze(0)
-            next_state = torch.tensor(next_state, dtype=torch.float, device=self.device).unsqueeze(0)
+            state = state.unsqueeze(0)
+            action = action.unsqueeze(0)
+            reward = reward.unsqueeze(0)
+            next_state = next_state.unsqueeze(0)
 
             hidden = self.q_network.init_hidden(1).to(self.device)
             q_values, _ = self.q_network(state, hidden)
@@ -104,7 +104,7 @@ class jammerRNNQNAgent:
             q_values_next, _ = self.q_network(next_state, hidden_next)
             a_argmax = torch.argmax(q_values_next).item()
 
-            target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][a_argmax].detach()
+            target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
 
             loss = nn.MSELoss()(q_value, target)
             total_loss += loss
