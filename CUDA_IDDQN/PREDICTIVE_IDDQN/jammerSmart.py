@@ -67,9 +67,10 @@ class jammerRNNQNAgent:
                 self.epsilon *= EPSILON_REDUCTION_JAMMER
             return random.choice(range(NUM_CHANNELS))
         else:
-            observation = observation.clone().to(self.device).unsqueeze(0)
+            observation = observation.unsqueeze(0)
             hidden = self.q_network.init_hidden(1).to(self.device)
-            q_values, _ = self.q_network(observation, hidden)
+            with torch.no_grad():
+                q_values, _ = self.q_network(observation, hidden)
             return torch.argmax(q_values).item()
 
     def update_target_q_network(self):
@@ -168,7 +169,8 @@ class jammerFNNDDQNAgent:
             # return torch.tensor(random.choice(range(NUM_CHANNELS)), device=self.device)
         else:
             # observation = torch.tensor(observation, dtype=torch.float, device=self.device).unsqueeze(0)
-            q_values = self.q_network(observation)
+            with torch.no_grad():
+                q_values = self.q_network(observation)
             return torch.argmax(q_values).item()
 
     def update_target_q_network(self):

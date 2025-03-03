@@ -194,14 +194,16 @@ class txRNNQNAgent:
             return actions
         else:
             # Add the predicted action of Rx to the observation
-            pred_action = self.pred_agent.predict_action(observation)
+            with torch.no_grad():
+                pred_action = self.pred_agent.predict_action(observation)
             
             observation = torch.cat((observation, pred_action)).unsqueeze(0)
 
-            hidden = self.q_network.init_hidden(1).to(self.device)
-            q_values, _ = self.q_network(observation, hidden)
+            with torch.no_grad():
+                hidden = self.q_network.init_hidden(1).to(self.device)
+                q_values, _ = self.q_network(observation, hidden)
             
-            main_action = torch.argmax(q_values).item()
+            main_action = torch.argmax(q_values).detach()
             _, extra_actions = torch.topk(q_values, NUM_EXTRA_ACTIONS + 1)
             extra_actions = extra_actions.squeeze()
             extra_actions = extra_actions[extra_actions != main_action]
@@ -243,7 +245,7 @@ class txRNNQNAgent:
 
                 hidden_next = self.q_network.init_hidden(1).to(self.device)
                 q_values_next, _ = self.q_network(next_state, hidden_next)
-                a_argmax = torch.argmax(q_values_next).item()
+                a_argmax = torch.argmax(q_values_next).detach()
 
                 target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
 

@@ -240,18 +240,20 @@ def train_dqn(tx_agent, rx_agent, jammers):
         # Store the experience in the agent's memory
         # Replay the agent's memory
         tx_agent.store_experience_in(tx_observation, torch.tensor([tx_transmit_channel], device=device), torch.tensor([tx_reward], device=device), tx_next_observation)
-        tx_agent.replay()
-
         rx_agent.store_experience_in(rx_observation, torch.tensor([rx_receive_channel], device=device), torch.tensor([rx_reward], device=device), rx_next_observation)
+
+        for i in range(len(jammers)):
+            if jammers[i].behavior == "smart":
+                jammers[i].agent.store_experience_in(jammer_observations[i], torch.tensor([jammer_channels[i]], device=device), torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
+
+        tx_agent.replay()
         rx_agent.replay()
 
         tx_agent.pred_agent.train()
         rx_agent.pred_agent.train()
 
         for i in range(len(jammers)):
-            if jammers[i].behavior == "smart":
-                jammers[i].agent.store_experience_in(jammer_observations[i], torch.tensor([jammer_channels[i]], device=device), torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
-                jammers[i].agent.replay()
+            jammers[i].agent.replay()
 
         # Periodic update of the target Q-network
         if episode % 10 == 0:
