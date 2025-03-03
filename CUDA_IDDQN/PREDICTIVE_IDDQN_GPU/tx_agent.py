@@ -57,7 +57,7 @@ class txPredNNAgent:
 
         self.device = device
 
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = txPredNN()
@@ -250,11 +250,6 @@ class txRNNQNAgent:
                 action = batch_action[i]
                 reward = batch_reward[i]
                 next_state = batch_next_state[i]
-
-                print("State device: ", state.device)
-                print("Action device: ", action.device)
-                print("Reward device: ", reward.device)
-                print("Next state device: ", next_state.device)
 
                 pred_action = self.pred_agent.predict_action(state)
                 state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
