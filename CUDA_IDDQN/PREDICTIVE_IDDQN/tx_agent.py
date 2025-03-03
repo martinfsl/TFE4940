@@ -176,8 +176,7 @@ class txRNNQNAgent:
 
             observation[-1] = action
         else:
-            observation = state.clone()
-            observation = torch.cat((observation, torch.tensor([action], device=self.device)))
+            observation = torch.cat((state, action.unsqueeze(0)), dim=0)
         return observation
     
     def choose_action(self, observation):

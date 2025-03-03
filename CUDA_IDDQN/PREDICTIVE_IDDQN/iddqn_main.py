@@ -103,23 +103,21 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
     ###################################
     # Initializing the first state consisting of just noise
-    tx_state = []
-    rx_state = []
-    jammer_states = []
-    for jammer in jammers:
-        jammer_states.append([])
+    tx_state = torch.empty(NUM_CHANNELS, device=device)
+    rx_state = torch.empty(NUM_CHANNELS, device=device)
+    jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
 
-    tx_transmit_channel = 0
-    rx_receive_channel = 0
-    jammer_channels = [0]*len(jammers)
+    tx_transmit_channel = torch.tensor(0, device=device)
+    rx_receive_channel = torch.tensor(0, device=device)
+    jammer_channels = [torch.tensor(0, device=device) for _ in jammers]
 
     # Initialize the channel noise for the current (and first) time step
     tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
     rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
-    jammer_channel_noises = []
-    for jammer in jammers:
+    jammer_channel_noises = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+    for i, jammer in enumerate(jammers):
         noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
-        jammer_channel_noises.append(noise)
+        jammer_channel_noises[i] = noise
         if jammer.behavior == "smart":
             jammer.observed_noise = noise.clone()
 
@@ -145,19 +143,19 @@ def train_dqn(tx_agent, rx_agent, jammers):
         rx_receive_channel = rx_channels[0]
         rx_sense_channels = rx_channels[1:]
 
-        jammer_observations = []
+        jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
-            jammer_observations.append(jammer_observation)
+            jammer_observations[i] = jammer_observation
             jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel)
 
         # Set a new channel noise for the next state
         tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
         rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
-        jammer_channel_noises = []
-        for jammer in jammers:
+        jammer_channel_noises = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+        for i, jammer in enumerate(jammers):
             noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
-            jammer_channel_noises.append(noise)
+            jammer_channel_noises[i] = noise
             if jammer.behavior == "smart":
                 jammer.observed_noise = noise.clone()
 
@@ -174,11 +172,11 @@ def train_dqn(tx_agent, rx_agent, jammers):
         tx_next_observation = tx_agent.get_observation(tx_next_state, tx_transmit_channel)
         rx_next_state = rx_channel_noise.clone()
         rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channel)
-        jammer_next_states = []
-        jammer_next_observations = []
+        jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+        jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
         for i in range(len(jammers)):
-            jammer_next_states.append(jammer_channel_noises[i].clone())
-            jammer_next_observations.append(jammers[i].get_observation(jammer_next_states[i], jammer_channels[i]))
+            jammer_next_states[i] = jammer_channel_noises[i].clone()
+            jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
@@ -254,12 +252,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         # Store the experience in the agent's memory
         # Replay the agent's memory
-        tx_agent.store_experience_in(tx_observation, torch.tensor([tx_transmit_channel], device=device), torch.tensor([tx_reward], device=device), tx_next_observation)
-        rx_agent.store_experience_in(rx_observation, torch.tensor([rx_receive_channel], device=device), torch.tensor([rx_reward], device=device), rx_next_observation)
+        tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
+        rx_agent.store_experience_in(rx_observation, rx_receive_channel, torch.tensor([rx_reward], device=device), rx_next_observation)
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart":
-                jammers[i].agent.store_experience_in(jammer_observations[i], torch.tensor([jammer_channels[i]], device=device), torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
+                jammers[i].agent.store_experience_in(jammer_observations[i], jammer_channels[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
 
         tx_agent.replay()
         rx_agent.replay()
@@ -287,6 +285,10 @@ def train_dqn(tx_agent, rx_agent, jammers):
             prof.step()
 
     print("Training complete")
+
+    prof.stop()
+
+    print(prof.key_averages().table(sort_by="self_cpu_time_total", row_limit=10))
 
     return tx_average_rewards, rx_average_rewards, jammer_average_rewards
 
