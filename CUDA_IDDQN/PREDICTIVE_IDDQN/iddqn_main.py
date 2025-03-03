@@ -39,12 +39,12 @@ print("Device: ", device)
 #################################################################################
 
 def received_signal_rx(tx_channel, rx_channel, received_power, channel_noise_receiver):
-    sinr = 10*np.log10(received_power / channel_noise_receiver[rx_channel]) # SINR at the receiver
+    sinr = 10*torch.log10(received_power / channel_noise_receiver[rx_channel]) # SINR at the receiver
 
-    return (sinr > SINR_THRESHOLD) and (np.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
+    return (sinr > SINR_THRESHOLD) and (torch.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
 
 def sensed_signal_rx(tx_channel, rx_sense_channels, received_power, channel_noise_receiver):
-    sinr = 10*np.log10(received_power / channel_noise_receiver[tx_channel])
+    sinr = 10*torch.log10(received_power / channel_noise_receiver[tx_channel])
 
     if (tx_channel in rx_sense_channels) and (sinr > SINR_THRESHOLD):
         return tx_channel
@@ -52,7 +52,7 @@ def sensed_signal_rx(tx_channel, rx_sense_channels, received_power, channel_nois
         return -1
     
 def sensed_signal_tx(rx_channel, tx_sense_channels, received_power, channel_noise_transmitter):
-    sinr = 10*np.log10(received_power / channel_noise_transmitter[rx_channel])
+    sinr = 10*torch.log10(received_power / channel_noise_transmitter[rx_channel])
 
     if (rx_channel in tx_sense_channels) and (sinr > SINR_THRESHOLD):
         return rx_channel
@@ -60,12 +60,12 @@ def sensed_signal_tx(rx_channel, tx_sense_channels, received_power, channel_nois
         return -1
 
 def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_transmitter):
-    sinr = 10*np.log10(received_power / channel_noise_transmitter[tx_channel]) # SINR at the receiver
+    sinr = 10*torch.log10(received_power / channel_noise_transmitter[tx_channel]) # SINR at the receiver
 
-    return (sinr > SINR_THRESHOLD) and (np.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
+    return (sinr > SINR_THRESHOLD) and (torch.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
 
 def sensed_signal_jammer(jammer_channel, tx_channel, jammer_power, channel_noise_jammer):
-    sinr = 10*np.log10(jammer_power / channel_noise_jammer[jammer_channel]) # SINR at the jammer
+    sinr = 10*torch.log10(jammer_power / channel_noise_jammer[jammer_channel]) # SINR at the jammer
 
     return (sinr > SINR_THRESHOLD) and (jammer_channel == tx_channel)
 

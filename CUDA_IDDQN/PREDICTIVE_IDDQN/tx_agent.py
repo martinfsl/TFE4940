@@ -231,26 +231,24 @@ class txRNNQNAgent:
 
             total_loss = 0
             for state, action, reward, next_state in batch:
-                pred_action = self.pred_agent.predict_action(state).to("cpu").detach().numpy()[0]
-                state = np.append(state, pred_action)
-                state = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
+                pred_action = self.pred_agent.predict_action(state).to(self.device)
+                state = torch.cat((state, pred_action), dim=0)
 
                 action = torch.tensor(action, dtype=torch.long, device=self.device).unsqueeze(0)
                 reward = torch.tensor(reward, dtype=torch.float, device=self.device).unsqueeze(0)
                 
-                pred_next_action = self.pred_agent.predict_action(next_state).to("cpu").detach().numpy()[0]
-                next_state = np.append(next_state, pred_next_action)
-                next_state = torch.tensor(next_state, dtype=torch.float, device=self.device).unsqueeze(0)
+                pred_next_action = self.pred_agent.predict_action(next_state).to(self.device)
+                next_state = torch.cat((next_state, pred_next_action), dim=0)
 
                 hidden = self.q_network.init_hidden(1).to(self.device)
-                q_values, _ = self.q_network(state, hidden)
+                q_values, _ = self.q_network(state.unsqueeze(0), hidden)
                 q_value = q_values[0][action]
 
                 hidden_next = self.q_network.init_hidden(1).to(self.device)
-                q_values_next, _ = self.q_network(next_state, hidden_next)
+                q_values_next, _ = self.q_network(next_state.unsqueeze(0), hidden_next)
                 a_argmax = torch.argmax(q_values_next).item()
 
-                target = reward + self.gamma*self.target_network(next_state, hidden_next)[0].to("cpu").detach().numpy()[0][a_argmax]
+                target = reward + self.gamma * self.target_network(next_state.unsqueeze(0), hidden_next)[0][0][a_argmax].detach()
 
                 loss = nn.MSELoss()(q_value, target)
                 total_loss += loss
