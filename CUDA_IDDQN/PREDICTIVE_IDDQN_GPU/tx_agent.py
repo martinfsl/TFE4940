@@ -53,39 +53,46 @@ class txPredNNAgent:
 
         # Parameters for the neural network
         self.batch_size = 16
-        self.memory = []
         self.maximum_memory_size = 100
-        
+
         self.device = device
+
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = txPredNN()
         self.pred_network.to(self.device)
         self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
 
     def store_experience_in(self, state, action):
-        if len(self.memory) >= self.maximum_memory_size:
-            self.memory.pop(0)
+        if self.memory_state.size(0) >= self.maximum_memory_size:
+            self.memory_state = self.memory_state[1:]
+            self.memory_action = self.memory_action[1:]
 
-        self.memory.append((state, action))
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
 
     def train(self):
-        if len(self.memory) >= self.batch_size:
-            batch = random.sample(self.memory, self.batch_size)
+        if self.memory_state.size(0) >= self.batch_size:
+            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
+            batch_state = self.memory_state[indices]
+            batch_action = self.memory_action[indices]
 
             total_loss = 0
-            for state, action in batch:
+            for i in range(self.batch_size):
+                state = batch_state[i]
+                action = batch_action[i]
+
                 pred = self.pred_network(state)
                 loss = nn.CrossEntropyLoss()(pred, action)
                 total_loss += loss
-                
+
             self.optimizer.zero_grad()
             total_loss.backward()
             self.optimizer.step()
 
     def predict_action(self, observation):
-        # observation = observation.clone().detach()
         pred = self.pred_network(observation)
-
         return nn.Softmax(dim=0)(pred)
 
 #################################################################################
@@ -260,7 +267,7 @@ class txRNNQNAgent:
 
                 hidden = self.q_network.init_hidden(1).to(self.device)
                 q_values, _ = self.q_network(state, hidden)
-                q_value = q_values[0][action]
+                q_value = q_values[0][action.long()]
 
                 hidden_next = self.q_network.init_hidden(1).to(self.device)
                 q_values_next, _ = self.q_network(next_state, hidden_next)
