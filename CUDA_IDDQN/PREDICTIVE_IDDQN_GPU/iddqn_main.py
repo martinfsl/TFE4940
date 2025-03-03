@@ -75,6 +75,8 @@ def sensed_signal_jammer(jammer_channel, tx_channel, jammer_power, channel_noise
 #################################################################################
 
 def train_dqn(tx_agent, rx_agent, jammers):
+    IS_SMART_JAMMER = False
+
     prof = torch.profiler.profile(
         activities=[
             torch.profiler.ProfilerActivity.CPU,
@@ -101,6 +103,9 @@ def train_dqn(tx_agent, rx_agent, jammers):
         if jammer.behavior == "sweep":
             jammer.index_sweep = jammer.channel
 
+        if jammer.behavior == "smart":
+            IS_SMART_JAMMER = True
+
     ###################################
     # Initializing the first state consisting of just noise
     tx_state = torch.empty(NUM_CHANNELS, device=device)
@@ -109,7 +114,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
     tx_transmit_channel = torch.tensor([0], device=device)
     rx_receive_channel = torch.tensor([0], device=device)
-    jammer_channels = [torch.tensor(0, device=device) for _ in jammers]
+    jammer_channels = [torch.tensor([0], device=device) for _ in jammers]
 
     # Initialize the channel noise for the current (and first) time step
     tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -143,11 +148,14 @@ def train_dqn(tx_agent, rx_agent, jammers):
         rx_receive_channel = rx_channels[0].unsqueeze(0)
         rx_sense_channels = rx_channels[1:]
 
-        jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        if IS_SMART_JAMMER:
+            jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        else:
+            jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations[i] = jammer_observation
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel)
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
 
         # Set a new channel noise for the next state
         tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -173,7 +181,10 @@ def train_dqn(tx_agent, rx_agent, jammers):
         rx_next_state = rx_channel_noise.clone()
         rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channel)
         jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
-        jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        if IS_SMART_JAMMER:
+            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        else:
+            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
             jammer_next_states[i] = jammer_channel_noises[i].clone()
             jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
@@ -298,6 +309,8 @@ def train_dqn(tx_agent, rx_agent, jammers):
 #################################################################################
 
 def test_dqn(tx_agent, rx_agent, jammers):
+    IS_SMART_JAMMER = False
+
     print("Testing")
     num_successful_transmissions = 0
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
@@ -309,17 +322,18 @@ def test_dqn(tx_agent, rx_agent, jammers):
         if jammer.behavior == "sweep":
             jammer.index_sweep = jammer.channel
         
+        if jammer.behavior == "smart":
+            IS_SMART_JAMMER = True
+
     ###################################
     # Initializing the first state
-    tx_state = []
-    rx_state = []
-    jammer_states = []
-    for jammer in jammers:
-        jammer_states.append([])
+    tx_state = torch.empty(NUM_CHANNELS, device=device)
+    rx_state = torch.empty(NUM_CHANNELS, device=device)
+    jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
 
-    tx_transmit_channel = 0
-    rx_receive_channel = 0
-    jammer_channels = [0]*len(jammers)
+    tx_transmit_channel = torch.tensor([0], device=device)
+    rx_receive_channel = torch.tensor([0], device=device)
+    jammer_channels = [torch.tensor([0], device=device) for _ in jammers]
 
     # Initialize the channel noise for the current (and first) time step
     tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -342,19 +356,22 @@ def test_dqn(tx_agent, rx_agent, jammers):
         # The agent chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
         tx_channels = tx_agent.choose_action(tx_observation)
-        tx_transmit_channel = tx_channels[0]
+        tx_transmit_channel = tx_channels[0].unsqueeze(0)
         # tx_sense_channels = tx_channels[1:]
 
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_channels = rx_agent.choose_action(rx_observation)
-        rx_receive_channel = rx_channels[0]
+        rx_receive_channel = rx_channels[0].unsqueeze(0)
         # rx_sense_channels = rx_channels[1:]
 
-        jammer_observations = []
+        if IS_SMART_JAMMER:
+            jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        else:
+            jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
-            jammer_observations.append(jammer_observation)
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel)
+            jammer_observations[i] = jammer_observation
+            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
 
         num_tx_channel_selected[tx_transmit_channel] += 1
         num_rx_channel_selected[rx_receive_channel] += 1
@@ -381,10 +398,17 @@ def test_dqn(tx_agent, rx_agent, jammers):
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
+        # tx_next_observation = tx_agent.get_observation(tx_next_state, tx_transmit_channel)
         rx_next_state = rx_channel_noise.clone()
-        jammer_next_states = []
+        # rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channel)
+        jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+        if IS_SMART_JAMMER:
+            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        else:
+            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
-            jammer_next_states.append(jammer_channel_noises[i].clone())
+            jammer_next_states[i] = jammer_channel_noises[i].clone()
+            jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
@@ -460,13 +484,13 @@ if __name__ == '__main__':
         # list_of_other_users.append(sweep_1)
         # jammer_type = "sweeping"
 
-        # tracking_1 = Jammer(behavior = "tracking", channel = 0)
-        # list_of_other_users.append(tracking_1)
-        # jammer_type = "tracking"
+        tracking_1 = Jammer(behavior = "tracking", channel = 0)
+        list_of_other_users.append(tracking_1)
+        jammer_type = "tracking"
 
-        smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
-        list_of_other_users.append(smart)
-        jammer_type = "smart_rnn"
+        # smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
+        # list_of_other_users.append(smart)
+        # jammer_type = "smart_rnn"
 
         # smart = Jammer(behavior = "smart", smart_type = "FNN", device = device)
         # list_of_other_users.append(smart)

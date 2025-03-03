@@ -49,11 +49,14 @@ class jammerRNNQNAgent:
 
         self.learning_rate = 0.0075
         
+        self.device = device
+
         # Parameters for the RNN network
         self.batch_size = DQN_BATCH_SIZE
-        self.memory = []
-
-        self.device = device
+        self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_reward = torch.empty((0, 1), device=self.device)
+        self.memory_next_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
 
         self.q_network = jammerRNNQN()
         self.q_network.to(self.device)
@@ -71,48 +74,55 @@ class jammerRNNQNAgent:
             hidden = self.q_network.init_hidden(1).to(self.device)
             with torch.no_grad():
                 q_values, _ = self.q_network(observation, hidden)
-            return torch.argmax(q_values).item()
+            return torch.argmax(q_values).detach()
 
     def update_target_q_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
     def store_experience_in(self, state, action, reward, next_state):
-        if len(self.memory) >= MAXIMUM_MEMORY_SIZE:
-            self.memory.pop(0)
+        if self.memory_state.size(0) >= MAXIMUM_MEMORY_SIZE:
+            self.memory_state = self.memory_state[1:]
+            self.memory_action = self.memory_action[1:]
+            self.memory_reward = self.memory_reward[1:]
+            self.memory_next_state = self.memory_next_state[1:]
 
-        self.memory.append((state, action, reward, next_state))
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+        self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
+        self.memory_next_state = torch.cat((self.memory_next_state, next_state.unsqueeze(0)), dim=0)
     
     def replay(self):
-        if len(self.memory) < MEMORY_SIZE_BEFORE_TRAINING:
-            return
+        if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
+            # Selecting a random index and getting the batch from that index onwards
+            index = random.randint(0, self.memory_state.size(0) - self.batch_size)
+            batch_state = self.memory_state[index:index + self.batch_size]
+            batch_action = self.memory_action[index:index + self.batch_size]
+            batch_reward = self.memory_reward[index:index + self.batch_size]
+            batch_next_state = self.memory_next_state[index:index + self.batch_size]
 
-        # Selecting a random index and getting the batch from that index onwards
-        index = random.randint(0, len(self.memory)-self.batch_size)
-        batch = self.memory[index:index+self.batch_size]
+            total_loss = 0
+            for i in range(self.batch_size):
+                state = batch_state[i].unsqueeze(0)
+                action = batch_action[i].unsqueeze(0)
+                reward = batch_reward[i].unsqueeze(0)
+                next_state = batch_next_state[i].unsqueeze(0)
 
-        total_loss = 0
-        for state, action, reward, next_state in batch:
-            state = state.unsqueeze(0)
-            action = action.unsqueeze(0)
-            reward = reward.unsqueeze(0)
-            next_state = next_state.unsqueeze(0)
+                hidden = self.q_network.init_hidden(1).to(self.device)
+                q_values, _ = self.q_network(state, hidden)
+                q_value = q_values[0][action.long()]
 
-            hidden = self.q_network.init_hidden(1).to(self.device)
-            q_values, _ = self.q_network(state, hidden)
-            q_value = q_values[0][action]
+                hidden_next = self.q_network.init_hidden(1).to(self.device)
+                q_values_next, _ = self.q_network(next_state, hidden_next)
+                a_argmax = torch.argmax(q_values_next).detach()
 
-            hidden_next = self.q_network.init_hidden(1).to(self.device)
-            q_values_next, _ = self.q_network(next_state, hidden_next)
-            a_argmax = torch.argmax(q_values_next).item()
+                target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
 
-            target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
+                loss = nn.MSELoss()(q_value, target)
+                total_loss += loss
 
-            loss = nn.MSELoss()(q_value, target)
-            total_loss += loss
-
-        self.optimizer.zero_grad()
-        total_loss.backward()
-        self.optimizer.step()
+            self.optimizer.zero_grad()
+            total_loss.backward()
+            self.optimizer.step()
 
 #################################################################################
 ### Defining class for the DDQN for the smart jammer
@@ -149,11 +159,14 @@ class jammerFNNDDQNAgent:
 
         self.learning_rate = 0.0075
 
+        self.device = device
+
         # Parameters for the FNN network
         self.batch_size = DQN_BATCH_SIZE
-        self.memory = []
-
-        self.device = device
+        self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_reward = torch.empty((0, 1), device=self.device)
+        self.memory_next_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
 
         self.q_network = jammerFNNDDQN()
         self.q_network.to(self.device)
@@ -171,42 +184,52 @@ class jammerFNNDDQNAgent:
             # observation = torch.tensor(observation, dtype=torch.float, device=self.device).unsqueeze(0)
             with torch.no_grad():
                 q_values = self.q_network(observation)
-            return torch.argmax(q_values).item()
+            return torch.argmax(q_values).detach()
 
     def update_target_q_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
     def store_experience_in(self, state, action, reward, next_state):
-        if len(self.memory) >= MAXIMUM_MEMORY_SIZE:
-            self.memory.pop(0)
+        if self.memory_state.size(0) >= MAXIMUM_MEMORY_SIZE:
+            self.memory_state = self.memory_state[1:]
+            self.memory_action = self.memory_action[1:]
+            self.memory_reward = self.memory_reward[1:]
+            self.memory_next_state = self.memory_next_state[1:]
 
-        self.memory.append((state, action, reward, next_state))
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+        self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
+        self.memory_next_state = torch.cat((self.memory_next_state, next_state.unsqueeze(0)), dim=0)
 
     def replay(self):
-        if len(self.memory) >= MEMORY_SIZE_BEFORE_TRAINING:
-            batch = random.sample(self.memory, self.batch_size)
+        if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
+            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
+            batch_state = self.memory_state[indices]
+            batch_action = self.memory_action[indices]
+            batch_reward = self.memory_reward[indices]
+            batch_next_state = self.memory_next_state[indices]
 
             total_loss = 0
-            for state, action, reward, next_state in batch:
-                state = state.unsqueeze(0)
-                action = action.unsqueeze(0)
-                reward = reward.unsqueeze(0)
-                next_state = next_state.unsqueeze(0)
+            for i in range(self.batch_size):
+                state = batch_state[i].unsqueeze(0)
+                action = batch_action[i].unsqueeze(0)
+                reward = batch_reward[i].unsqueeze(0)
+                next_state = batch_next_state[i].unsqueeze(0)
 
                 q_values = self.q_network(state)
-                q_value = q_values[0][action]
+                q_value = q_values[0][action.long()]
 
                 q_values_next = self.q_network(next_state)
-                a_argmax = torch.argmax(q_values_next).item()
+                a_argmax = torch.argmax(q_values_next).detach()
 
-                target = reward + self.gamma*self.target_network(next_state)[0][0][a_argmax].detach()
+                target = reward + self.gamma*self.target_network(next_state)[0][a_argmax].detach()
 
                 loss = nn.MSELoss()(q_value, target)
                 total_loss += loss
 
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
 #################################################################################
 ### Defining class for a smart jammer
