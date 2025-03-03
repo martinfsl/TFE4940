@@ -19,6 +19,7 @@ import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.profiler
 
 from tx_agent import txRNNQN, txRNNQNAgent
 from rx_agent import rxRNNQN, rxRNNQNAgent
@@ -74,6 +75,17 @@ def sensed_signal_jammer(jammer_channel, tx_channel, jammer_power, channel_noise
 #################################################################################
 
 def train_dqn(tx_agent, rx_agent, jammers):
+    prof = torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(wait=1, warmup=1, active=10, repeat=1),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler("logs"),
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True
+    )
+    
     print("Training")
     tx_accumulated_rewards = []
     tx_average_rewards = []
@@ -119,6 +131,9 @@ def train_dqn(tx_agent, rx_agent, jammers):
     ###################################
 
     for episode in tqdm(range(NUM_EPISODES)):
+        if episode == 200:
+            prof.start()
+
         # The agents chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
         tx_channels = tx_agent.choose_action(tx_observation)
@@ -267,6 +282,9 @@ def train_dqn(tx_agent, rx_agent, jammers):
         rx_state = rx_next_state.clone()
         for i in range(len(jammers)):
             jammer_states[i] = jammer_next_states[i].clone()
+
+        if episode == 200:
+            prof.step()
 
     print("Training complete")
 
