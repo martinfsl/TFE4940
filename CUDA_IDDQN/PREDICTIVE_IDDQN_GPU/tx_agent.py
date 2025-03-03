@@ -256,13 +256,13 @@ class txRNNQNAgent:
                 print("Reward device: ", reward.device)
                 print("Next state device: ", next_state.device)
 
-                pred_action = self.pred_agent.predict_action(state).to(self.device)
+                pred_action = self.pred_agent.predict_action(state)
                 state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
 
                 action = action.unsqueeze(0)
                 reward = reward.unsqueeze(0)
                 
-                pred_next_action = self.pred_agent.predict_action(next_state).to(self.device)
+                pred_next_action = self.pred_agent.predict_action(next_state)
                 next_state = torch.cat((next_state, pred_next_action), dim=0).unsqueeze(0)
 
                 hidden = self.q_network.init_hidden(1).to(self.device)
