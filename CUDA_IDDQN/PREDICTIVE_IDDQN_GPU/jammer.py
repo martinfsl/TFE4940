@@ -55,7 +55,7 @@ class Jammer:
     
     # Used for the tracking behavior to observe the channels that the transmitter is on
     def observe_channels(self, observation):
-        return np.argmax(observation) # Return the channel with the highest power
+        return torch.argmax(observation).detach() # Return the channel with the highest power
 
     def get_observation(self, state, action):
         if self.behavior == "smart":
