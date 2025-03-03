@@ -53,10 +53,12 @@ class rxPredNNAgent:
 
         # Parameters for the neural network
         self.batch_size = 16
-        self.memory = []
         self.maximum_memory_size = 100
 
         self.device = device
+
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = rxPredNN()
         self.pred_network.to(self.device)
@@ -64,20 +66,28 @@ class rxPredNNAgent:
 
     # Function to store experiences in the memory
     def store_experience_in(self, state, action):
-        if len(self.memory) >= self.maximum_memory_size:
-            self.memory.pop(0)
+        if self.memory_state.size(0) >= self.maximum_memory_size:
+            self.memory_state = self.memory_state[1:]
+            self.memory_action = self.memory_action[1:]
 
-        self.memory.append((state, action))
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+
 
     # Function to train the neural network
     def train(self):
-        if len(self.memory) >= self.batch_size:
-            batch = random.sample(self.memory, self.batch_size)
+        if self.memory_state.size(0) >= self.batch_size:
+            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
+            batch_state = self.memory_state[indices]
+            batch_action = self.memory_action[indices]
 
             total_loss = 0
-            for state, action in batch:
+            for i in range(self.batch_size):
+                state = batch_state[i]
+                action = batch_action[i]
+
                 pred = self.pred_network(state)
-                loss = nn.CrossEntropyLoss()(pred, action)
+                loss = nn.CrossEntropyLoss()(pred.unsqueeze(0), action.long())
                 total_loss += loss
                 
             self.optimizer.zero_grad()
@@ -86,9 +96,7 @@ class rxPredNNAgent:
 
     # Function to predict the Tx's action at the Rx
     def predict_action(self, observation):
-        # observation = observation.clone().detach()
         pred = self.pred_network(observation)
-
         return nn.Softmax(dim=0)(pred)
 
 #################################################################################
@@ -143,7 +151,10 @@ class rxRNNQNAgent:
 
         # Parameters for the RNN network A
         self.batch_size = DQN_BATCH_SIZE
-        self.memory = []
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_reward = torch.empty((0, 1), device=self.device)
+        self.memory_next_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
 
         self.q_network = rxRNNQN()
         self.q_network.to(self.device) # Moving Q-network to device (CUDA or CPU)
@@ -179,7 +190,7 @@ class rxRNNQNAgent:
 
             observation[-1] = action
         else:
-            observation = torch.cat((state, action.unsqueeze(0)), dim=0)
+            observation = torch.cat((state, action), dim=0)
         return observation
 
     def choose_action(self, observation):
@@ -217,33 +228,46 @@ class rxRNNQNAgent:
         self.target_network.load_state_dict(self.q_network.state_dict())
 
     def store_experience_in(self, state, action, reward, next_state):
-        if len(self.memory) >= MAXIMUM_MEMORY_SIZE:
-            self.memory.pop(0)
+        if self.memory_state.size(0) >= MAXIMUM_MEMORY_SIZE:
+            self.memory_state = self.memory_state[1:]
+            self.memory_action = self.memory_action[1:]
+            self.memory_reward = self.memory_reward[1:]
+            self.memory_next_state = self.memory_next_state[1:]
 
-        self.memory.append((state, action, reward, next_state))
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+        self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
+        self.memory_next_state = torch.cat((self.memory_next_state, next_state.unsqueeze(0)), dim=0)
+
 
     def replay(self):
-        if len(self.memory) >= MEMORY_SIZE_BEFORE_TRAINING:
-            # batch = random.sample(self.memory, self.batch_size)
-
+        if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
             # Selecting a random index and getting the batch from that index onwards
-            index = random.randint(0, len(self.memory)-self.batch_size)
-            batch = self.memory[index:index+self.batch_size]
+            index = random.randint(0, self.memory_state.size(0) - self.batch_size)
+            batch_state = self.memory_state[index:index + self.batch_size]
+            batch_action = self.memory_action[index:index + self.batch_size]
+            batch_reward = self.memory_reward[index:index + self.batch_size]
+            batch_next_state = self.memory_next_state[index:index + self.batch_size]
 
             total_loss = 0
-            for state, action, reward, next_state in batch:
-                pred_action = self.pred_agent.predict_action(state).to(self.device)
+            for i in range(self.batch_size):
+                state = batch_state[i]
+                action = batch_action[i]
+                reward = batch_reward[i]
+                next_state = batch_next_state[i]
+
+                pred_action = self.pred_agent.predict_action(state)
                 state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
 
                 action = action.unsqueeze(0)
                 reward = reward.unsqueeze(0)
 
-                pred_next_action = self.pred_agent.predict_action(next_state).to(self.device)
+                pred_next_action = self.pred_agent.predict_action(next_state)
                 next_state = torch.cat((next_state, pred_next_action), dim=0).unsqueeze(0)
 
                 hidden = self.q_network.init_hidden(1).to(self.device)
                 q_values, _ = self.q_network(state, hidden)
-                q_value = q_values[0][action]
+                q_value = q_values[0][action.long()]
 
                 hidden_next = self.q_network.init_hidden(1).to(self.device)
                 q_values_next, _ = self.q_network(next_state, hidden_next)

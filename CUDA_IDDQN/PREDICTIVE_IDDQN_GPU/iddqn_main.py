@@ -108,7 +108,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
     jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
 
     tx_transmit_channel = torch.tensor([0], device=device)
-    rx_receive_channel = torch.tensor(0, device=device)
+    rx_receive_channel = torch.tensor([0], device=device)
     jammer_channels = [torch.tensor(0, device=device) for _ in jammers]
 
     # Initialize the channel noise for the current (and first) time step
@@ -140,7 +140,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_channels = rx_agent.choose_action(rx_observation)
-        rx_receive_channel = rx_channels[0]
+        rx_receive_channel = rx_channels[0].unsqueeze(0)
         rx_sense_channels = rx_channels[1:]
 
         jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
@@ -193,7 +193,8 @@ def train_dqn(tx_agent, rx_agent, jammers):
                 tx_reward = REWARD_SUCCESSFUL
 
                 # Update the predictive network in the Tx agent
-                tx_agent.pred_agent.store_experience_in(tx_observation, torch.tensor(tx_transmit_channel, device=device))
+                # tx_agent.pred_agent.store_experience_in(tx_observation, torch.tensor(tx_transmit_channel, device=device))
+                tx_agent.pred_agent.store_experience_in(tx_observation, tx_transmit_channel)
             else:
                 tx_reward = REWARD_INTERFERENCE
 

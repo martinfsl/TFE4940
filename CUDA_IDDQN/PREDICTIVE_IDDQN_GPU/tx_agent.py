@@ -84,7 +84,7 @@ class txPredNNAgent:
                 action = batch_action[i]
 
                 pred = self.pred_network(state)
-                loss = nn.CrossEntropyLoss()(pred, action)
+                loss = nn.CrossEntropyLoss()(pred.unsqueeze(0), action.long())
                 total_loss += loss
 
             self.optimizer.zero_grad()
