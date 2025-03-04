@@ -250,6 +250,48 @@ class txRNNQNAgent:
         self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
         self.memory_next_state = torch.cat((self.memory_next_state, next_state.unsqueeze(0)), dim=0)
 
+    # def replay(self):
+    #     if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
+    #         # Selecting a random index and getting the batch from that index onwards
+    #         index = random.randint(0, self.memory_state.size(0) - self.batch_size)
+    #         batch_state = self.memory_state[index:index + self.batch_size]
+    #         batch_action = self.memory_action[index:index + self.batch_size]
+    #         batch_reward = self.memory_reward[index:index + self.batch_size]
+    #         batch_next_state = self.memory_next_state[index:index + self.batch_size]
+
+    #         total_loss = 0
+    #         for i in range(self.batch_size):
+    #             state = batch_state[i]
+    #             action = batch_action[i]
+    #             reward = batch_reward[i]
+    #             next_state = batch_next_state[i]
+
+    #             pred_action = self.pred_agent.predict_action(state)
+    #             state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
+
+    #             action = action.unsqueeze(0)
+    #             reward = reward.unsqueeze(0)
+                
+    #             pred_next_action = self.pred_agent.predict_action(next_state)
+    #             next_state = torch.cat((next_state, pred_next_action), dim=0).unsqueeze(0)
+
+    #             hidden = self.q_network.init_hidden(1).to(self.device)
+    #             q_values, _ = self.q_network(state, hidden)
+    #             q_value = q_values[0][action.long()]
+
+    #             hidden_next = self.q_network.init_hidden(1).to(self.device)
+    #             q_values_next, _ = self.q_network(next_state, hidden_next)
+    #             a_argmax = torch.argmax(q_values_next).detach()
+
+    #             target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
+
+    #             loss = nn.MSELoss()(q_value, target)
+    #             total_loss += loss
+
+    #         self.optimizer.zero_grad()
+    #         total_loss.backward()
+    #         self.optimizer.step()
+
     def replay(self):
         if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
             # Selecting a random index and getting the batch from that index onwards
@@ -259,34 +301,25 @@ class txRNNQNAgent:
             batch_reward = self.memory_reward[index:index + self.batch_size]
             batch_next_state = self.memory_next_state[index:index + self.batch_size]
 
-            total_loss = 0
-            for i in range(self.batch_size):
-                state = batch_state[i]
-                action = batch_action[i]
-                reward = batch_reward[i]
-                next_state = batch_next_state[i]
+            pred_actions = self.pred_agent.predict_action(batch_state)
+            pred_next_actions = self.pred_agent.predict_action(batch_next_state)
 
-                pred_action = self.pred_agent.predict_action(state)
-                state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
+            batch_state = torch.cat((batch_state, pred_actions), dim=1)
+            batch_next_state = torch.cat((batch_next_state, pred_next_actions), dim=1)
 
-                action = action.unsqueeze(0)
-                reward = reward.unsqueeze(0)
-                
-                pred_next_action = self.pred_agent.predict_action(next_state)
-                next_state = torch.cat((next_state, pred_next_action), dim=0).unsqueeze(0)
+            hidden = self.q_network.init_hidden(self.batch_size).to(self.device)
 
-                hidden = self.q_network.init_hidden(1).to(self.device)
-                q_values, _ = self.q_network(state, hidden)
-                q_value = q_values[0][action.long()]
+            q_values, _ = self.q_network(batch_state, hidden)
+            q_value = q_values.gather(1, batch_action.unsqueeze(1).long()).squeeze(1)
 
-                hidden_next = self.q_network.init_hidden(1).to(self.device)
-                q_values_next, _ = self.q_network(next_state, hidden_next)
-                a_argmax = torch.argmax(q_values_next).detach()
+            hidden_next = self.q_network.init_hidden(self.batch_size).to(self.device)
+            q_values_next, _ = self.q_network(batch_next_state, hidden_next)
+            a_argmax = q_values_next.argmax(dim=1)
 
-                target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
+            target_values, _ = self.target_network(batch_next_state, hidden_next)
+            target = batch_reward + self.gamma*target_values.gather(1, a_argmax.unsqueeze(1)).squeeze(1).detach()
 
-                loss = nn.MSELoss()(q_value, target)
-                total_loss += loss
+            loss = nn.MSELoss()(q_value, target)
 
             self.optimizer.zero_grad()
             total_loss.backward()
