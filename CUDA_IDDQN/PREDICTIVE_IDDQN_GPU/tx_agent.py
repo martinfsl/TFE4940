@@ -244,12 +244,24 @@ class txRNNQNAgent:
             batch_reward = self.memory_reward[index:index + self.batch_size]
             batch_next_state = self.memory_next_state[index:index + self.batch_size]
 
+            print("index device: ", index.device)
+            print("batch_state device: ", batch_state.device)
+            print("batch_action device: ", batch_action.device)
+            print("batch_reward device: ", batch_reward.device)
+            print("batch_next_state device: ", batch_next_state.device)
+
             total_loss = 0
             for i in range(self.batch_size):
                 state = batch_state[i]
                 action = batch_action[i]
                 reward = batch_reward[i]
                 next_state = batch_next_state[i]
+
+                if i == 0:
+                    print("state device: ", state.device)
+                    print("action device: ", action.device)
+                    print("reward device: ", reward.device)
+                    print("next_state device: ", next_state.device)
 
                 pred_action = self.pred_agent.predict_action(state)
                 state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
