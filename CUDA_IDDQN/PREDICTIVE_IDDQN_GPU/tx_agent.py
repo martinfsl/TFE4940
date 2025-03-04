@@ -100,7 +100,7 @@ class txPredNNAgent:
 #################################################################################
 
 class txRNNQN(nn.Module):
-    def __init__(self):
+    def __init__(self, device = "cpu"):
         super(txRNNQN, self).__init__()
 
         # self.input_size = NUM_SENSE_CHANNELS + 1
@@ -110,10 +110,10 @@ class txRNNQN(nn.Module):
         self.num_channels = NUM_CHANNELS
 
         # Defining the RNN layer (using LSTM)
-        self.rnn = nn.GRU(self.input_size, self.hidden_size, self.num_layers, batch_first=True)
+        self.rnn = nn.GRU(self.input_size, self.hidden_size, self.num_layers, batch_first=True, device=device)
 
         # Fully connected layer to output Q-values for each action
-        self.fc = nn.Linear(self.hidden_size, self.num_channels)
+        self.fc = nn.Linear(self.hidden_size, self.num_channels, device=device)
 
     def init_hidden(self, batch_size):
         return torch.zeros(self.num_layers, batch_size, self.hidden_size)
@@ -152,9 +152,9 @@ class txRNNQNAgent:
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_next_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
 
-        self.q_network = txRNNQN()
+        self.q_network = txRNNQN(device=self.device)
         self.q_network.to(self.device) # Moving Q-network to device (CUDA or CPU)
-        self.target_network = txRNNQN()
+        self.target_network = txRNNQN(device=self.device)
         self.target_network.to(self.device) # Moving target network to device (CUDA or CPU)
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
 
