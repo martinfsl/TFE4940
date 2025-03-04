@@ -98,11 +98,8 @@ class txPredNNAgent:
             batch_state = self.memory_state[indices]
             batch_action = self.memory_action[indices]
 
-            print("batch_state device: ", batch_state.device)
-            print("batch_action device: ", batch_action.device)
-
             pred = self.pred_network(batch_state)
-            loss = nn.CrossEntropyLoss()(pred, batch_action.long())
+            loss = nn.CrossEntropyLoss()(pred, batch_action.long().squeeze())
 
             self.optimizer.zero_grad()
             loss.backward()

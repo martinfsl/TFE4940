@@ -363,10 +363,8 @@ def train_dqn(tx_agent, rx_agent, jammers):
             t4_replay = time.perf_counter()
             print(f"Time taken to train predictive network for Tx (t3_replay - t4_replay): {t4_replay-t3_replay}")
         if torch.cuda.is_available():
-            print("Training in parallel")
             rx_agent.pred_agent.train_parallel()
         else:
-            print("Training in serial")
             rx_agent.pred_agent.train()
         if episode == 200 or episode == 400:
             if torch.cuda.is_available():

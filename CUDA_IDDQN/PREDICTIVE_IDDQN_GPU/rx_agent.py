@@ -102,7 +102,8 @@ class rxPredNNAgent:
             batch_action = self.memory_action[indices]
 
             pred = self.pred_network(batch_state)
-            loss = nn.CrossEntropyLoss()(pred, batch_action.long())
+
+            loss = nn.CrossEntropyLoss()(pred, batch_action.long().squeeze())
 
             self.optimizer.zero_grad()
             loss.backward()
