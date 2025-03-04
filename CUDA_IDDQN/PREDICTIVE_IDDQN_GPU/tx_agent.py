@@ -244,7 +244,6 @@ class txRNNQNAgent:
             batch_reward = self.memory_reward[index:index + self.batch_size]
             batch_next_state = self.memory_next_state[index:index + self.batch_size]
 
-            print("index device: ", index.device)
             print("batch_state device: ", batch_state.device)
             print("batch_action device: ", batch_action.device)
             print("batch_reward device: ", batch_reward.device)
