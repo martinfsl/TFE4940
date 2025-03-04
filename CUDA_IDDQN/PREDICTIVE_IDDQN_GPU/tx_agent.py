@@ -91,8 +91,26 @@ class txPredNNAgent:
             total_loss.backward()
             self.optimizer.step()
 
+    def train_parallel(self):
+        if self.memory_state.size(0) >= self.batch_size:
+            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
+
+            batch_state = self.memory_state[indices]
+            batch_action = self.memory_action[indices]
+
+            print("batch_state device: ", batch_state.device)
+            print("batch_action device: ", batch_action.device)
+
+            pred = self.pred_network(batch_state)
+            loss = nn.CrossEntropyLoss()(pred, batch_action.long())
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
     def predict_action(self, observation):
-        pred = self.pred_network(observation)
+        with torch.no_grad():
+            pred = self.pred_network(observation)
         return nn.Softmax(dim=0)(pred)
 
 #################################################################################

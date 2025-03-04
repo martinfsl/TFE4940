@@ -353,13 +353,19 @@ def train_dqn(tx_agent, rx_agent, jammers):
             t3_replay = time.perf_counter()
             print(f"Time taken to replay for Rx (t2_replay - t3_replay): {t3_replay-t2_replay}")
 
-        tx_agent.pred_agent.train()
+        if torch.cuda.is_available():
+            tx_agent.pred_agent.train_parallel()
+        else:
+            tx_agent.pred_agent.train()
         if episode == 200 or episode == 400:
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             t4_replay = time.perf_counter()
             print(f"Time taken to train predictive network for Tx (t3_replay - t4_replay): {t4_replay-t3_replay}")
-        rx_agent.pred_agent.train()
+        if torch.cuda.is_available():
+            rx_agent.pred_agent.train_parallel()
+        else:
+            rx_agent.pred_agent.train()
         if episode == 200 or episode == 400:
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
