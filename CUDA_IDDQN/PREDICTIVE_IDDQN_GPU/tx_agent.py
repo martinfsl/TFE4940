@@ -63,6 +63,7 @@ class txPredNNAgent:
         self.pred_network = txPredNN()
         self.pred_network.to(self.device)
         self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
+        print("Pred NN optimizer device: ", self.optimizer.defaults['device'])
 
     def store_experience_in(self, state, action):
         if self.memory_state.size(0) >= self.maximum_memory_size:
