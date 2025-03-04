@@ -228,7 +228,7 @@ class jammerFNNDDQNAgent:
                 total_loss += loss
 
             self.optimizer.zero_grad()
-            loss.backward()
+            total_loss.backward()
             self.optimizer.step()
 
 #################################################################################
