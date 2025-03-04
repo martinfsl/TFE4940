@@ -20,6 +20,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.profiler
+import time
 
 from tx_agent import txRNNQN, txRNNQNAgent
 from rx_agent import rxRNNQN, rxRNNQNAgent
@@ -137,16 +138,36 @@ def train_dqn(tx_agent, rx_agent, jammers):
         if episode == 200:
             prof.start()
 
+        if episode == 200:
+            start = time.perf_counter()
+
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t1 = time.perf_counter()
+
         # The agents chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
         tx_channels = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
         tx_sense_channels = tx_channels[1:]
 
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t2 = time.perf_counter()
+            print(f"Time taken to choose action for Tx (t1 - t2): {t2-t1}")
+
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_channels = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0].unsqueeze(0)
         rx_sense_channels = rx_channels[1:]
+
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t3 = time.perf_counter()
+            print(f"Time taken to choose action for Rx (t2 - t3): {t3-t2}")
 
         if IS_SMART_JAMMER:
             jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
@@ -156,6 +177,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
             jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
             jammer_observations[i] = jammer_observation
             jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
+
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t4 = time.perf_counter()
+            print(f"Time taken to choose action for Jammer (t3 - t4): {t4-t3}")
 
         # Set a new channel noise for the next state
         tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -167,6 +194,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
             if jammer.behavior == "smart":
                 jammer.observed_noise = noise.clone()
 
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t5 = time.perf_counter()
+            print(f"Time taken to generate noise (t4 - t5): {t5-t4}")
+
         # Add the power of the jammers to the channel noise for Tx and Rx
         # Add the power from the Tx to the jammers as well
         for i in range(len(jammers)):
@@ -174,6 +207,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
             rx_channel_noise[jammer_channels[i]] += jammers[i].get_transmit_power(direction = "receiver")
             jammers[i].observed_tx_power = tx_agent.get_transmit_power(direction = "jammer")
             jammer_channel_noises[i][tx_transmit_channel] += jammers[i].observed_tx_power
+
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t6 = time.perf_counter()
+            print(f"Time taken to add power from jammers (t5 - t6): {t6-t5}")
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
@@ -188,6 +227,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
         for i in range(len(jammers)):
             jammer_next_states[i] = jammer_channel_noises[i].clone()
             jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
+
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t7 = time.perf_counter()
+            print(f"Time taken to get next state (t6 - t7): {t7-t6}")
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
@@ -239,6 +284,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
                 else:
                     jammers[i].observed_reward = REWARD_UNSUCCESSFUL
 
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t8 = time.perf_counter()
+            print(f"Time taken to calculate reward (t7 - t8): {t8-t7}")
+
         if episode == 0:
             tx_accumulated_rewards.append(tx_reward)
             tx_average_rewards.append(tx_reward)
@@ -262,6 +313,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
                     jammer_accumulated_rewards.append(jammer_accumulated_rewards[-1] + jammers[i].observed_reward)
                     jammer_average_rewards.append(jammer_accumulated_rewards[-1]/len(jammer_accumulated_rewards))
 
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t9 = time.perf_counter()
+            print(f"Time taken to append rewards (t8 - t9): {t9-t8}")
+
         # Store the experience in the agent's memory
         # Replay the agent's memory
         tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
@@ -271,14 +328,60 @@ def train_dqn(tx_agent, rx_agent, jammers):
             if jammers[i].behavior == "smart":
                 jammers[i].agent.store_experience_in(jammer_observations[i], jammer_channels[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
 
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t10 = time.perf_counter()
+            print(f"Time taken to store experience (t9 - t10): {t10-t9}")
+
+        if episode == 200:
+            start_replay = time.perf_counter()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t1_replay = time.perf_counter()
+
         tx_agent.replay()
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t2_replay = time.perf_counter()
+            print(f"Time taken to replay for Tx (t1_replay - t2_replay): {t2_replay-t1_replay}")
         rx_agent.replay()
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t3_replay = time.perf_counter()
+            print(f"Time taken to replay for Rx (t2_replay - t3_replay): {t3_replay-t2_replay}")
 
         tx_agent.pred_agent.train()
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t4_replay = time.perf_counter()
+            print(f"Time taken to train predictive network for Tx (t3_replay - t4_replay): {t4_replay-t3_replay}")
         rx_agent.pred_agent.train()
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t5_replay = time.perf_counter()
+            print(f"Time taken to train predictive network for Rx (t4_replay - t5_replay): {t5_replay-t4_replay}")
 
         for i in range(len(jammers)):
             jammers[i].agent.replay()
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t6_replay = time.perf_counter()
+            print(f"Time taken to replay for Jammer (t5_replay - t6_replay): {t6_replay-t5_replay}")
+
+            stop_replay = time.perf_counter()
+            print(f"Time taken to replay (start_replay - stop_replay): {stop_replay-start_replay}")
+
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t11 = time.perf_counter()
+            print(f"Time taken to replay (t10 - t11): {t11-t10}")
 
         # Periodic update of the target Q-network
         if episode % 10 == 0:
@@ -288,6 +391,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
                 if jammers[i].behavior == "smart":
                     jammers[i].agent.update_target_q_network()
 
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t12 = time.perf_counter()
+            print(f"Time taken to update target network (t11 - t12): {t12-t11}")
+
         tx_state = tx_next_state.clone()
         rx_state = rx_next_state.clone()
         for i in range(len(jammers)):
@@ -295,6 +404,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         if episode == 200:
             prof.step()
+
+        if episode == 200:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            end = time.perf_counter()
+            print(f"Time taken to complete episode: {end-start}")
 
     print("Training complete")
 
