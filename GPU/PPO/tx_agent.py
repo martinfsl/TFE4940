@@ -10,16 +10,16 @@ import copy
 from constants import *
 
 #################################################################################
-### Defining classes for the model predicting Tx's action at the Rx
+### Defining classes for the model predicting Rx's action at the Tx
 #################################################################################
 
-# Create a class for the neural network that predicts the Tx's action at the Rx
-# The input to the neural network is the current observation at the Rx and the output is the predicted Tx's action
+# Create a class for the neural network that predicts the Rx's action at the Tx
+# The input to the neural network is the current observation at the Tx and the output is the predicted Rx's action
 # The neural network is made up off 2 fully connected layers with ReLU activation functions
-# The neural network has a dropout rate of 30% to prevent overfitting
-class rxPredNN(nn.Module):
+# The neural network has a dropout rate of 30%
+class txPredNN(nn.Module):
     def __init__(self):
-        super(rxPredNN, self).__init__()
+        super(txPredNN, self).__init__()
 
         self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
@@ -42,12 +42,12 @@ class rxPredNN(nn.Module):
 
         return x
     
-# Create a class for the agent that uses the neural network to predict the Tx's action at the Rx
+# Create a class for the agent that uses the neural network to predict the Rx's action at the Tx
 # The agent has a memory to store experiences
 # The agent uses the Adam optimizer to train the neural network
 # The agent uses the cross entropy loss function to train the neural network
-# The output of the neural network is the predicted Tx's action using a softmax function
-class rxPredNNAgent:
+# The output of the neural network is the predicted Rx's action using a softmax function
+class txPredNNAgent:
     def __init__(self, device = "cpu"):
         self.learning_rate = 0.01
 
@@ -60,11 +60,10 @@ class rxPredNNAgent:
         self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
-        self.pred_network = rxPredNN()
+        self.pred_network = txPredNN()
         self.pred_network.to(self.device)
         self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
 
-    # Function to store experiences in the memory
     def store_experience_in(self, state, action):
         if self.memory_state.size(0) >= self.maximum_memory_size:
             self.memory_state = self.memory_state[1:]
@@ -81,14 +80,12 @@ class rxPredNNAgent:
             batch_action = self.memory_action[indices]
 
             pred = self.pred_network(batch_state)
-
             loss = nn.CrossEntropyLoss()(pred, batch_action.long().squeeze())
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-    # Function to predict the Tx's action at the Rx
     def predict_action(self, observation):
         with torch.no_grad():
             pred = self.pred_network(observation)
@@ -98,9 +95,9 @@ class rxPredNNAgent:
 ### Defining classes RNNQN and RNNQN-agent
 #################################################################################
 
-class rxRNNQN(nn.Module):
+class txPPO(nn.Module):
     def __init__(self, device = "cpu"):
-        super(rxRNNQN, self).__init__()
+        super(txPPO, self).__init__()
 
         self.device = device
 
@@ -131,7 +128,7 @@ class rxRNNQN(nn.Module):
 
         return q_values, hidden
 
-class rxRNNQNAgent:
+class txPPOAgent:
     def __init__(self, gamma = GAMMA, epsilon = EPSILON, device = "cpu"):
         self.gamma = gamma
         self.epsilon = epsilon
@@ -139,41 +136,41 @@ class rxRNNQNAgent:
         self.learning_rate = LEARNING_RATE
 
         # Power
-        self.power = RX_USER_TRANSMIT_POWER
-        self.h_rt_variance = H_TR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to receiver
-        self.h_rj_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to jammer
+        self.power = TX_USER_TRANSMIT_POWER
+        self.h_tr_variance = H_TR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to receiver
+        self.h_tj_variance = H_JT_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to jammer
 
         # For CUDA
         self.device = device
 
         # Parameters for the RNN network A
-        self.batch_size = DQN_BATCH_SIZE
+        self.batch_size = BATCH_SIZE
         self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_next_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
 
-        self.q_network = rxRNNQN(device=self.device)
+        self.q_network = txPPO(device=self.device)
         self.q_network.to(self.device) # Moving Q-network to device (CUDA or CPU)
-        self.target_network = rxRNNQN(device=self.device)
+        self.target_network = txPPO(device=self.device)
         self.target_network.to(self.device) # Moving target network to device (CUDA or CPU)
         self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
 
         # Predictive network
-        self.pred_agent = rxPredNNAgent(device=self.device)
+        self.pred_agent = txPredNNAgent(device=self.device)
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
-            if direction == "transmitter":
-                h = np.abs(np.random.normal(0, self.h_rt_variance, 1) + 1j*np.random.normal(0, self.h_rt_variance, 1))
+            if direction == "receiver":
+                h = np.abs(np.random.normal(0, self.h_tr_variance, 1) + 1j*np.random.normal(0, self.h_tr_variance, 1))
             elif direction == "jammer":
-                h = np.abs(np.random.normal(0, self.h_rj_variance, 1) + 1j*np.random.normal(0, self.h_rj_variance, 1))
+                h = np.abs(np.random.normal(0, self.h_tj_variance, 1) + 1j*np.random.normal(0, self.h_tj_variance, 1))
             received_power = (h*self.power)[0]
         else:
             received_power = self.power
 
         return torch.tensor(received_power, device=self.device)
-
+    
     def get_observation(self, state, action):
         if NUM_SENSE_CHANNELS < NUM_CHANNELS:
             # Create a tensor of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
@@ -189,7 +186,7 @@ class rxRNNQNAgent:
         else:
             observation = torch.cat((state, action), dim=0)
         return observation
-
+    
     def choose_action(self, observation):
         if random.uniform(0, 1) < self.epsilon:
             if self.epsilon > EPSILON_MIN:
@@ -203,7 +200,7 @@ class rxRNNQNAgent:
             actions = torch.cat((torch.tensor([main_action], device=self.device), extra_actions))
             return actions
         else:
-            # Add the predicted action of Tx to the observation
+            # Add the predicted action of Rx to the observation
             with torch.no_grad():
                 pred_action = self.pred_agent.predict_action(observation)
             
@@ -212,7 +209,7 @@ class rxRNNQNAgent:
             with torch.no_grad():
                 hidden = self.q_network.init_hidden(1).to(self.device)
                 q_values, _ = self.q_network(observation, hidden)
-
+            
             main_action = torch.argmax(q_values).detach()
             _, extra_actions = torch.topk(q_values, NUM_EXTRA_ACTIONS + 1)
             extra_actions = extra_actions.squeeze()
@@ -236,7 +233,6 @@ class rxRNNQNAgent:
         self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
         self.memory_next_state = torch.cat((self.memory_next_state, next_state.unsqueeze(0)), dim=0)
 
-
     def replay(self):
         if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
             # Selecting a random index and getting the batch from that index onwards
@@ -258,7 +254,7 @@ class rxRNNQNAgent:
 
                 action = action.unsqueeze(0)
                 reward = reward.unsqueeze(0)
-
+                
                 pred_next_action = self.pred_agent.predict_action(next_state)
                 next_state = torch.cat((next_state, pred_next_action), dim=0).unsqueeze(0)
 
