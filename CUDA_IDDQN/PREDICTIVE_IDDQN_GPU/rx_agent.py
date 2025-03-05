@@ -73,28 +73,7 @@ class rxPredNNAgent:
         self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
         self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
 
-
-    # Function to train the neural network
     def train(self):
-        if self.memory_state.size(0) >= self.batch_size:
-            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
-            batch_state = self.memory_state[indices]
-            batch_action = self.memory_action[indices]
-
-            total_loss = 0
-            for i in range(self.batch_size):
-                state = batch_state[i]
-                action = batch_action[i]
-
-                pred = self.pred_network(state)
-                loss = nn.CrossEntropyLoss()(pred.unsqueeze(0), action.long())
-                total_loss += loss
-                
-            self.optimizer.zero_grad()
-            total_loss.backward()
-            self.optimizer.step()
-
-    def train_parallel(self):
         if self.memory_state.size(0) >= self.batch_size:
             indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
 

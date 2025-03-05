@@ -75,25 +75,6 @@ class txPredNNAgent:
     def train(self):
         if self.memory_state.size(0) >= self.batch_size:
             indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
-            batch_state = self.memory_state[indices]
-            batch_action = self.memory_action[indices]
-
-            total_loss = 0
-            for i in range(self.batch_size):
-                state = batch_state[i]
-                action = batch_action[i]
-
-                pred = self.pred_network(state)
-                loss = nn.CrossEntropyLoss()(pred.unsqueeze(0), action.long())
-                total_loss += loss
-
-            self.optimizer.zero_grad()
-            total_loss.backward()
-            self.optimizer.step()
-
-    def train_parallel(self):
-        if self.memory_state.size(0) >= self.batch_size:
-            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
 
             batch_state = self.memory_state[indices]
             batch_action = self.memory_action[indices]
@@ -293,42 +274,3 @@ class txRNNQNAgent:
             self.optimizer.zero_grad()
             total_loss.backward()
             self.optimizer.step()
-
-    # def replay(self):
-    #     if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
-    #         # Selecting a random index and getting the batch from that index onwards
-    #         index = random.randint(0, self.memory_state.size(0) - self.batch_size)
-    #         batch_state = self.memory_state[index:index + self.batch_size]
-    #         batch_action = self.memory_action[index:index + self.batch_size]
-    #         batch_reward = self.memory_reward[index:index + self.batch_size]
-    #         batch_next_state = self.memory_next_state[index:index + self.batch_size]
-
-    #         pred_actions = self.pred_agent.predict_action(batch_state)
-    #         pred_next_actions = self.pred_agent.predict_action(batch_next_state)
-
-    #         batch_state = torch.cat((batch_state, pred_actions), dim=1).unsqueeze(0)
-    #         batch_next_state = torch.cat((batch_next_state, pred_actions), dim=1).unsqueeze(0)
-
-    #         hidden = self.q_network.init_hidden(self.batch_size).to(self.device)
-    #         q_values, _ = self.q_network(batch_state, hidden)
-    #         q_values = q_values.squeeze(1)
-
-    #         q_value = q_values.gather(1, batch_action.unsqueeze(1).long()).squeeze(1)
-
-    #         hidden_next = self.q_network.init_hidden(self.batch_size).to(self.device)
-    #         q_values_next, _ = self.q_network(batch_next_state, hidden_next)
-    #         q_values_next = q_values_next.squeeze(1)
-            
-    #         a_argmax = q_values_next.argmax(dim=1)
-
-    #         target_values, _ = self.target_network(batch_next_state, hidden_next)
-    #         target_values = target_values.squeeze(1)
-    #         target_value = target_values.gather(1, a_argmax.unsqueeze(1)).squeeze(1)
-
-    #         target = batch_reward + self.gamma*target_value.detach()
-
-    #         loss = nn.MSELoss()(q_value, target)
-
-    #         self.optimizer.zero_grad()
-    #         loss.backward()
-    #         self.optimizer.step()
