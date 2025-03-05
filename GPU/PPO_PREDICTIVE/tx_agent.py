@@ -95,56 +95,101 @@ class txPredNNAgent:
 ### Defining classes RNNQN and RNNQN-agent
 #################################################################################
 
-class txPPO(nn.Module):
-    def __init__(self, device="cpu"):
-        super(txPPO, self).__init__()
+class txPPOActor(nn.Module):
+    def __init__(self, device = "cpu"):
+        super(txPPOActor, self).__init__()
         self.device = device
 
-        # Input includes original observation + predicted action
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
+        self.output_size = NUM_CHANNELS
+
+        # Defining the fully connected layers
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
+        self.dropout1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.dropout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.dropout1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.dropout2(x)
+        x = self.fc3(x)
+
+        return x
+    
+class txPPOCritic(nn.Module):
+    def __init__(self, device = "cpu"):
+        super(txPPOCritic, self).__init__()
+        self.device = device
+
         self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
-        self.hidden_size = 128
-        self.num_layers = 2
-        self.num_channels = NUM_CHANNELS
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
+        self.output_size = 1
 
-        # Using an RNN (GRU) to process the observation sequence.
-        self.rnn = nn.GRU(self.input_size, self.hidden_size, self.num_layers, batch_first=True, device=self.device)
-        
-        # Two output heads: one for policy logits and one for value prediction.
-        self.fc_policy = nn.Linear(self.hidden_size, self.num_channels, device=self.device)
-        self.fc_value = nn.Linear(self.hidden_size, 1, device=self.device)
+        # Defining the fully connected layers
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
+        self.dropout1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.dropout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
-    def init_hidden(self, batch_size):
-        return torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device)
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.dropout1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.dropout2(x)
+        x = self.fc3(x)
 
-    def forward(self, x, hidden=None):
-        # x is assumed to be of shape [batch, input_size]
-        out, hidden = self.rnn(x.unsqueeze(0), hidden)
-        out = out[:, -1, :]  # Use final output
-        policy_logits = self.fc_policy(out)
-        value = self.fc_value(out)
-        return policy_logits, value, hidden
+        return x
+
 
 class txPPOAgent:
-    def __init__(self, gamma=GAMMA, device="cpu"):
+    def __init__(self, gamma=GAMMA, learning_rate = LEARNING_RATE, device = "cpu"):
         self.gamma = gamma
-        self.learning_rate = LEARNING_RATE
+        self.learning_rate = learning_rate
 
         self.device = device
 
         # PPO on-policy storage (use lists to store one episode/trajectory)
-        self.memory_state = []
-        self.memory_action = []
-        self.memory_reward = []
-        self.memory_logprob = []
-        self.memory_value = []
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_logprob = torch.empty((0, 1), device=self.device)
+        self.memory_reward = torch.empty((0, 1), device=self.device)
+        self.memory_value = torch.empty((0, 1), device=self.device)
+        self.T = 1
 
-        # Policy network (actor-critic). No target network is needed.
-        self.policy_network = txPPO(device=self.device)
-        self.policy_network.to(self.device)
-        self.optimizer = optim.Adam(self.policy_network.parameters(), lr=self.learning_rate)
+        # Policy network (Actor network)
+        self.actor_network = txPPOActor(device=self.device)
+        self.actor_network.to(self.device)
+        self.optimizerActor = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
+
+        # Value network (Critic network)
+        self.critic_network = txPPOCritic(device=self.device)
+        self.critic_network.to(self.device)
+        self.optimizerCritic = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
 
         # Predictive network remains unchanged.
         self.pred_agent = txPredNNAgent(device=self.device)
+
+    def clear_memory(self):
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_logprob = torch.empty((0, 1), device=self.device)
+        self.memory_reward = torch.empty((0, 1), device=self.device)
+        self.memory_value = torch.empty((0, 1), device=self.device)
+
+    def store_in_memory(self, state, action, logprob, reward, value):
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+        self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0)), dim=0)
+        self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
+        self.memory_value = torch.cat((self.memory_value, value.unsqueeze(0)), dim=0)
 
     def get_observation(self, state, action):
         # Same as before: create observation by concatenating state and action data.
@@ -160,75 +205,74 @@ class txPPOAgent:
         return observation
 
     def choose_action(self, observation):
-        # Append the predicted action from the predictive network.
+        # # Get the predicted action from the predictive network
+        # with torch.no_grad():
+        #     pred_action = self.pred_agent.predict_action(observation)
+        # # Concatenate original observation and predicted action.
+        # observation = torch.concat((observation, pred_action)).unsqueeze(0)
+
         with torch.no_grad():
-            pred_action = self.pred_agent.predict_action(observation)
-        # Concatenate original observation and predicted action.
-        obs_input = torch.cat((observation, pred_action)).unsqueeze(0)  # shape: [1, input_size]
-        hidden = self.policy_network.init_hidden(1)
-        policy_logits, value, _ = self.policy_network(obs_input, hidden)
-        policy_probs = nn.Softmax(dim=-1)(policy_logits)
-        dist = torch.distributions.Categorical(policy_probs)
-        action = dist.sample()
+            policy = nn.Softmax(dim=0)(self.actor_network(observation))
 
-        # Store state, chosen action, log-probability and predicted value for later PPO update.
-        self.memory_state.append(obs_input)
-        self.memory_action.append(action)
-        self.memory_logprob.append(dist.log_prob(action))
-        self.memory_value.append(value)
+        # Extract the most probable action as main action and NUM_EXTRA_ACTIONS additional actions which are the next most probable actions
+        main_action = torch.argmax(policy)
+        additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
 
-        return action
+        actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
 
-    def store_reward(self, reward):
-        self.memory_reward.append(reward)
-
-    def compute_returns_and_advantages(self):
-        # Compute discounted returns.
-        returns = []
+        return actions
+    
+    # Compute the returns for each time step in the trajectory
+    def compute_returns(self):
+        returns = torch.empty((0, 1), device=self.device)
         R = 0
         for r in reversed(self.memory_reward):
             R = r + self.gamma * R
-            returns.insert(0, R)
-        returns = torch.tensor(returns, device=self.device)
-
-        # Convert stored predicted values (critic estimates) to a tensor.
-        values = torch.cat(self.memory_value).squeeze()
-
-        # Compute advantages = (return - value) for simplicity.
+            returns = torch.cat((torch.tensor([R], device=self.device), returns), dim=0)
+        return returns
+    
+    # Compute the advantages for each time step in the trajectory
+    def compute_advantages(self, returns, values):
+        # Simple advantage:
         advantages = returns - values
-        # Optionally normalize advantages.
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
-        return returns, advantages
 
-    def update_policy(self, epochs=4, clip_epsilon=0.2):
-        returns, advantages = self.compute_returns_and_advantages()
-        old_logprobs = torch.stack(self.memory_logprob).detach()
-        # Stack states and actions.
-        states = torch.cat(self.memory_state, dim=0)  # shape: [batch, input_size]
-        actions = torch.tensor(self.memory_action, device=self.device)
+        # # Generalized Advantage Estimation (GAE):
+        # advantages = torch.empty((0, 1), device=self.device)
+        # gae = 0
+        # for i in reversed(range(len(self.memory_reward))):
+        #     delta = self.memory_reward[i] + self.gamma*self.memory_value[i+1] - self.memory_value[i]
+        #     gae = delta + self.gamma*LAMBDA*gae
+        #     advantages = torch.cat((torch.tensor([gae], device=self.device), advantages), dim=0)
+        
+        return advantages
 
-        for _ in range(epochs):
-            hidden = self.policy_network.init_hidden(states.size(0))
-            policy_logits, values, _ = self.policy_network(states, hidden)
-            policy_probs = nn.Softmax(dim=-1)(policy_logits)
-            dist = torch.distributions.Categorical(policy_probs)
-            new_logprobs = dist.log_prob(actions)
-            ratio = torch.exp(new_logprobs - old_logprobs)
+    def update(self):
+        epsilon_clip = 0.2
 
-            surr1 = ratio * advantages
-            surr2 = torch.clamp(ratio, 1 - clip_epsilon, 1 + clip_epsilon) * advantages
-            actor_loss = -torch.min(surr1, surr2).mean()
+        returns = self.compute_returns()
+        advantages = self.compute_advantages(returns, self.memory_value)
 
-            critic_loss = nn.MSELoss()(values.squeeze(), returns)
-            loss = actor_loss + 0.5 * critic_loss
+        values = self.critic_network(self.memory_state)
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+        logits = self.actor_network(self.memory_state)
+        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=0)(logits), 1, self.memory_action.long()))
 
-        # Clear memory after updating.
-        self.memory_state = []
-        self.memory_action = []
-        self.memory_reward = []
-        self.memory_logprob = []
-        self.memory_value = []
+        new_logits = self.actor_network(self.memory_state)
+        new_logprobs = torch.log(torch.gather(nn.Softmax(dim=0)(new_logits), 1, self.memory_action.long()))
+
+        ratio = torch.exp(new_logprobs - old_logprobs)
+
+        surr1 = ratio * advantages
+        surr2 = torch.clamp(ratio, 1 - epsilon_clip, 1 + epsilon_clip) * advantages
+
+        actor_loss = -torch.min(surr1, surr2).mean()
+        critic_loss = nn.MSELoss()(values, returns)
+
+        self.optimizerActor.zero_grad()
+        self.optimizerCritic.zero_grad()
+        actor_loss.backward()
+        critic_loss.backward()
+        self.optimizerActor.step()
+        self.optimizerCritic.step()
+
+        self.clear_memory()

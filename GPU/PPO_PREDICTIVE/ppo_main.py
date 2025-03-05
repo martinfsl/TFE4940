@@ -22,7 +22,7 @@ import torch.optim as optim
 import torch.profiler
 import time
 
-from tx_agent import txPPO, txPPOAgent
+from tx_agent import txPPOAgent
 from rx_agent import rxPPO, rxPPOAgent
 from jammer import Jammer
 
