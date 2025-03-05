@@ -22,8 +22,8 @@ import torch.optim as optim
 import torch.profiler
 import time
 
-from tx_agent import txPPO, txPPOAgent
-from rx_agent import rxPPO, rxPPOAgent
+from tx_agent import txRNNQN, txRNNQNAgent
+from rx_agent import rxRNNQN, rxRNNQNAgent
 from jammer import Jammer
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -43,7 +43,7 @@ print("Device: ", device)
 def received_signal_rx(tx_channel, rx_channel, received_power, channel_noise_receiver):
     sinr = 10*torch.log10(received_power / channel_noise_receiver[rx_channel]) # SINR at the receiver
 
-    return (sinr > SINR_THRESHOLD) and (tx_channel == rx_channel)
+    return (sinr > SINR_THRESHOLD) and (torch.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
 
 def sensed_signal_rx(tx_channel, rx_sense_channels, received_power, channel_noise_receiver):
     sinr = 10*torch.log10(received_power / channel_noise_receiver[tx_channel])
@@ -64,7 +64,7 @@ def sensed_signal_tx(rx_channel, tx_sense_channels, received_power, channel_nois
 def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_transmitter):
     sinr = 10*torch.log10(received_power / channel_noise_transmitter[tx_channel]) # SINR at the receiver
 
-    return (sinr > SINR_THRESHOLD) and (tx_channel == rx_channel)
+    return (sinr > SINR_THRESHOLD) and (torch.abs(tx_channel - rx_channel) <= CHANNEL_OFFSET_THRESHOLD)
 
 def sensed_signal_jammer(jammer_channel, tx_channel, jammer_power, channel_noise_jammer):
     sinr = 10*torch.log10(jammer_power / channel_noise_jammer[jammer_channel]) # SINR at the jammer
@@ -184,7 +184,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
             rx_reward = REWARD_SUCCESSFUL
 
             # Update the predictive network in the Rx agent
-            rx_agent.pred_agent.store_experience_in(rx_observation, torch.tensor(rx_receive_channel, device=device))
+            rx_agent.pred_agent.store_experience_in(rx_observation, rx_receive_channel)
 
             # ACK is received at the transmitter
             if received_signal_tx(tx_transmit_channel, rx_receive_channel, tx_observed_power, tx_channel_noise): # power should be changed to rx_agent later
@@ -447,8 +447,8 @@ if __name__ == '__main__':
 
         print(f"Run: {run+1}")
 
-        tx_agent = txPPOAgent(device=device)
-        rx_agent = rxPPOAgent(device=device)
+        tx_agent = txRNNQNAgent(device=device)
+        rx_agent = rxRNNQNAgent(device=device)
 
         list_of_other_users = []
 
