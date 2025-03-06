@@ -98,7 +98,6 @@ class txPredNNAgent:
 class txPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOActor, self).__init__()
-        self.device = device
 
         # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         self.input_size = NUM_SENSE_CHANNELS + 1
@@ -125,9 +124,9 @@ class txPPOActor(nn.Module):
 class txPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOCritic, self).__init__()
-        self.device = device
 
-        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = 1
@@ -148,11 +147,16 @@ class txPPOCritic(nn.Module):
 
         return x
 
-
 class txPPOAgent:
     def __init__(self, gamma=GAMMA, learning_rate = LEARNING_RATE, device = "cpu"):
         self.gamma = gamma
         self.learning_rate = learning_rate
+
+        self.epsilon_clip = 0.2
+
+        self.power = TX_USER_TRANSMIT_POWER
+        self.h_tr_variance = H_TR_VARIANCE
+        self.h_tj_variance = H_JT_VARIANCE
 
         self.device = device
 
@@ -162,15 +166,17 @@ class txPPOAgent:
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
-        self.T = 1
 
         # Policy network (Actor network)
-        self.actor_network = txPPOActor(device=self.device)
+        self.actor_network = txPPOActor()
         self.actor_network.to(self.device)
         self.optimizerActor = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
 
+        self.actor_network_old = copy.deepcopy(self.actor_network).to(self.device)
+        # self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # To update the weights of the old network
+
         # Value network (Critic network)
-        self.critic_network = txPPOCritic(device=self.device)
+        self.critic_network = txPPOCritic()
         self.critic_network.to(self.device)
         self.optimizerCritic = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
 
@@ -187,9 +193,25 @@ class txPPOAgent:
     def store_in_memory(self, state, action, logprob, reward, value):
         self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
         self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
-        self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0)), dim=0)
+        self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0).unsqueeze(0)), dim=0)
         self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
         self.memory_value = torch.cat((self.memory_value, value.unsqueeze(0)), dim=0)
+
+    def get_transmit_power(self, direction):
+        if CONSIDER_FADING:
+            if direction == "receiver":
+                h_real = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
+                h = torch.abs(torch.complex(h_real, h_imag))
+            elif direction == "jammer":
+                h_real = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
+                h = torch.abs(torch.complex(h_real, h_imag))
+            received_power = (h*self.power)[0]
+        else:
+            received_power = self.power
+
+        return torch.tensor(received_power, device=self.device)
 
     def get_observation(self, state, action):
         # Same as before: create observation by concatenating state and action data.
@@ -204,6 +226,9 @@ class txPPOAgent:
             observation = torch.cat((state, action), dim=0)
         return observation
 
+    def get_value(self, observation):
+        return self.critic_network(observation)
+
     def choose_action(self, observation):
         # # Get the predicted action from the predictive network
         # with torch.no_grad():
@@ -213,6 +238,7 @@ class txPPOAgent:
 
         with torch.no_grad():
             policy = nn.Softmax(dim=0)(self.actor_network(observation))
+            values = self.get_value(observation)
 
         # Extract the most probable action as main action and NUM_EXTRA_ACTIONS additional actions which are the next most probable actions
         main_action = torch.argmax(policy)
@@ -220,7 +246,7 @@ class txPPOAgent:
 
         actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
 
-        return actions
+        return actions, policy[main_action], values
     
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
@@ -228,7 +254,7 @@ class txPPOAgent:
         R = 0
         for r in reversed(self.memory_reward):
             R = r + self.gamma * R
-            returns = torch.cat((torch.tensor([R], device=self.device), returns), dim=0)
+            returns = torch.cat((R.unsqueeze(0), returns), dim=0)
         return returns
     
     # Compute the advantages for each time step in the trajectory
@@ -247,26 +273,26 @@ class txPPOAgent:
         return advantages
 
     def update(self):
-        epsilon_clip = 0.2
-
         returns = self.compute_returns()
         advantages = self.compute_advantages(returns, self.memory_value)
 
-        values = self.critic_network(self.memory_state)
+        values = self.get_value(self.memory_state)
 
-        logits = self.actor_network(self.memory_state)
-        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=0)(logits), 1, self.memory_action.long()))
+        old_logits = self.actor_network_old(self.memory_state).detach()
+        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
 
         new_logits = self.actor_network(self.memory_state)
-        new_logprobs = torch.log(torch.gather(nn.Softmax(dim=0)(new_logits), 1, self.memory_action.long()))
+        new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, self.memory_action.long()))
 
         ratio = torch.exp(new_logprobs - old_logprobs)
 
         surr1 = ratio * advantages
-        surr2 = torch.clamp(ratio, 1 - epsilon_clip, 1 + epsilon_clip) * advantages
+        surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*advantages
 
         actor_loss = -torch.min(surr1, surr2).mean()
         critic_loss = nn.MSELoss()(values, returns)
+
+        self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
 
         self.optimizerActor.zero_grad()
         self.optimizerCritic.zero_grad()

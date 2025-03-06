@@ -126,12 +126,12 @@ def train_dqn(tx_agent, rx_agent, jammers):
     for episode in tqdm(range(NUM_EPISODES)):
         # The agents chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
-        tx_channels = tx_agent.choose_action(tx_observation)
+        tx_channels, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
         tx_sense_channels = tx_channels[1:]
 
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
-        rx_channels = rx_agent.choose_action(rx_observation)
+        rx_channels, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0].unsqueeze(0)
         rx_sense_channels = rx_channels[1:]
 
@@ -251,15 +251,17 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         # Store the experience in the agent's memory
         # Replay the agent's memory
-        tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
-        rx_agent.store_experience_in(rx_observation, rx_receive_channel, torch.tensor([rx_reward], device=device), rx_next_observation)
+        # tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
+        tx_agent.store_in_memory(tx_observation, tx_transmit_channel, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
+        rx_agent.store_in_memory(rx_observation, rx_receive_channel, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart":
                 jammers[i].agent.store_experience_in(jammer_observations[i], jammer_channels[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
 
-        tx_agent.replay()
-        rx_agent.replay()
+        if (episode+1) % (T+1) == T:
+            tx_agent.update()
+            rx_agent.update()
 
         tx_agent.pred_agent.train()
         rx_agent.pred_agent.train()
@@ -269,7 +271,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         # Periodic update of the target Q-network
         if episode % 10 == 0:
-            tx_agent.update_target_q_network()
+            # tx_agent.update_target_q_network()
             rx_agent.update_target_q_network()
             for i in range(len(jammers)):
                 if jammers[i].behavior == "smart":
@@ -335,7 +337,7 @@ def test_dqn(tx_agent, rx_agent, jammers):
     for run in tqdm(range(NUM_TEST_RUNS)):
         # The agent chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
-        tx_channels = tx_agent.choose_action(tx_observation)
+        tx_channels, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
         # tx_sense_channels = tx_channels[1:]
 
@@ -498,14 +500,6 @@ if __name__ == '__main__':
     if num_runs > 1:
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
-
-    tx_total_params = sum(p.numel() for p in tx_agent.q_network.parameters())
-    tx_total_params = sum(p.numel() for p in tx_agent.target_network.parameters())
-    print(f"Number of parameters in transmitter: {tx_total_params}")
-
-    rx_total_params = sum(p.numel() for p in rx_agent.q_network.parameters())
-    rx_total_params = sum(p.numel() for p in rx_agent.target_network.parameters())
-    print(f"Number of parameters in receiver: {rx_total_params}")
 
     # relative_path = f"Comparison/february_tests/18_02/jammer_tests/{jammer_type}"
     relative_path = f"Comparison/february_tests/pred_vs_non_pred/both_pred/{NUM_EPISODES}_episodes/{jammer_type}_v2"

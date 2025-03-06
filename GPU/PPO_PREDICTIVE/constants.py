@@ -19,6 +19,7 @@ EPSILON_MIN = 0
 EPSILON_MIN_JAMMER = 0.1
 EPSILON_REDUCTION = 0.99
 EPSILON_REDUCTION_JAMMER = 0.999
+T = 5 # Number of steps between each update, i.e. length of the trajectory
 
 # Parameters
 BATCH_SIZE = 2
@@ -35,9 +36,9 @@ REWARD_UNSUCCESSFUL = -1
 
 # Number of episodes for training
 # NUM_EPISODES = 500
-# NUM_EPISODES = 20000
+NUM_EPISODES = 20000
 # NUM_EPISODES = 50000
-NUM_EPISODES = 100000
+# NUM_EPISODES = 100000
 
 # Number of runs for testing
 NUM_TEST_RUNS = 10000

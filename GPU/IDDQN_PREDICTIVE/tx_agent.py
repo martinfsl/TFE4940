@@ -162,9 +162,13 @@ class txRNNQNAgent:
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
             if direction == "receiver":
-                h = np.abs(np.random.normal(0, self.h_tr_variance, 1) + 1j*np.random.normal(0, self.h_tr_variance, 1))
+                h_real = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
+                h = torch.abs(torch.complex(h_real, h_imag))
             elif direction == "jammer":
-                h = np.abs(np.random.normal(0, self.h_tj_variance, 1) + 1j*np.random.normal(0, self.h_tj_variance, 1))
+                h_real = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
+                h = torch.abs(torch.complex(h_real, h_imag))
             received_power = (h*self.power)[0]
         else:
             received_power = self.power

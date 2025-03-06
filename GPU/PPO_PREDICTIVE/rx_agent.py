@@ -98,43 +98,64 @@ class rxPredNNAgent:
 ### Defining classes RNNQN and RNNQN-agent
 #################################################################################
 
-class rxPPO(nn.Module):
+class rxPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
-        super(rxPPO, self).__init__()
+        super(rxPPOActor, self).__init__()
 
-        # self.input_size = NUM_SENSE_CHANNELS + 1
-        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
-        self.hidden_size = 128
-        self.num_layers = 2
-        self.num_channels = NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
+        self.output_size = NUM_CHANNELS
 
-        # Defining the RNN layer (using LSTM)
-        self.rnn = nn.GRU(self.input_size, self.hidden_size, self.num_layers, batch_first=True, device=device)
+        # Defining the fully connected layers
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
+        self.dropout1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.dropout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
-        # Fully connected layer to output Q-values for each action
-        self.fc = nn.Linear(self.hidden_size, self.num_channels, device=device)
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.dropout1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.dropout2(x)
+        x = self.fc3(x)
 
-    def init_hidden(self, batch_size):
-        return torch.zeros(self.num_layers, batch_size, self.hidden_size)
+        return x
+    
+class rxPPOCritic(nn.Module):
+    def __init__(self, device = "cpu"):
+        super(rxPPOCritic, self).__init__()
 
-    def forward(self, x, hidden=None):
-        # Pass the input through the RNN
-        out, hidden = self.rnn(x.unsqueeze(0), hidden)
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
+        self.output_size = 1
 
-        # Use the last hidden state
-        out = out[:, -1, :]
+        # Defining the fully connected layers
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
+        self.dropout1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.dropout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
-        # Pass the last hidden state through the fully connected layer
-        q_values = self.fc(out)
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.dropout1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.dropout2(x)
+        x = self.fc3(x)
 
-        return q_values, hidden
+        return x
 
 class rxPPOAgent:
-    def __init__(self, gamma = GAMMA, epsilon = EPSILON, device = "cpu"):
+    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, device = "cpu"):
         self.gamma = gamma
-        self.epsilon = epsilon
+        self.learning_rate = learning_rate
 
-        self.learning_rate = LEARNING_RATE
+        self.epsilon_clip = 0.2
 
         # Power
         self.power = RX_USER_TRANSMIT_POWER
@@ -144,28 +165,50 @@ class rxPPOAgent:
         # For CUDA
         self.device = device
 
-        # Parameters for the RNN network A
-        self.batch_size = BATCH_SIZE
+        # PPO on-policy storage
         self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
-        self.memory_next_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_value = torch.empty((0, 1), device=self.device)
 
-        self.q_network = rxPPO(device=self.device)
-        self.q_network.to(self.device) # Moving Q-network to device (CUDA or CPU)
-        self.target_network = rxPPO(device=self.device)
-        self.target_network.to(self.device) # Moving target network to device (CUDA or CPU)
-        self.optimizer = optim.Adam(self.q_network.parameters(), lr = self.learning_rate)
+        # Policy network (Actor network)
+        self.actor_network = rxPPOActor()
+        self.actor_network.to(self.device)
+        self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
 
-        # Predictive network
+        # Value network (Critic network)
+        self.critic_network = rxPPOCritic()
+        self.critic_network.to(self.device)
+        self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
+
+        # Predictive network remains unchanged
         self.pred_agent = rxPredNNAgent(device=self.device)
+
+    def clear_memory(self):
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_logprob = torch.empty((0, 1), device=self.device)
+        self.memory_reward = torch.empty((0, 1), device=self.device)
+        self.memory_value = torch.empty((0, 1), device=self.device)
+
+    def store_in_memory(self, state, action, logprob, reward, value):
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+        self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0).unsqueeze(0)), dim=0)
+        self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
+        self.memory_value = torch.cat((self.memory_value, value.unsqueeze(0)), dim=0)
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
             if direction == "transmitter":
-                h = np.abs(np.random.normal(0, self.h_rt_variance, 1) + 1j*np.random.normal(0, self.h_rt_variance, 1))
+                h_real = torch.normal(mean=0.0, std=self.h_rt_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_rt_variance, size=(1,), device=self.device)
+                h = torch.abs(torch.complex(h_real, h_imag))
             elif direction == "jammer":
-                h = np.abs(np.random.normal(0, self.h_rj_variance, 1) + 1j*np.random.normal(0, self.h_rj_variance, 1))
+                h_real = torch.normal(mean=0.0, std=self.h_rj_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_rj_variance, size=(1,), device=self.device)
+                h = torch.abs(torch.complex(h_real, h_imag))
             received_power = (h*self.power)[0]
         else:
             received_power = self.power
@@ -189,90 +232,75 @@ class rxPPOAgent:
         return observation
 
     def choose_action(self, observation):
-        if random.uniform(0, 1) < self.epsilon:
-            if self.epsilon > EPSILON_MIN:
-                self.epsilon *= EPSILON_REDUCTION
-            # Extract one main action and NUM_EXTRA_ACTIONS extra actions
-            # The extra actions should all be unique and not the same as the main action
-            main_action = torch.tensor(random.choice(range(NUM_CHANNELS)), device=self.device)
-            extra_actions = torch.tensor(random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS), device=self.device)
-            while main_action in extra_actions:
-                extra_actions = torch.tensor(random.sample(range(NUM_CHANNELS), NUM_EXTRA_ACTIONS), device=self.device)
-            actions = torch.cat((torch.tensor([main_action], device=self.device), extra_actions))
-            return actions
-        else:
-            # Add the predicted action of Tx to the observation
-            with torch.no_grad():
-                pred_action = self.pred_agent.predict_action(observation)
-            
-            observation = torch.cat((observation, pred_action)).unsqueeze(0)
+        # # Get the predicted action from the predictive network
+        # with torch.no_grad():
+        #     pred_action = self.pred_agent.predict_action(observation)
+        # # Concatenate the observation with the predicted action
+        # observation = torch.cat((observation, pred_action)).unsqueeze(0)
 
-            with torch.no_grad():
-                hidden = self.q_network.init_hidden(1).to(self.device)
-                q_values, _ = self.q_network(observation, hidden)
+        with torch.no_grad():
+            policy = nn.Softmax(dim=0)(self.actor_network(observation))
+            values = self.get_value(observation)
 
-            main_action = torch.argmax(q_values).detach()
-            _, extra_actions = torch.topk(q_values, NUM_EXTRA_ACTIONS + 1)
-            extra_actions = extra_actions.squeeze()
-            extra_actions = extra_actions[extra_actions != main_action]
-            actions = torch.cat((torch.tensor([main_action], device=self.device), extra_actions))
-            return actions
+        # Extract the most probable action as main action and NUM_EXTRA_ACTIONS additional actions which are the next most probable actions
+        main_action = torch.argmax(policy)
+        additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
 
-    # Functions for the RNN network A
-    def update_target_q_network(self):
-        self.target_network.load_state_dict(self.q_network.state_dict())
+        actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
 
-    def store_experience_in(self, state, action, reward, next_state):
-        if self.memory_state.size(0) >= MAXIMUM_MEMORY_SIZE:
-            self.memory_state = self.memory_state[1:]
-            self.memory_action = self.memory_action[1:]
-            self.memory_reward = self.memory_reward[1:]
-            self.memory_next_state = self.memory_next_state[1:]
+        return actions, policy[main_action], values
 
-        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
-        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
-        self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
-        self.memory_next_state = torch.cat((self.memory_next_state, next_state.unsqueeze(0)), dim=0)
+    # Compute the returns for each time step in the trajectory
+    def compute_returns(self):
+        returns = torch.empty((0, 1), device=self.device)
+        R = 0
+        for r in reversed(self.memory_reward):
+            R = r + self.gamma * R
+            returns = torch.cat((R.unsqueeze(0), returns), dim=0)
+        return returns
+    
+    # Compute the advantages for each time step in the trajectory
+    def compute_advantages(self, returns, values):
+        # Simple advantage:
+        advantages = returns - values
 
+        # # Generalized Advantage Estimation (GAE):
+        # advantages = torch.empty((0, 1), device=self.device)
+        # gae = 0
+        # for i in reversed(range(len(self.memory_reward))):
+        #     delta = self.memory_reward[i] + self.gamma*self.memory_value[i+1] - self.memory_value[i]
+        #     gae = delta + self.gamma*LAMBDA*gae
+        #     advantages = torch.cat((torch.tensor([gae], device=self.device), advantages), dim=0)
+        
+        return advantages
+    
+    def update(self):
+        returns = self.compute_returns()
+        advantages = self.compute_advantages(returns, self.memory_value)
 
-    def replay(self):
-        if self.memory_state.size(0) >= MEMORY_SIZE_BEFORE_TRAINING:
-            # Selecting a random index and getting the batch from that index onwards
-            index = random.randint(0, self.memory_state.size(0) - self.batch_size)
-            batch_state = self.memory_state[index:index + self.batch_size]
-            batch_action = self.memory_action[index:index + self.batch_size]
-            batch_reward = self.memory_reward[index:index + self.batch_size]
-            batch_next_state = self.memory_next_state[index:index + self.batch_size]
+        values = self.get_value(self.memory_state)
 
-            total_loss = 0
-            for i in range(self.batch_size):
-                state = batch_state[i]
-                action = batch_action[i]
-                reward = batch_reward[i]
-                next_state = batch_next_state[i]
+        old_logits = self.actor_network_old(self.memory_state).detach()
+        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
 
-                pred_action = self.pred_agent.predict_action(state)
-                state = torch.cat((state, pred_action), dim=0).unsqueeze(0)
+        new_logits = self.actor_network(self.memory_state)
+        new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, self.memory_action.long()))
 
-                action = action.unsqueeze(0)
-                reward = reward.unsqueeze(0)
+        ratio = torch.exp(new_logprobs - old_logprobs)
 
-                pred_next_action = self.pred_agent.predict_action(next_state)
-                next_state = torch.cat((next_state, pred_next_action), dim=0).unsqueeze(0)
+        surr1 = ratio * advantages
+        surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*advantages
 
-                hidden = self.q_network.init_hidden(1).to(self.device)
-                q_values, _ = self.q_network(state, hidden)
-                q_value = q_values[0][action.long()]
+        actor_loss = -torch.min(surr1, surr2).mean()
+        critic_loss = nn.MSELoss()(values, returns)
 
-                hidden_next = self.q_network.init_hidden(1).to(self.device)
-                q_values_next, _ = self.q_network(next_state, hidden_next)
-                a_argmax = torch.argmax(q_values_next).detach()
+        self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
 
-                target = reward + self.gamma*self.target_network(next_state, hidden_next)[0][0][a_argmax].detach()
+        self.optimizerActor.zero_grad()
+        self.optimizerCritic.zero_grad()
+        actor_loss.backward()
+        critic_loss.backward()
+        self.optimizerActor.step()
+        self.optimizerCritic.step()
 
-                loss = nn.MSELoss()(q_value, target)
-                total_loss += loss
-
-            self.optimizer.zero_grad()
-            total_loss.backward()
-            self.optimizer.step()
+        self.clear_memory()
