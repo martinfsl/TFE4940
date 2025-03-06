@@ -23,7 +23,7 @@ import torch.profiler
 import time
 
 from tx_agent import txPPOAgent
-from rx_agent import rxPPO, rxPPOAgent
+from rx_agent import rxPPOAgent
 from jammer import Jammer
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -75,7 +75,7 @@ def sensed_signal_jammer(jammer_channel, tx_channel, jammer_power, channel_noise
 ### Train the DQN, extended state space
 #################################################################################
 
-def train_dqn(tx_agent, rx_agent, jammers):
+def train_ppo(tx_agent, rx_agent, jammers):
     IS_SMART_JAMMER = False
     
     print("Training")
@@ -271,8 +271,6 @@ def train_dqn(tx_agent, rx_agent, jammers):
 
         # Periodic update of the target Q-network
         if episode % 10 == 0:
-            # tx_agent.update_target_q_network()
-            rx_agent.update_target_q_network()
             for i in range(len(jammers)):
                 if jammers[i].behavior == "smart":
                     jammers[i].agent.update_target_q_network()
@@ -290,7 +288,7 @@ def train_dqn(tx_agent, rx_agent, jammers):
 ### Test the DQN, extended state space
 #################################################################################
 
-def test_dqn(tx_agent, rx_agent, jammers):
+def test_ppo(tx_agent, rx_agent, jammers):
     IS_SMART_JAMMER = False
 
     print("Testing")
@@ -337,12 +335,12 @@ def test_dqn(tx_agent, rx_agent, jammers):
     for run in tqdm(range(NUM_TEST_RUNS)):
         # The agent chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
-        tx_channels, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
+        tx_channels, _, _ = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
         # tx_sense_channels = tx_channels[1:]
 
         rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
-        rx_channels = rx_agent.choose_action(rx_observation)
+        rx_channels, _, _ = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0].unsqueeze(0)
         # rx_sense_channels = rx_channels[1:]
 
@@ -478,10 +476,10 @@ if __name__ == '__main__':
         # list_of_other_users.append(smart)
         # jammer_type = "smart_fnn"
 
-        tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_dqn(tx_agent, rx_agent, list_of_other_users)
+        tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
 
-        num_successful_transmissions, prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_dqn(tx_agent, rx_agent, list_of_other_users)
+        num_successful_transmissions, prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_ppo(tx_agent, rx_agent, list_of_other_users)
 
         print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")

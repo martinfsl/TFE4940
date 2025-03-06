@@ -155,6 +155,7 @@ class rxPPOAgent:
         self.gamma = gamma
         self.learning_rate = learning_rate
 
+        self.LAMBDA = 0.95
         self.epsilon_clip = 0.2
 
         # Power
@@ -176,6 +177,8 @@ class rxPPOAgent:
         self.actor_network = rxPPOActor()
         self.actor_network.to(self.device)
         self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
+
+        self.actor_network_old = copy.deepcopy(self.actor_network).to(self.device)
 
         # Value network (Critic network)
         self.critic_network = rxPPOCritic()
@@ -231,6 +234,9 @@ class rxPPOAgent:
             observation = torch.cat((state, action), dim=0)
         return observation
 
+    def get_value(self, observation):
+        return self.critic_network(observation)
+
     def choose_action(self, observation):
         # # Get the predicted action from the predictive network
         # with torch.no_grad():
@@ -261,16 +267,19 @@ class rxPPOAgent:
     
     # Compute the advantages for each time step in the trajectory
     def compute_advantages(self, returns, values):
-        # Simple advantage:
-        advantages = returns - values
+        # # Simple advantage:
+        # advantages = returns - values
 
-        # # Generalized Advantage Estimation (GAE):
-        # advantages = torch.empty((0, 1), device=self.device)
-        # gae = 0
-        # for i in reversed(range(len(self.memory_reward))):
-        #     delta = self.memory_reward[i] + self.gamma*self.memory_value[i+1] - self.memory_value[i]
-        #     gae = delta + self.gamma*LAMBDA*gae
-        #     advantages = torch.cat((torch.tensor([gae], device=self.device), advantages), dim=0)
+        # Generalized Advantage Estimation (GAE):
+        advantages = torch.empty((0, 1), device=self.device)
+        gae = 0
+        for i in reversed(range(len(self.memory_reward))):
+            if i == len(self.memory_reward) - 1:
+                delta = self.memory_reward[i] - self.memory_value[i]
+            else:
+                delta = self.memory_reward[i] + self.gamma*self.memory_value[i+1] - self.memory_value[i]
+            gae = delta + self.gamma*self.LAMBDA*gae
+            advantages = torch.cat((gae.unsqueeze(0), advantages), dim=0)
         
         return advantages
     
@@ -296,11 +305,11 @@ class rxPPOAgent:
 
         self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
 
-        self.optimizerActor.zero_grad()
-        self.optimizerCritic.zero_grad()
+        self.actor_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
         actor_loss.backward()
         critic_loss.backward()
-        self.optimizerActor.step()
-        self.optimizerCritic.step()
+        self.actor_optimizer.step()
+        self.critic_optimizer.step()
 
         self.clear_memory()
