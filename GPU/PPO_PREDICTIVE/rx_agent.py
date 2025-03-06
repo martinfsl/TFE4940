@@ -151,12 +151,12 @@ class rxPPOCritic(nn.Module):
         return x
 
 class rxPPOAgent:
-    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, device = "cpu"):
+    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, device = "cpu"):
         self.gamma = gamma
         self.learning_rate = learning_rate
 
-        self.LAMBDA = 0.95
-        self.epsilon_clip = 0.2
+        self.LAMBDA = lambda_param
+        self.epsilon_clip = epsilon_clip
 
         # Power
         self.power = RX_USER_TRANSMIT_POWER

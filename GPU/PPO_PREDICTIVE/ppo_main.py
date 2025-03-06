@@ -499,15 +499,15 @@ if __name__ == '__main__':
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
 
-    # relative_path = f"Comparison/february_tests/18_02/jammer_tests/{jammer_type}"
-    relative_path = f"Comparison/february_tests/pred_vs_non_pred/both_pred/{NUM_EPISODES}_episodes/{jammer_type}_v2"
+    # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/discount_factor/{str(GAMMA).replace('.', '_')}"
+    relative_path = f"Comparison/february_tests/PPO_parameter_tuning/truncate/{str(LAMBDA).replace('.', '_')}"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
-    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
+    np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
