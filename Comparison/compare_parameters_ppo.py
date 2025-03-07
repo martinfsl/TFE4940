@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 start_path = 'Comparison/february_tests'
 algorithm = 'PPO'
-parameter = 'truncate'
+parameter = 'trajectory_length'
 
 
 symbol = {'learning_rate': 'alpha',
@@ -13,7 +13,8 @@ symbol = {'learning_rate': 'alpha',
           'trajectory_length': 'T',}
 
 parameter_values = {'\gamma': ['0_20', '0_35', '0_50', '0_75', '0_90', '0_95'],
-                    '\lambda': ['0_3', '0_4', '0_5', '0_7', '0_8', '0_95', '1_0']}
+                    '\lambda': ['0_3', '0_4', '0_5', '0_7', '0_8', '0_95', '1_0'],
+                    'T': ['5', '10', '25', '50', '100', '200', '500', '1000']}
 
 param_rewards_tx = []
 param_rewards_rx = []

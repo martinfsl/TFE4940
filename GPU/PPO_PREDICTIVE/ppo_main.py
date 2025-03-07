@@ -125,12 +125,14 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
     for episode in tqdm(range(NUM_EPISODES)):
         # The agents chooses an action based on the current state
-        tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
+        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_transmit_channel)
+        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         tx_channels, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
         tx_sense_channels = tx_channels[1:]
 
-        rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channel)
+        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_channels, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0].unsqueeze(0)
         rx_sense_channels = rx_channels[1:]
@@ -184,7 +186,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_reward = REWARD_SUCCESSFUL
 
             # Update the predictive network in the Rx agent
-            rx_agent.pred_agent.store_experience_in(rx_observation, rx_receive_channel)
+            rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, rx_receive_channel)
 
             # ACK is received at the transmitter
             if received_signal_tx(tx_transmit_channel, rx_receive_channel, tx_observed_power, tx_channel_noise): # power should be changed to rx_agent later
@@ -192,20 +194,20 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
                 # Update the predictive network in the Tx agent
                 # tx_agent.pred_agent.store_experience_in(tx_observation, torch.tensor(tx_transmit_channel, device=device))
-                tx_agent.pred_agent.store_experience_in(tx_observation, tx_transmit_channel)
+                tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, tx_transmit_channel)
             else:
                 tx_reward = REWARD_INTERFERENCE
 
                 tx_sensing = sensed_signal_tx(rx_receive_channel, tx_sense_channels, tx_observed_power, tx_channel_noise)
 
                 if tx_sensing != -1:
-                    tx_agent.pred_agent.store_experience_in(tx_observation, torch.tensor(tx_sensing, device=device))
+                    tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, torch.tensor(tx_sensing, device=device))
         else:
             rx_sensing = sensed_signal_rx(tx_transmit_channel, rx_sense_channels, rx_observed_power, rx_channel_noise)
 
             # Managed to sense the Tx but not receive the signal
             if rx_sensing != -1:
-                rx_agent.pred_agent.store_experience_in(rx_observation, torch.tensor(rx_sensing, device=device))
+                rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, torch.tensor(rx_sensing, device=device))
 
             # if rx_sensing != -1:
             #     print("----------------------------------------")
@@ -334,12 +336,14 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
     for run in tqdm(range(NUM_TEST_RUNS)):
         # The agent chooses an action based on the current state
-        tx_observation = tx_agent.get_observation(tx_state, tx_transmit_channel)
+        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_transmit_channel)
+        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         tx_channels, _, _ = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
         # tx_sense_channels = tx_channels[1:]
 
-        rx_observation = rx_agent.get_observation(rx_state, rx_receive_channel)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channel)
+        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_channels, _, _ = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0].unsqueeze(0)
         # rx_sense_channels = rx_channels[1:]
@@ -500,14 +504,14 @@ if __name__ == '__main__':
         print("Average success rate: ", np.mean(success_rates), "%")
 
     # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/discount_factor/{str(GAMMA).replace('.', '_')}"
-    relative_path = f"Comparison/february_tests/PPO_parameter_tuning/truncate/{str(LAMBDA).replace('.', '_')}"
+    relative_path = f"Comparison/february_tests/PPO_parameter_tuning/trajectory_length/{str(T).replace('.', '_')}"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
-    np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
-    np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+    # np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
+    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
     # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

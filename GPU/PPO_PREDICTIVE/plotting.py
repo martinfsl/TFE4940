@@ -38,7 +38,7 @@ def plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_
     plt.title("Probability of channel selection for Rx during testing")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.suptitle(f"DDQN GRU, {NUM_CHANNELS} channels, 1 {jammer_type}, {BATCH_SIZE} sequence length")
+    plt.suptitle(f"PPO algorithm, {NUM_CHANNELS} channels, 1 {jammer_type}")
     # plt.show()
 
 #################################################################################

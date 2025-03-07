@@ -102,8 +102,8 @@ class rxPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOActor, self).__init__()
 
-        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
-        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
@@ -128,8 +128,8 @@ class rxPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOCritic, self).__init__()
 
-        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
-        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = 1
@@ -167,7 +167,7 @@ class rxPPOAgent:
         self.device = device
 
         # PPO on-policy storage
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
@@ -189,7 +189,7 @@ class rxPPOAgent:
         self.pred_agent = rxPredNNAgent(device=self.device)
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
@@ -232,18 +232,22 @@ class rxPPOAgent:
             observation[-1] = action
         else:
             observation = torch.cat((state, action), dim=0)
+
+        return observation
+    
+    def concat_predicted_action(self, observation):
+        # Get the predicted action from the predictive network
+        with torch.no_grad():
+            pred_action = self.pred_agent.predict_action(observation)
+        # Concatenate original observation and predicted action.
+        observation = torch.concat((observation, pred_action))
+
         return observation
 
     def get_value(self, observation):
         return self.critic_network(observation)
 
     def choose_action(self, observation):
-        # # Get the predicted action from the predictive network
-        # with torch.no_grad():
-        #     pred_action = self.pred_agent.predict_action(observation)
-        # # Concatenate the observation with the predicted action
-        # observation = torch.cat((observation, pred_action)).unsqueeze(0)
-
         with torch.no_grad():
             policy = nn.Softmax(dim=0)(self.actor_network(observation))
             values = self.get_value(observation)
@@ -302,13 +306,15 @@ class rxPPOAgent:
 
         actor_loss = -torch.min(surr1, surr2).mean()
         critic_loss = nn.MSELoss()(values, returns)
+        total_loss = actor_loss + critic_loss
 
         self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
 
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
-        actor_loss.backward()
-        critic_loss.backward()
+        # actor_loss.backward()
+        # critic_loss.backward()
+        total_loss.backward()
         self.actor_optimizer.step()
         self.critic_optimizer.step()
 

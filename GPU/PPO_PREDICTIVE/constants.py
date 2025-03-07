@@ -14,14 +14,14 @@ channel = [0]*NUM_CHANNELS
 # Hyperparameters
 LEARNING_RATE = 0.005
 GAMMA = 0.50
-LAMBDA = 0.30
+LAMBDA = 0.85
 EPSILON_CLIP = 0.2
 EPSILON = 0.3
 EPSILON_MIN = 0
 EPSILON_MIN_JAMMER = 0.1
 EPSILON_REDUCTION = 0.99
 EPSILON_REDUCTION_JAMMER = 0.999
-T = 5 # Number of steps between each update, i.e. length of the trajectory
+T = 25 # Number of steps between each update, i.e. length of the trajectory
 
 # Parameters
 BATCH_SIZE = 2
