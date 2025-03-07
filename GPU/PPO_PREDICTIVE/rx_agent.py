@@ -358,19 +358,23 @@ class rxPPOAgent:
                 batch_advantage = advantages[batch_indices].detach()
 
                 new_logits = self.actor_network(batch_state)
-                new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, batch_action.long()))
+                new_policy = nn.Softmax(dim=1)(new_logits)
+                new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
+
+                new_dist = torch.distributions.Categorical(new_policy)
+                new_entropy = new_dist.entropy().mean()
 
                 ratio = torch.exp(new_logprobs - batch_logprob)
 
                 surr1 = ratio*batch_advantage
                 surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
 
-                actor_loss = -torch.min(surr1, surr2).mean()
+                actor_loss = -torch.min(surr1, surr2).mean() - self.c2*new_entropy
 
                 batch_value = self.get_value(batch_state)
                 critic_loss = nn.MSELoss()(batch_value, batch_return)
                 
-                total_loss = actor_loss + critic_loss
+                total_loss = actor_loss + self.c1*critic_loss
 
                 self.actor_optimizer.zero_grad()
                 self.critic_optimizer.zero_grad()
