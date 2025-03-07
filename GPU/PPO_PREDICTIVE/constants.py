@@ -22,6 +22,8 @@ EPSILON_MIN_JAMMER = 0.1
 EPSILON_REDUCTION = 0.99
 EPSILON_REDUCTION_JAMMER = 0.999
 T = 25 # Number of steps between each update, i.e. length of the trajectory
+M = 10 # Size of mini-batch during training
+K = 10 # Number of epochs
 
 # Parameters
 BATCH_SIZE = 2

@@ -261,12 +261,13 @@ def train_ppo(tx_agent, rx_agent, jammers):
             if jammers[i].behavior == "smart":
                 jammers[i].agent.store_experience_in(jammer_observations[i], jammer_channels[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
 
+        # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
             tx_agent.update()
             rx_agent.update()
 
-        tx_agent.pred_agent.train()
-        rx_agent.pred_agent.train()
+            tx_agent.pred_agent.train()
+            rx_agent.pred_agent.train()
 
         for i in range(len(jammers)):
             jammers[i].agent.replay()
