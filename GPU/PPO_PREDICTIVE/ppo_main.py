@@ -263,8 +263,12 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
-            tx_agent.update()
-            rx_agent.update()
+            # tx_agent.update()
+            # rx_agent.update()
+            # tx_agent.update_epochs_random()
+            # rx_agent.update_epochs_random()
+            tx_agent.update_epochs_sequential()
+            rx_agent.update_epochs_sequential()
 
             tx_agent.pred_agent.train()
             rx_agent.pred_agent.train()

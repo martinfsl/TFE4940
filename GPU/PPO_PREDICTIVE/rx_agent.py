@@ -151,12 +151,17 @@ class rxPPOCritic(nn.Module):
         return x
 
 class rxPPOAgent:
-    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, device = "cpu"):
+    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, 
+                lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, 
+                k = K, m = M, device = "cpu"):
         self.gamma = gamma
         self.learning_rate = learning_rate
 
         self.LAMBDA = lambda_param
         self.epsilon_clip = epsilon_clip
+
+        self.k = k
+        self.m = m
 
         # Power
         self.power = RX_USER_TRANSMIT_POWER
@@ -318,4 +323,100 @@ class rxPPOAgent:
         self.actor_optimizer.step()
         self.critic_optimizer.step()
 
+        self.clear_memory()
+
+    def update_epochs_random(self):
+        returns = self.compute_returns()
+        advantages = self.compute_advantages(returns, self.memory_value)
+
+        values = self.get_value(self.memory_state)
+
+        old_logits = self.actor_network_old(self.memory_state).detach()
+        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
+
+        data_size = self.memory_state.size(0)
+
+        for epoch in range(self.k):
+            indices = torch.randperm(data_size)
+
+            for start in range(0, data_size, self.m):
+                end = start + self.m
+                batch_indices = indices[start:end]
+
+                batch_state = self.memory_state[batch_indices]
+                batch_action = self.memory_action[batch_indices]
+                batch_logprob = self.memory_logprob[batch_indices]
+                batch_return = returns[batch_indices].detach()
+                batch_advantage = advantages[batch_indices].detach()
+
+                new_logits = self.actor_network(batch_state)
+                new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, batch_action.long()))
+
+                ratio = torch.exp(new_logprobs - batch_logprob)
+
+                surr1 = ratio*batch_advantage
+                surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
+
+                actor_loss = -torch.min(surr1, surr2).mean()
+
+                batch_value = self.get_value(batch_state)
+                critic_loss = nn.MSELoss()(batch_value, batch_return)
+                
+                total_loss = actor_loss + critic_loss
+
+                self.actor_optimizer.zero_grad()
+                self.critic_optimizer.zero_grad()
+                # actor_loss.backward()
+                # critic_loss.backward()
+                total_loss.backward()
+                self.actor_optimizer.step()
+                self.critic_optimizer.step()
+            
+        self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
+
+        self.clear_memory()
+
+    def update_epochs_sequential(self):
+        returns = self.compute_returns()
+        advantages = self.compute_advantages(returns, self.memory_value)
+
+        values = self.get_value(self.memory_state)
+
+        old_logits = self.actor_network_old(self.memory_state).detach()
+        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
+
+        data_size = self.memory_state.size(0)
+
+        for epoch in range(self.k):
+            # Instead of shuffling randomly, we process consecutive sequences (episodes) as batches.
+            for start in range(0, data_size, self.m):
+                end = start + self.m
+                batch_state = self.memory_state[start:end]
+                batch_action = self.memory_action[start:end]
+                batch_logprob = self.memory_logprob[start:end]
+                batch_return = returns[start:end].detach()
+                batch_advantage = advantages[start:end].detach()
+
+                new_logits = self.actor_network(batch_state)
+                new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, batch_action.long()))
+
+                ratio = torch.exp(new_logprobs - batch_logprob)
+
+                surr1 = ratio * batch_advantage
+                surr2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * batch_advantage
+
+                actor_loss = -torch.min(surr1, surr2).mean()
+
+                batch_value = self.get_value(batch_state)
+                critic_loss = nn.MSELoss()(batch_value, batch_return)
+
+                total_loss = actor_loss + critic_loss
+
+                self.actor_optimizer.zero_grad()
+                self.critic_optimizer.zero_grad()
+                total_loss.backward()
+                self.actor_optimizer.step()
+                self.critic_optimizer.step()
+
+        self.actor_network_old.load_state_dict(self.actor_network.state_dict())
         self.clear_memory()
