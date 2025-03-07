@@ -153,7 +153,8 @@ class rxPPOCritic(nn.Module):
 class rxPPOAgent:
     def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, 
                 lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, 
-                k = K, m = M, device = "cpu"):
+                k = K, m = M, c1 = C1, c2 = C2,
+                device = "cpu"):
         self.gamma = gamma
         self.learning_rate = learning_rate
 
@@ -162,6 +163,8 @@ class rxPPOAgent:
 
         self.k = k
         self.m = m
+        self.c1 = c1
+        self.c2 = c2
 
         # Power
         self.power = RX_USER_TRANSMIT_POWER
@@ -203,7 +206,7 @@ class rxPPOAgent:
     def store_in_memory(self, state, action, logprob, reward, value):
         self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
         self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
-        self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0).unsqueeze(0)), dim=0)
+        self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0)), dim=0)
         self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
         self.memory_value = torch.cat((self.memory_value, value.unsqueeze(0)), dim=0)
 
@@ -263,7 +266,9 @@ class rxPPOAgent:
 
         actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
 
-        return actions, policy[main_action], values
+        action_logprob = torch.log(torch.gather(policy, 0, main_action.unsqueeze(0)))
+
+        return actions, action_logprob, values
 
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
@@ -290,6 +295,9 @@ class rxPPOAgent:
             gae = delta + self.gamma*self.LAMBDA*gae
             advantages = torch.cat((gae.unsqueeze(0), advantages), dim=0)
         
+        # Normalize the advantages
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-10)
+
         return advantages
     
     def update(self):
@@ -389,7 +397,9 @@ class rxPPOAgent:
 
         for epoch in range(self.k):
             # Instead of shuffling randomly, we process consecutive sequences (episodes) as batches.
-            for start in range(0, data_size, self.m):
+            num_batches = data_size // self.m
+            for _ in range(num_batches):
+                start = random.randint(0, data_size - self.m)
                 end = start + self.m
                 batch_state = self.memory_state[start:end]
                 batch_action = self.memory_action[start:end]
@@ -398,7 +408,11 @@ class rxPPOAgent:
                 batch_advantage = advantages[start:end].detach()
 
                 new_logits = self.actor_network(batch_state)
-                new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, batch_action.long()))
+                new_policy = nn.Softmax(dim=1)(new_logits)
+                new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
+                
+                # new_dist = torch.distributions.Categorical(new_policy)
+                # new_entropy = new_dist.entropy().mean()
 
                 ratio = torch.exp(new_logprobs - batch_logprob)
 
@@ -406,11 +420,12 @@ class rxPPOAgent:
                 surr2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * batch_advantage
 
                 actor_loss = -torch.min(surr1, surr2).mean()
+                # actor_loss = -torch.min(surr1, surr2).mean() - self.c2*new_entropy
 
                 batch_value = self.get_value(batch_state)
                 critic_loss = nn.MSELoss()(batch_value, batch_return)
 
-                total_loss = actor_loss + critic_loss
+                total_loss = actor_loss + self.c1*critic_loss
 
                 self.actor_optimizer.zero_grad()
                 self.critic_optimizer.zero_grad()

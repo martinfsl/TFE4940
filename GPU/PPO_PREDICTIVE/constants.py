@@ -24,6 +24,8 @@ EPSILON_REDUCTION_JAMMER = 0.999
 T = 25 # Number of steps between each update, i.e. length of the trajectory
 M = 10 # Size of mini-batch during training
 K = 10 # Number of epochs
+C1 = 0.5 # Coefficient for the value loss
+C2 = 0.01 # Coefficient for the entropy loss
 
 # Parameters
 BATCH_SIZE = 2
