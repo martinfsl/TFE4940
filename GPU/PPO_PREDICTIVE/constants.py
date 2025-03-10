@@ -12,7 +12,7 @@ NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
 channel = [0]*NUM_CHANNELS
 
 # Hyperparameters
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.001
 GAMMA = 0.50
 LAMBDA = 0.85
 EPSILON_CLIP = 0.2
@@ -21,9 +21,9 @@ EPSILON_MIN = 0
 EPSILON_MIN_JAMMER = 0.1
 EPSILON_REDUCTION = 0.99
 EPSILON_REDUCTION_JAMMER = 0.999
-T = 25 # Number of steps between each update, i.e. length of the trajectory
-M = 10 # Size of mini-batch during training
-K = 10 # Number of epochs
+T = 100 # Number of steps between each update, i.e. length of the trajectory
+M = 20 # Size of mini-batch during training
+K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 C2 = 0.01 # Coefficient for the entropy loss
 
@@ -42,9 +42,9 @@ REWARD_UNSUCCESSFUL = -1
 
 # Number of episodes for training
 # NUM_EPISODES = 500
-NUM_EPISODES = 20000
+# NUM_EPISODES = 20000
 # NUM_EPISODES = 50000
-# NUM_EPISODES = 100000
+NUM_EPISODES = 100000
 
 # Number of runs for testing
 NUM_TEST_RUNS = 10000

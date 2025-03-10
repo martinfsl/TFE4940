@@ -448,7 +448,13 @@ if __name__ == '__main__':
 
     success_rates = []
     
-    num_runs = 1
+    num_runs = 5
+
+    # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/discount_factor/{str(GAMMA).replace('.', '_')}"
+    # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/trajectory_length/{str(T).replace('.', '_')}"
+    relative_path = f"Comparison/PPO_tests/update_random/test_4"
+    if not os.path.exists(relative_path):
+        os.makedirs(relative_path)
 
     for run in range(num_runs):
         print("----------------------------------------")
@@ -496,6 +502,16 @@ if __name__ == '__main__':
         if jammer_type == "smart":
             print("Jamming rate: ", (smart.num_jammed/NUM_TEST_RUNS)*100, "%")
 
+        if num_runs > 1:
+            relative_path_run = f"{relative_path}/{run+1}"
+            if not os.path.exists(relative_path_run):
+                os.makedirs(relative_path_run)
+
+            np.savetxt(f"{relative_path_run}/average_reward_both_tx.txt", tx_average_rewards)
+            np.savetxt(f"{relative_path_run}/average_reward_both_rx.txt", rx_average_rewards)
+            np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
+            np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
+
     if jammer_type == "smart":
         plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
     else:
@@ -508,15 +524,11 @@ if __name__ == '__main__':
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
 
-    # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/discount_factor/{str(GAMMA).replace('.', '_')}"
-    relative_path = f"Comparison/february_tests/PPO_parameter_tuning/trajectory_length/{str(T).replace('.', '_')}"
-    if not os.path.exists(relative_path):
-        os.makedirs(relative_path)
+    if num_runs == 1:
+        np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
+        np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
+        np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
+        np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
-    # np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-    # np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
-    # np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
-
-    # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
-    # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
+    np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
