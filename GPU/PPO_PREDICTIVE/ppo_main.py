@@ -452,7 +452,7 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/discount_factor/{str(GAMMA).replace('.', '_')}"
     # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/trajectory_length/{str(T).replace('.', '_')}"
-    relative_path = f"Comparison/PPO_tests/update_random/test_4"
+    relative_path = f"Comparison/PPO_tests/update_random/further_tests/gamma/{str(GAMMA).replace('.', '_')}"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

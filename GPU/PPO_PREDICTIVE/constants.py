@@ -13,7 +13,7 @@ channel = [0]*NUM_CHANNELS
 
 # Hyperparameters
 LEARNING_RATE = 0.001
-GAMMA = 0.50
+GAMMA = 0.60
 LAMBDA = 0.85
 EPSILON_CLIP = 0.2
 EPSILON = 0.3
