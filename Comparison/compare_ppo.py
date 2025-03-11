@@ -53,42 +53,69 @@ NUM_CHANNELS = 100
 
 #################################################################################
 
-relative_path = f"Comparison/PPO_tests/update_random/further_tests/gamma"
+# relative_path = f"Comparison/PPO_tests/update_random/further_tests/gamma"
 
-rewards_tx_0_50 = np.loadtxt(f'{relative_path}/0_5/3/average_reward_both_tx.txt', dtype=float)
-rewards_tx_0_60 = np.loadtxt(f'{relative_path}/0_6/1/average_reward_both_tx.txt', dtype=float)
-rewards_tx_0_75 = np.loadtxt(f'{relative_path}/0_75/5/average_reward_both_tx.txt', dtype=float)
-rewards_tx_0_85 = np.loadtxt(f'{relative_path}/0_85/4/average_reward_both_tx.txt', dtype=float)
-rewards_tx_0_95 = np.loadtxt(f'{relative_path}/0_95/3/average_reward_both_tx.txt', dtype=float)
-rewards_tx_0_99 = np.loadtxt(f'{relative_path}/0_99/3/average_reward_both_tx.txt', dtype=float)
+# rewards_tx_0_50 = np.loadtxt(f'{relative_path}/0_5/3/average_reward_both_tx.txt', dtype=float)
+# rewards_tx_0_60 = np.loadtxt(f'{relative_path}/0_6/1/average_reward_both_tx.txt', dtype=float)
+# rewards_tx_0_75 = np.loadtxt(f'{relative_path}/0_75/5/average_reward_both_tx.txt', dtype=float)
+# rewards_tx_0_85 = np.loadtxt(f'{relative_path}/0_85/4/average_reward_both_tx.txt', dtype=float)
+# rewards_tx_0_95 = np.loadtxt(f'{relative_path}/0_95/3/average_reward_both_tx.txt', dtype=float)
+# rewards_tx_0_99 = np.loadtxt(f'{relative_path}/0_99/3/average_reward_both_tx.txt', dtype=float)
 
-rewards_rx_0_50 = np.loadtxt(f'{relative_path}/0_5/3/average_reward_both_rx.txt', dtype=float)
-rewards_rx_0_60 = np.loadtxt(f'{relative_path}/0_6/1/average_reward_both_rx.txt', dtype=float)
-rewards_rx_0_75 = np.loadtxt(f'{relative_path}/0_75/5/average_reward_both_rx.txt', dtype=float)
-rewards_rx_0_85 = np.loadtxt(f'{relative_path}/0_85/4/average_reward_both_rx.txt', dtype=float)
-rewards_rx_0_95 = np.loadtxt(f'{relative_path}/0_95/3/average_reward_both_rx.txt', dtype=float)
-rewards_rx_0_99 = np.loadtxt(f'{relative_path}/0_99/3/average_reward_both_rx.txt', dtype=float)
+# rewards_rx_0_50 = np.loadtxt(f'{relative_path}/0_5/3/average_reward_both_rx.txt', dtype=float)
+# rewards_rx_0_60 = np.loadtxt(f'{relative_path}/0_6/1/average_reward_both_rx.txt', dtype=float)
+# rewards_rx_0_75 = np.loadtxt(f'{relative_path}/0_75/5/average_reward_both_rx.txt', dtype=float)
+# rewards_rx_0_85 = np.loadtxt(f'{relative_path}/0_85/4/average_reward_both_rx.txt', dtype=float)
+# rewards_rx_0_95 = np.loadtxt(f'{relative_path}/0_95/3/average_reward_both_rx.txt', dtype=float)
+# rewards_rx_0_99 = np.loadtxt(f'{relative_path}/0_99/3/average_reward_both_rx.txt', dtype=float)
 
+# rewards_tx_0_50 = (rewards_tx_0_50 + 1)/2
+# rewards_tx_0_60 = (rewards_tx_0_60 + 1)/2
+# rewards_tx_0_75 = (rewards_tx_0_75 + 1)/2
+# rewards_tx_0_85 = (rewards_tx_0_85 + 1)/2
+# rewards_tx_0_95 = (rewards_tx_0_95 + 1)/2
+# rewards_tx_0_99 = (rewards_tx_0_99 + 1)/2
+
+#################################################################################
+
+#################################################################################
+
+relative_path = f"Comparison/PPO_tests/update_random/further_tests/lambda_param"
+
+rewards_tx_0_40 = np.loadtxt(f'{relative_path}/0_40/2/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_50 = np.loadtxt(f'{relative_path}/0_50/2/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_60 = np.loadtxt(f'{relative_path}/0_60/3/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_70 = np.loadtxt(f'{relative_path}/0_70/4/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_75 = np.loadtxt(f'{relative_path}/0_75/1/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_80 = np.loadtxt(f'{relative_path}/0_80/4/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_85 = np.loadtxt(f'{relative_path}/0_85/5/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_90 = np.loadtxt(f'{relative_path}/0_90/3/average_reward_both_tx.txt', dtype=float)
+rewards_tx_0_95 = np.loadtxt(f'{relative_path}/0_95/5/average_reward_both_tx.txt', dtype=float)
+
+rewards_tx_0_40 = (rewards_tx_0_40 + 1)/2
 rewards_tx_0_50 = (rewards_tx_0_50 + 1)/2
 rewards_tx_0_60 = (rewards_tx_0_60 + 1)/2
+rewards_tx_0_70 = (rewards_tx_0_70 + 1)/2
 rewards_tx_0_75 = (rewards_tx_0_75 + 1)/2
+rewards_tx_0_80 = (rewards_tx_0_80 + 1)/2
 rewards_tx_0_85 = (rewards_tx_0_85 + 1)/2
+rewards_tx_0_90 = (rewards_tx_0_90 + 1)/2
 rewards_tx_0_95 = (rewards_tx_0_95 + 1)/2
-rewards_tx_0_99 = (rewards_tx_0_99 + 1)/2
 
 #################################################################################
 
 
-
-
 plt.figure(1)
 
-plt.plot(rewards_tx_0_50, label='$\gamma$ = 0.5')
-plt.plot(rewards_tx_0_60, label='$\gamma$ = 0.6')
-plt.plot(rewards_tx_0_75, label='$\gamma$ = 0.75')
-plt.plot(rewards_tx_0_85, label='$\gamma$ = 0.85')
-plt.plot(rewards_tx_0_95, label='$\gamma$ = 0.95')
-plt.plot(rewards_tx_0_99, label='$\gamma$ = 0.99')
+plt.plot(rewards_tx_0_40, label='$\lambda$ = 0.4')
+plt.plot(rewards_tx_0_50, label='$\lambda$ = 0.5')
+plt.plot(rewards_tx_0_60, label='$\lambda$ = 0.6')
+plt.plot(rewards_tx_0_70, label='$\lambda$ = 0.7')
+plt.plot(rewards_tx_0_75, label='$\lambda$ = 0.75')
+plt.plot(rewards_tx_0_80, label='$\lambda$ = 0.8')
+plt.plot(rewards_tx_0_85, label='$\lambda$ = 0.85')
+plt.plot(rewards_tx_0_90, label='$\lambda$ = 0.9')
+plt.plot(rewards_tx_0_95, label='$\lambda$ = 0.95')
 
 plt.xlabel('Episode')
 plt.ylabel('Normalized average reward')
