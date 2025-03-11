@@ -37,7 +37,8 @@ class Jammer:
         self.observed_noise = 0
         self.observed_reward = 0
         self.num_jammed = 0
-        self.agent = SmartJammer(type=smart_type, device=device)
+        self.type = smart_type
+        self.agent = SmartJammer(type=self.type, device=device)
 
     def tracking_transition(self):
         curr_channel = self.channel

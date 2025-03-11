@@ -105,6 +105,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
     tx_transmit_channel = torch.tensor([0], device=device)
     rx_receive_channel = torch.tensor([0], device=device)
     jammer_channels = [torch.tensor([0], device=device) for _ in jammers]
+    jammer_logprobs = [torch.tensor([0], device=device) for _ in jammers]
+    jammer_values = [torch.tensor([0], device=device) for _ in jammers]
 
     # Initialize the channel noise for the current (and first) time step
     tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -142,9 +144,16 @@ def train_ppo(tx_agent, rx_agent, jammers):
         else:
             jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
-            jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
-            jammer_observations[i] = jammer_observation
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
+            if jammers[i].behavior == "smart" and jammers[i].type == "PPO":
+                jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
+                jammer_observations[i] = jammer_observation
+                jammer_channel, jammer_logprobs[i], jammer_values[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel)
+                jammer_channel = jammer_channel.unsqueeze(0)
+                jammer_channels[i] = jammer_channel.long()
+            else:
+                jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
+                jammer_observations[i] = jammer_observation
+                jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
 
         # Set a new channel noise for the next state
         tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -209,15 +218,6 @@ def train_ppo(tx_agent, rx_agent, jammers):
             if rx_sensing != -1:
                 rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, torch.tensor(rx_sensing, device=device))
 
-            # if rx_sensing != -1:
-            #     print("----------------------------------------")
-            #     print("Rx managed to sense the Tx, but not receive the signal")
-            #     print("Tx channel: ", tx_transmit_channel)
-            #     print("Rx channel: ", rx_receive_channel)
-            #     print("Rx sensed channels: ", rx_sense_channels)
-            #     print("Sensed channel at Rx: ", rx_sensing)
-            #     print("----------------------------------------")
-
             rx_reward = REWARD_INTERFERENCE
             tx_reward = REWARD_INTERFERENCE
 
@@ -258,8 +258,10 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_agent.store_in_memory(rx_observation, rx_receive_channel, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
 
         for i in range(len(jammers)):
-            if jammers[i].behavior == "smart":
+            if jammers[i].behavior == "smart" and (jammers[i].type == "RNN" or jammers[i].type == "FNN"):
                 jammers[i].agent.store_experience_in(jammer_observations[i], jammer_channels[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
+            elif jammers[i].behavior == "smart" and jammers[i].type == "PPO":
+                jammers[i].agent.store_in_memory(jammer_observations[i], jammer_channels[i], jammer_logprobs[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_values[i])
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
@@ -274,12 +276,12 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_agent.pred_agent.train()
 
         for i in range(len(jammers)):
-            jammers[i].agent.replay()
+            jammers[i].agent.update()
 
         # Periodic update of the target Q-network
         if episode % 10 == 0:
             for i in range(len(jammers)):
-                if jammers[i].behavior == "smart":
+                if jammers[i].behavior == "smart" and (jammers[i].type == "RNN" or jammers[i].type == "FNN"):
                     jammers[i].agent.update_target_q_network()
 
         tx_state = tx_next_state.clone()
@@ -358,9 +360,16 @@ def test_ppo(tx_agent, rx_agent, jammers):
         else:
             jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
-            jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
-            jammer_observations[i] = jammer_observation
-            jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
+            if jammers[i].behavior == "smart" and jammers[i].type == "PPO":
+                jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
+                jammer_observations[i] = jammer_observation
+                jammer_channel, _, _ = jammers[i].choose_action(jammer_observation, tx_transmit_channel)
+                jammer_channel = jammer_channel.unsqueeze(0)
+                jammer_channels[i] = jammer_channel.long()
+            else:
+                jammer_observation = jammers[i].get_observation(jammer_states[i], jammer_channels[i])
+                jammer_observations[i] = jammer_observation
+                jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
 
         num_tx_channel_selected[tx_transmit_channel] += 1
         num_rx_channel_selected[rx_receive_channel] += 1
@@ -480,9 +489,9 @@ if __name__ == '__main__':
         # list_of_other_users.append(sweep_1)
         # jammer_type = "sweeping"
 
-        tracking_1 = Jammer(behavior = "tracking", channel = 0)
-        list_of_other_users.append(tracking_1)
-        jammer_type = "tracking"
+        # tracking_1 = Jammer(behavior = "tracking", channel = 0)
+        # list_of_other_users.append(tracking_1)
+        # jammer_type = "tracking"
 
         # smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
         # list_of_other_users.append(smart)
@@ -491,6 +500,10 @@ if __name__ == '__main__':
         # smart = Jammer(behavior = "smart", smart_type = "FNN", device = device)
         # list_of_other_users.append(smart)
         # jammer_type = "smart_fnn"
+
+        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        list_of_other_users.append(smart)
+        jammer_type = "smart_ppo"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
