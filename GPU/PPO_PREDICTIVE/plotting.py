@@ -6,7 +6,7 @@ from constants import *
 ### Plotting the results
 #################################################################################
 
-def plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, jammer_type):
+def plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, jammer_type, filepath = None):
     plt.figure(1, figsize=(12, 8))
 
     plt.subplot(2, 2, 1)
@@ -41,11 +41,14 @@ def plot_results(tx_average_rewards, rx_average_rewards, probability_tx_channel_
     plt.suptitle(f"PPO algorithm, {NUM_CHANNELS} channels, 1 {jammer_type}")
     # plt.show()
 
+    if filepath is not None:
+        plt.savefig(f"{filepath}/results_with_probabilities.png")
+
 #################################################################################
 ### Plotting the probability of selections
 #################################################################################
 
-def plot_probability_selection(probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected, jammer_type):
+def plot_probability_selection(probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected, jammer_type, filepath = None):
     plt.figure(2, figsize=(8, 4))
 
     plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected)
@@ -53,6 +56,8 @@ def plot_probability_selection(probability_tx_channel_selected, probability_rx_c
     plt.ylabel("Probability of channel selection")
     plt.title("Probability of channel selection for Tx during testing")
 
+    if filepath is not None:
+        plt.savefig(f"{filepath}/probability_tx_channel_selected.png")
 
     plt.figure(3, figsize=(8, 4))
 
@@ -61,6 +66,9 @@ def plot_probability_selection(probability_tx_channel_selected, probability_rx_c
     plt.ylabel("Probability of channel selection")
     plt.title("Probability of channel selection for Rx during testing")
 
+    if filepath is not None:
+        plt.savefig(f"{filepath}/probability_rx_channel_selected.png")
+
     for i in range(len(probability_jammer_channel_selected)):
         plt.figure(4+i, figsize=(8, 4))
         plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_jammer_channel_selected[i])
@@ -68,13 +76,18 @@ def plot_probability_selection(probability_tx_channel_selected, probability_rx_c
         plt.ylabel("Probability of channel selection")
         plt.title(f"Probability of channel selection for Jammer {i+1} during testing")
 
+        if filepath is not None:
+            plt.savefig(f"{filepath}/probability_jammer_channel_selected_{i}.png")
+
     plt.show()
 
 #################################################################################
 ### Plotting the results with the smart jammer
 #################################################################################
 
-def plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected):
+def plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, 
+                              probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected,
+                              filepath = None):
     # Normalize the rewards
     # tx_average_rewards = (np.array(tx_average_rewards) + 1)/2
     # rx_average_rewards = (np.array(rx_average_rewards) + 1)/2
@@ -110,3 +123,6 @@ def plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_ave
     plt.title(f"Probability of Smart Jammer channel selection during testing")
 
     plt.show()
+
+    if filepath is not None:
+        plt.savefig(f"{filepath}/results_with_probabilities.png")

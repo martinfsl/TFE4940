@@ -462,7 +462,8 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/discount_factor/{str(GAMMA).replace('.', '_')}"
     # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/trajectory_length/{str(T).replace('.', '_')}"
     # relative_path = f"Comparison/PPO_tests/update_random/further_tests/gamma/{str(GAMMA).replace('.', '_')}"
-    relative_path = f"Comparison/PPO_tests/update_random/further_tests/lambda_param/{str(LAMBDA).replace('.', '_')}"
+    # relative_path = f"Comparison/PPO_tests/update_random/further_tests/lambda_param/{str(LAMBDA).replace('.', '_')}"
+    relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -527,12 +528,12 @@ if __name__ == '__main__':
             np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
 
     if jammer_type == "smart":
-        plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
+        plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel, filepath = relative_path)
     else:
-        plot_results(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type)
+        plot_results(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path)
         # plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
 
-        plot_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type)
+        plot_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path)
 
     if num_runs > 1:
         print("Success rates: ", success_rates)
