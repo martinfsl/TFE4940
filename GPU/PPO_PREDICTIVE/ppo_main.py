@@ -275,8 +275,14 @@ def train_ppo(tx_agent, rx_agent, jammers):
             tx_agent.pred_agent.train()
             rx_agent.pred_agent.train()
 
+            for i in range(len(jammers)):
+                if jammers[i].behavior == "smart" and jammers[i].type == "PPO":
+                    jammers[i].agent.update()
+
+        # Update for each episode if the jammer uses Q-learning
         for i in range(len(jammers)):
-            jammers[i].agent.update()
+            if jammers[i].behavior == "smart" and (jammers[i].type == "RNN" or jammers[i].type == "FNN"):
+                jammers[i].agent.update()
 
         # Periodic update of the target Q-network
         if episode % 10 == 0:
@@ -463,7 +469,8 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/february_tests/PPO_parameter_tuning/trajectory_length/{str(T).replace('.', '_')}"
     # relative_path = f"Comparison/PPO_tests/update_random/further_tests/gamma/{str(GAMMA).replace('.', '_')}"
     # relative_path = f"Comparison/PPO_tests/update_random/further_tests/lambda_param/{str(LAMBDA).replace('.', '_')}"
-    relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03"
+    # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03"
+    relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03/param_testing/lambda_param/{str(LAMBDA).replace('.', '_')}"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

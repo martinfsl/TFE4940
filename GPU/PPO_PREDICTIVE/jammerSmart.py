@@ -290,7 +290,8 @@ class jammerPPOAgent:
         self.gamma = gamma
         self.learning_rate = learning_rate
 
-        self.LAMBDA = lambda_param
+        # self.LAMBDA = lambda_param
+        self.LAMBDA = 0.40
         self.epsilon_clip = epsilon_clip
 
         self.k = k
