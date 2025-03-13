@@ -17,8 +17,8 @@ class jammerRNNQN(nn.Module):
     def __init__(self):
         super(jammerRNNQN, self).__init__()
 
-        # self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
-        self.input_size = NUM_CHANNELS + 1
+        self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
+        # self.input_size = NUM_CHANNELS + 1
         self.hidden_size = 128
         self.num_layers = 2
         self.num_channels = NUM_CHANNELS
@@ -55,10 +55,12 @@ class jammerRNNQNAgent:
 
         # Parameters for the RNN network
         self.batch_size = BATCH_SIZE
-        self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_JAMMER_SENSE_CHANNELS+1), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
-        self.memory_next_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_next_state = torch.empty((0, NUM_JAMMER_SENSE_CHANNELS+1), device=self.device)
+        # self.memory_next_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
 
         self.q_network = jammerRNNQN()
         self.q_network.to(self.device)
@@ -134,7 +136,8 @@ class jammerFNNDDQN(nn.Module):
     def __init__(self):
         super(jammerFNNDDQN, self).__init__()
 
-        self.input_size = NUM_CHANNELS + 1
+        self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
+        # self.input_size = NUM_CHANNELS + 1
         self.hidden_size = 128
         self.num_channels = NUM_CHANNELS
 
@@ -165,7 +168,8 @@ class jammerFNNDDQNAgent:
 
         # Parameters for the FNN network
         self.batch_size = BATCH_SIZE
-        self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_JAMMER_SENSE_CHANNELS+1), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_next_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
@@ -241,7 +245,8 @@ class jammerPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(jammerPPOActor, self).__init__()
 
-        self.input_size = NUM_CHANNELS + 1
+        self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
+        # self.input_size = NUM_CHANNELS + 1
         self.hidden_size = 128
         self.output_size = NUM_CHANNELS
 
@@ -264,7 +269,8 @@ class jammerPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(jammerPPOCritic, self).__init__()
 
-        self.input_size = NUM_CHANNELS + 1
+        self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
+        # self.input_size = NUM_CHANNELS + 1
         self.hidden_size = 128
         self.output_size = 1
 
@@ -288,7 +294,7 @@ class jammerPPOAgent:
                 lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP,
                 k = K, m = M, c1 = C1, c2 = C2, device = "cpu"):
         self.gamma = gamma
-        self.learning_rate = learning_rate
+        self.learning_rate = 0.001
 
         # self.LAMBDA = lambda_param
         self.LAMBDA = 0.40
@@ -296,8 +302,8 @@ class jammerPPOAgent:
 
         self.k = k
         self.m = m
-        self.c1 = c1
-        self.c2 = c2
+        self.c1 = 0.5
+        self.c2 = 0.01
 
         self.device = device
 
@@ -311,14 +317,16 @@ class jammerPPOAgent:
         self.critic_network.to(self.device)
         self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
 
-        self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_JAMMER_SENSE_CHANNELS+1), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_JAMMER_SENSE_CHANNELS+1), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
@@ -435,8 +443,11 @@ class SmartJammer:
             self.agent = jammerPPOAgent(device=device)
 
     def choose_action(self, observation):
-        action, logprob, value = self.agent.choose_action(observation)
-        return action.unsqueeze(0), logprob.unsqueeze(0), value
+        if self.type == "PPO":
+            action, logprob, value = self.agent.choose_action(observation)
+            return action.unsqueeze(0), logprob.unsqueeze(0), value
+        else:
+            return self.agent.choose_action(observation)
         
     # Used for the DDQN smart jammer
     def update_target_q_network(self):

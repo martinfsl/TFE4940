@@ -38,7 +38,8 @@ class Jammer:
         self.observed_reward = 0
         self.num_jammed = 0
         self.type = smart_type
-        self.agent = SmartJammer(type=self.type, device=device)
+        self.device = device
+        self.agent = SmartJammer(type=self.type, device=self.device)
 
     def tracking_transition(self):
         curr_channel = self.channel
@@ -60,8 +61,20 @@ class Jammer:
 
     def get_observation(self, state, action):
         if self.behavior == "smart":
-            observation = state.clone()
-            observation = torch.cat((observation, torch.tensor([action], device=observation.device)))
+            # observation = state.clone()
+            # observation = torch.cat((observation, torch.tensor([action], device=observation.device)))
+            # return observation
+
+            if NUM_JAMMER_SENSE_CHANNELS < NUM_CHANNELS:
+                observation = torch.zeros(NUM_JAMMER_SENSE_CHANNELS + 1, device=self.device)
+                half_sense_channels = NUM_JAMMER_SENSE_CHANNELS // 2
+                for i in range(-half_sense_channels, half_sense_channels + 1):
+                    index = (action + i) % len(state)
+                    observation[i + half_sense_channels] = state[index]
+                observation[-1] = action
+            else:
+                observation = torch.cat((state, action), dim=0)
+
             return observation
         elif self.behavior == "tracking":
             return state.clone()

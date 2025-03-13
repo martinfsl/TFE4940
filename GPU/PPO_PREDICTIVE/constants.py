@@ -14,7 +14,7 @@ channel = [0]*NUM_CHANNELS
 # Hyperparameters
 LEARNING_RATE = 0.001
 GAMMA = 0.60
-LAMBDA = 0.90
+LAMBDA = 0.40
 EPSILON_CLIP = 0.2
 EPSILON = 0.3
 EPSILON_MIN = 0
@@ -25,6 +25,7 @@ T = 100 # Number of steps between each update, i.e. length of the trajectory
 M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
+# C2 = 0.01 # Coefficient for the entropy loss
 C2 = 0.01 # Coefficient for the entropy loss
 
 # Parameters
@@ -79,5 +80,8 @@ TRANSITION_3 = 0.02
 # Number of sensed channels
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
 # NUM_SENSE_CHANNELS = 15
-NUM_SENSE_CHANNELS = NUM_CHANNELS # This allows the Tx and Rx to sense all channels
-NUM_JAMMER_SENSE_CHANNELS = 5 # Number of channels the jammer can sense
+NUM_SENSE_CHANNELS = 10 # This allows the Tx and Rx to sense all channels
+NUM_JAMMER_SENSE_CHANNELS = 10 # Number of channels the jammer can sense
+
+# Penalty for staying on the same two channels for multiple episodes
+PENALTY = 0.2

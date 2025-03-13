@@ -9,6 +9,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 
 from plotting import plot_results, plot_probability_selection, plot_results_smart_jammer
+from saving_plots import save_results_plot, save_probability_selection, save_results_smart_jammer
 
 from constants import *
 
@@ -140,7 +141,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_sense_channels = rx_channels[1:]
 
         if IS_SMART_JAMMER:
-            jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+            jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
+            # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
         else:
             jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
@@ -180,7 +182,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channel)
         jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         if IS_SMART_JAMMER:
-            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+            jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
+            # jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
         else:
             jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
@@ -362,7 +365,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
         # rx_sense_channels = rx_channels[1:]
 
         if IS_SMART_JAMMER:
-            jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+            jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
+            # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
         else:
             jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
@@ -407,7 +411,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
         # rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channel)
         jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         if IS_SMART_JAMMER:
-            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+            jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
+            # jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
         else:
             jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
@@ -470,7 +475,10 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/PPO_tests/update_random/further_tests/gamma/{str(GAMMA).replace('.', '_')}"
     # relative_path = f"Comparison/PPO_tests/update_random/further_tests/lambda_param/{str(LAMBDA).replace('.', '_')}"
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03"
-    relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03/param_testing/lambda_param/{str(LAMBDA).replace('.', '_')}"
+    # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03/param_testing/lambda_param/{str(LAMBDA).replace('.', '_')}"
+    # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/tracking"
+    relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/smart_rnn"
+    # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/smart_ppo"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -501,17 +509,17 @@ if __name__ == '__main__':
         # list_of_other_users.append(tracking_1)
         # jammer_type = "tracking"
 
-        # smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
-        # list_of_other_users.append(smart)
-        # jammer_type = "smart_rnn"
+        smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
+        list_of_other_users.append(smart)
+        jammer_type = "smart_rnn"
 
         # smart = Jammer(behavior = "smart", smart_type = "FNN", device = device)
         # list_of_other_users.append(smart)
         # jammer_type = "smart_fnn"
 
-        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        list_of_other_users.append(smart)
-        jammer_type = "smart_ppo"
+        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        # list_of_other_users.append(smart)
+        # jammer_type = "smart_ppo"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
@@ -524,33 +532,34 @@ if __name__ == '__main__':
         if jammer_type == "smart":
             print("Jamming rate: ", (smart.num_jammed/NUM_TEST_RUNS)*100, "%")
 
-        if num_runs > 1:
-            relative_path_run = f"{relative_path}/{run+1}"
-            if not os.path.exists(relative_path_run):
-                os.makedirs(relative_path_run)
+        relative_path_run = f"{relative_path}/{run+1}"
+        if not os.path.exists(relative_path_run):
+            os.makedirs(relative_path_run)
 
-            np.savetxt(f"{relative_path_run}/average_reward_both_tx.txt", tx_average_rewards)
-            np.savetxt(f"{relative_path_run}/average_reward_both_rx.txt", rx_average_rewards)
-            np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
-            np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
+        # Save data in textfiles
+        np.savetxt(f"{relative_path_run}/average_reward_both_tx.txt", tx_average_rewards)
+        np.savetxt(f"{relative_path_run}/average_reward_both_rx.txt", rx_average_rewards)
+        np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
+        np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
 
-    if jammer_type == "smart":
-        plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel, filepath = relative_path)
-    else:
-        plot_results(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path)
-        # plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
+        if jammer_type == "smart":
+            save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel, filepath = relative_path_run)
+        else:
+            save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
+            save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
 
-        plot_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path)
+
+    # if jammer_type == "smart":
+    #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
+    # else:
+    #     plot_results(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type)
+    #     # plot_results(tx_average_rewards, rx_average_rewards, jammer_type)
+
+    #     plot_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type)
 
     if num_runs > 1:
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
-
-    if num_runs == 1:
-        np.savetxt(f"{relative_path}/average_reward_both_tx.txt", tx_average_rewards)
-        np.savetxt(f"{relative_path}/average_reward_both_rx.txt", rx_average_rewards)
-        np.savetxt(f"{relative_path}/average_reward_jammer.txt", jammer_average_rewards)
-        np.savetxt(f"{relative_path}/success_rates.txt", success_rates)
 
     np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
     np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
