@@ -198,6 +198,10 @@ class rxPPOAgent:
         # Predictive network remains unchanged
         self.pred_agent = rxPredNNAgent(device=self.device)
 
+        # Logging actor and critic losses
+        self.actor_losses = torch.tensor([], device=self.device)
+        self.critic_losses = torch.tensor([], device=self.device)
+
     def add_previous_action(self, action):
         self.previous_actions = torch.cat((self.previous_actions, action.unsqueeze(0)), dim=0)
 
@@ -446,6 +450,9 @@ class rxPPOAgent:
         self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
 
         self.clear_memory()
+
+        self.actor_losses = torch.cat((self.actor_losses, actor_loss.unsqueeze(0)))
+        self.critic_losses = torch.cat((self.critic_losses, critic_loss.unsqueeze(0)))
 
     def update_epochs_sequential(self):
         returns = self.compute_returns()

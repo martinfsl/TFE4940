@@ -136,3 +136,43 @@ def save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_ave
         plt.savefig(f"{filepath}/results_with_probabilities.png")
 
         plt.close()
+
+#################################################################################
+### Plotting the actor and critic losses
+#################################################################################
+
+def save_results_losses(tx_actor_losses, tx_critic_losses, rx_actor_losses, rx_critic_losses, filepath = None):
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(2, 2, 1)
+    plt.plot(tx_actor_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Actor Loss")
+    plt.title("Actor Loss over episodes during training for Tx")
+
+    plt.subplot(2, 2, 2)
+    plt.plot(tx_critic_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Critic Loss")
+    plt.title("Critic Loss over episodes during training for Tx")
+
+    plt.subplot(2, 2, 3)
+    plt.plot(rx_actor_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Actor Loss")
+    plt.title("Actor Loss over episodes during training for Rx")
+
+    plt.subplot(2, 2, 4)
+    plt.plot(rx_critic_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Critic Loss")
+    plt.title("Critic Loss over episodes during training for Rx")
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.suptitle(f"PPO algorithm")
+    # plt.show()
+
+    if filepath is not None:
+        plt.savefig(f"{filepath}/training_losses.png")
+
+        plt.close()

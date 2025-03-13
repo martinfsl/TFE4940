@@ -9,7 +9,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 
 from plotting import plot_results, plot_probability_selection, plot_results_smart_jammer
-from saving_plots import save_results_plot, save_probability_selection, save_results_smart_jammer
+from saving_plots import save_results_plot, save_probability_selection, save_results_smart_jammer, save_results_losses
 
 from constants import *
 
@@ -292,6 +292,11 @@ def train_ppo(tx_agent, rx_agent, jammers):
             # tx_agent.update_epochs_sequential()
             # rx_agent.update_epochs_sequential()
 
+            print("tx actor loss: ", tx_agent.actor_losses)
+            print("tx critic loss: ", tx_agent.critic_losses)
+            print("rx actor loss: ", rx_agent.actor_losses)
+            print("rx critic loss: ", rx_agent.critic_losses)
+
             tx_agent.pred_agent.train()
             rx_agent.pred_agent.train()
 
@@ -555,8 +560,12 @@ if __name__ == '__main__':
             os.makedirs(relative_path_run)
 
         # Save data in textfiles
-        np.savetxt(f"{relative_path_run}/average_reward_both_tx.txt", tx_average_rewards)
-        np.savetxt(f"{relative_path_run}/average_reward_both_rx.txt", rx_average_rewards)
+        np.savetxt(f"{relative_path_run}/average_reward_tx.txt", tx_average_rewards)
+        np.savetxt(f"{relative_path_run}/actor_losses_tx.txt", tx_agent.actor_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/critic_losses_tx.txt", tx_agent.critic_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/average_reward_rx.txt", rx_average_rewards)
+        np.savetxt(f"{relative_path_run}/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
         np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
 
@@ -565,7 +574,7 @@ if __name__ == '__main__':
         else:
             save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
             save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
-
+            save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run)
 
     # if jammer_type == "smart":
     #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
