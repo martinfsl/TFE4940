@@ -83,5 +83,5 @@ TRANSITION_3 = 0.02
 NUM_SENSE_CHANNELS = 10 # This allows the Tx and Rx to sense all channels
 NUM_JAMMER_SENSE_CHANNELS = 10 # Number of channels the jammer can sense
 
-# Penalty for staying on the same two channels for multiple episodes
-PENALTY = 0.2
+PENALTY = 0.2 # Penalty for staying on the same channels for NUM_PREV_ACTIONS episodes
+NUM_PREV_ACTIONS = 2 # Number of previous actions to consider for the penalty

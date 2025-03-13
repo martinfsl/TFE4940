@@ -132,12 +132,14 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         tx_channels, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
+        tx_agent.add_previous_action(tx_transmit_channel)
         tx_sense_channels = tx_channels[1:]
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channel)
         rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_channels, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
         rx_receive_channel = rx_channels[0].unsqueeze(0)
+        rx_agent.add_previous_action(rx_receive_channel)
         rx_sense_channels = rx_channels[1:]
 
         if IS_SMART_JAMMER:
@@ -223,6 +225,13 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
             rx_reward = REWARD_INTERFERENCE
             tx_reward = REWARD_INTERFERENCE
+
+        # If tx_transmit_channel is in tx_agent.previous_actions, then the reward is penalized
+        if tx_transmit_channel in tx_agent.previous_actions:
+            tx_reward -= PENALTY
+        # If rx_receive_channel is in rx_agent.previous_actions, then the reward is penalized
+        if rx_receive_channel in rx_agent.previous_actions:
+            rx_reward -= PENALTY
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart":
@@ -477,10 +486,10 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03"
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/12_03/param_testing/lambda_param/{str(LAMBDA).replace('.', '_')}"
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/tracking"
-    relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/smart_rnn"
+    # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/smart_rnn"
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/smart_ppo"
-    if not os.path.exists(relative_path):
-        os.makedirs(relative_path)
+    # if not os.path.exists(relative_path):
+    #     os.makedirs(relative_path)
 
     for run in range(num_runs):
         print("----------------------------------------")
@@ -509,17 +518,17 @@ if __name__ == '__main__':
         # list_of_other_users.append(tracking_1)
         # jammer_type = "tracking"
 
-        smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
-        list_of_other_users.append(smart)
-        jammer_type = "smart_rnn"
+        # smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
+        # list_of_other_users.append(smart)
+        # jammer_type = "smart_rnn"
 
         # smart = Jammer(behavior = "smart", smart_type = "FNN", device = device)
         # list_of_other_users.append(smart)
         # jammer_type = "smart_fnn"
 
-        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        # list_of_other_users.append(smart)
-        # jammer_type = "smart_ppo"
+        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        list_of_other_users.append(smart)
+        jammer_type = "smart_ppo"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
@@ -532,21 +541,21 @@ if __name__ == '__main__':
         if jammer_type == "smart":
             print("Jamming rate: ", (smart.num_jammed/NUM_TEST_RUNS)*100, "%")
 
-        relative_path_run = f"{relative_path}/{run+1}"
-        if not os.path.exists(relative_path_run):
-            os.makedirs(relative_path_run)
+        # relative_path_run = f"{relative_path}/{run+1}"
+        # if not os.path.exists(relative_path_run):
+        #     os.makedirs(relative_path_run)
 
-        # Save data in textfiles
-        np.savetxt(f"{relative_path_run}/average_reward_both_tx.txt", tx_average_rewards)
-        np.savetxt(f"{relative_path_run}/average_reward_both_rx.txt", rx_average_rewards)
-        np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
-        np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
+        # # Save data in textfiles
+        # np.savetxt(f"{relative_path_run}/average_reward_both_tx.txt", tx_average_rewards)
+        # np.savetxt(f"{relative_path_run}/average_reward_both_rx.txt", rx_average_rewards)
+        # np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
+        # np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
 
-        if jammer_type == "smart":
-            save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel, filepath = relative_path_run)
-        else:
-            save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
-            save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
+        # if jammer_type == "smart":
+        #     save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel, filepath = relative_path_run)
+        # else:
+        #     save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
+        #     save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
 
 
     # if jammer_type == "smart":
@@ -561,5 +570,5 @@ if __name__ == '__main__':
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
 
-    np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
-    np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
+    # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
+    # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

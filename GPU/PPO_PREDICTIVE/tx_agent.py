@@ -176,6 +176,8 @@ class txPPOAgent:
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
+        self.previous_actions = torch.empty((0, 1), device=self.device)
+
         # Policy network (Actor network)
         self.actor_network = txPPOActor()
         self.actor_network.to(self.device)
@@ -191,6 +193,12 @@ class txPPOAgent:
 
         # Predictive network remains unchanged.
         self.pred_agent = txPredNNAgent(device=self.device)
+
+    def add_previous_action(self, action):
+        self.previous_actions = torch.cat((self.previous_actions, action.unsqueeze(0)), dim=0)
+
+        if self.previous_actions.size(0) > NUM_PREV_ACTIONS:
+            self.previous_actions = self.previous_actions[1:]
 
     def clear_memory(self):
         self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
