@@ -47,6 +47,24 @@ def save_results_plot(tx_average_rewards, rx_average_rewards, probability_tx_cha
         plt.close()
 
 #################################################################################
+### Plotting the jammer results
+#################################################################################
+
+def save_jammer_results_plot(jammer_average_rewards, filepath = None):
+    plt.figure(figsize=(8, 4))
+
+    plt.plot(jammer_average_rewards)
+    plt.xlabel("Episode")
+    plt.ylabel("Jammer average reward")
+    plt.title("Jammer average reward over episodes during training")
+    plt.legend()
+
+    if filepath is not None:
+        plt.savefig(f"{filepath}/results_jammer.png")
+
+        plt.close()
+
+#################################################################################
 ### Plotting the probability of selections
 #################################################################################
 
