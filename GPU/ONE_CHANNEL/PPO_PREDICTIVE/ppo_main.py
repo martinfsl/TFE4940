@@ -212,23 +212,28 @@ def train_ppo(tx_agent, rx_agent, jammers):
             else:
                 tx_reward = REWARD_INTERFERENCE
 
-                tx_sensing = sensed_signal_tx(rx_receive_channel, tx_sense_channels, tx_observed_power, tx_channel_noise)
+                # tx_sensing = sensed_signal_tx(rx_receive_channel, tx_sense_channels, tx_observed_power, tx_channel_noise)
+                # if tx_sensing != -1:
+                #     tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, torch.tensor(tx_sensing, device=device))
 
-                if tx_sensing != -1:
-                    tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, torch.tensor(tx_sensing, device=device))
-
-                    tx_reward += REWARD_SENSE
+                #     tx_reward += REWARD_SENSE
         else:
             rx_reward = REWARD_INTERFERENCE
             tx_reward = REWARD_INTERFERENCE
 
             rx_sensing = sensed_signal_rx(tx_transmit_channel, rx_sense_channels, rx_observed_power, rx_channel_noise)
-
             # Managed to sense the Tx but not receive the signal
             if rx_sensing != -1:
                 rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, torch.tensor(rx_sensing, device=device))
 
                 rx_reward += REWARD_SENSE
+
+            tx_sensing = sensed_signal_tx(rx_receive_channel, tx_sense_channels, tx_observed_power, tx_channel_noise)
+            # Managed to sense the Rx but not receive the signal
+            if tx_sensing != -1:
+                tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, torch.tensor(tx_sensing, device=device))
+
+                tx_reward += REWARD_SENSE
 
         # If tx_transmit_channel is in tx_agent.previous_actions, then the reward is penalized
         if tx_transmit_channel in tx_agent.previous_actions:
