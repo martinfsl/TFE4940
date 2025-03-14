@@ -26,7 +26,7 @@ M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 # C2 = 0.01 # Coefficient for the entropy loss
-C2 = 0.01 # Coefficient for the entropy loss
+C2 = 0.05 # Coefficient for the entropy loss
 
 # Parameters
 BATCH_SIZE = 2
@@ -45,8 +45,7 @@ REWARD_UNSUCCESSFUL = -1
 # NUM_EPISODES = 500
 # NUM_EPISODES = 20000
 # NUM_EPISODES = 50000
-NUM_EPISODES = 1000
-# NUM_EPISODES = 100000
+NUM_EPISODES = 100000
 
 # Number of runs for testing
 NUM_TEST_RUNS = 10000

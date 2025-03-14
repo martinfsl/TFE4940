@@ -292,11 +292,6 @@ def train_ppo(tx_agent, rx_agent, jammers):
             # tx_agent.update_epochs_sequential()
             # rx_agent.update_epochs_sequential()
 
-            print("tx actor loss: ", tx_agent.actor_losses)
-            print("tx critic loss: ", tx_agent.critic_losses)
-            print("rx actor loss: ", rx_agent.actor_losses)
-            print("rx critic loss: ", rx_agent.critic_losses)
-
             tx_agent.pred_agent.train()
             rx_agent.pred_agent.train()
 
@@ -501,7 +496,8 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/tracking"
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/smart_rnn"
     # relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_1/smart_ppo"
-    relative_path = f"Comparison/march_tests/PPO/ppo_smart_jammer/tracking_vs_smartppo/test_2/tracking"
+    # relative_path = f"Comparison/march_tests/PPO/diversity/tracking_vs_smartppo/test_2/tracking"
+    relative_path = f"Comparison/march_tests/PPO/diversity/tracking_vs_smartppo/test_2/smart_ppo"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -528,9 +524,9 @@ if __name__ == '__main__':
         # list_of_other_users.append(sweep_1)
         # jammer_type = "sweeping"
 
-        tracking_1 = Jammer(behavior = "tracking", channel = 0)
-        list_of_other_users.append(tracking_1)
-        jammer_type = "tracking"
+        # tracking_1 = Jammer(behavior = "tracking", channel = 0)
+        # list_of_other_users.append(tracking_1)
+        # jammer_type = "tracking"
 
         # smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
         # list_of_other_users.append(smart)
@@ -540,9 +536,9 @@ if __name__ == '__main__':
         # list_of_other_users.append(smart)
         # jammer_type = "smart_fnn"
 
-        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        # list_of_other_users.append(smart)
-        # jammer_type = "smart_ppo"
+        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        list_of_other_users.append(smart)
+        jammer_type = "smart_ppo"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
