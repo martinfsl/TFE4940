@@ -81,8 +81,8 @@ TRANSITION_3 = 0.02
 # Number of sensed channels
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
 # NUM_SENSE_CHANNELS = 15
-NUM_SENSE_CHANNELS = 10 # This allows the Tx and Rx to sense all channels
-NUM_JAMMER_SENSE_CHANNELS = 10 # Number of channels the jammer can sense
+NUM_SENSE_CHANNELS = 7 # This allows the Tx and Rx to sense all channels
+NUM_JAMMER_SENSE_CHANNELS = 7 # Number of channels the jammer can sense
 
 REWARD_SENSE = 0.5 # Additional reward for being able to sense the other agent's action even though it did receive the message
 PENALTY_NONDIVERSE = 0 # Penalty for staying on the same channels for NUM_PREV_ACTIONS episodes

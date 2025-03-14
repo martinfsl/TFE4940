@@ -21,7 +21,8 @@ class rxPredNN(nn.Module):
     def __init__(self):
         super(rxPredNN, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1
+        # self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
@@ -57,7 +58,8 @@ class rxPredNNAgent:
 
         self.device = device
 
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = rxPredNN()
@@ -102,7 +104,8 @@ class rxPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOActor, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2 + NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
@@ -128,7 +131,8 @@ class rxPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOCritic, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2 + NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
@@ -175,8 +179,9 @@ class rxPPOAgent:
         self.device = device
 
         # PPO on-policy storage
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
-        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+(NUM_RECEIVE-1)*2+NUM_CHANNELS), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
+        self.memory_action = torch.empty((0, 3), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
@@ -212,8 +217,9 @@ class rxPPOAgent:
             self.previous_actions = self.previous_actions[1:]
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
-        self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+(NUM_RECEIVE-1)*2+NUM_CHANNELS), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
+        self.memory_action = torch.empty((0, 3), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
@@ -245,14 +251,19 @@ class rxPPOAgent:
         if NUM_SENSE_CHANNELS < NUM_CHANNELS:
             # Create a tensor of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
             # The first elements are the state values centered around the action channel and the last element is the action channel
-            observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
+            observation = torch.zeros(NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2, device=self.device)
             half_sense_channels = NUM_SENSE_CHANNELS // 2
 
             for i in range(-half_sense_channels, half_sense_channels + 1):
-                index = (action + i) % len(state)
+                index = (action[0] + i) % len(state)
                 observation[i + half_sense_channels] = state[index]
 
-            observation[-1] = action
+            observation[NUM_SENSE_CHANNELS] = action[0]
+            
+            for i in range(1, NUM_RECEIVE):
+                observation[NUM_SENSE_CHANNELS + 1 + 2*(i-1)] = state[action[i]]
+                observation[NUM_SENSE_CHANNELS + 1 + 2*(i-1) + 1] = action[i]
+
         else:
             observation = torch.cat((state, action), dim=0)
 
@@ -277,9 +288,12 @@ class rxPPOAgent:
 
         # Extract the most probable action as main action and NUM_EXTRA_ACTIONS additional actions which are the next most probable actions
         main_action = torch.argmax(policy)
-        additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
+        additional_receive_actions = torch.argsort(policy, descending=True)[1:NUM_RECEIVE]
+        additional_sense_actions = torch.argsort(policy, descending=True)[NUM_RECEIVE:NUM_RECEIVE+NUM_EXTRA_ACTIONS]
+        # additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
 
-        actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
+        # actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
+        actions = torch.cat((torch.tensor([main_action], device=self.device), additional_receive_actions, additional_sense_actions))
 
         action_logprob = torch.log(torch.gather(policy, 0, main_action.unsqueeze(0)))
 

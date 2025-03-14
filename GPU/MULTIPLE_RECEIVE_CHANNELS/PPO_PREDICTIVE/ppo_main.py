@@ -42,9 +42,16 @@ print("Device: ", device)
 #################################################################################
 
 def received_signal_rx(tx_channel, rx_channel, received_power, channel_noise_receiver):
-    sinr = 10*torch.log10(received_power / channel_noise_receiver[rx_channel]) # SINR at the receiver
+    if tx_channel in rx_channel:
+        same_channel = True
+        channel = tx_channel
 
-    return (sinr > SINR_THRESHOLD) and (tx_channel == rx_channel)
+        sinr = 10*torch.log10(received_power / channel_noise_receiver[channel]) # SINR at the receiver 
+    else:
+        same_channel = False
+        sinr = torch.tensor(-10000, device=device)
+
+    return (sinr > SINR_THRESHOLD) and (same_channel)
 
 def sensed_signal_rx(tx_channel, rx_sense_channels, received_power, channel_noise_receiver):
     sinr = 10*torch.log10(received_power / channel_noise_receiver[tx_channel])
@@ -53,7 +60,7 @@ def sensed_signal_rx(tx_channel, rx_sense_channels, received_power, channel_nois
         return tx_channel
     else:
         return -1
-    
+
 def sensed_signal_tx(rx_channel, tx_sense_channels, received_power, channel_noise_transmitter):
     sinr = 10*torch.log10(received_power / channel_noise_transmitter[rx_channel])
 
@@ -63,9 +70,16 @@ def sensed_signal_tx(rx_channel, tx_sense_channels, received_power, channel_nois
         return -1
 
 def received_signal_tx(tx_channel, rx_channel, received_power, channel_noise_transmitter):
-    sinr = 10*torch.log10(received_power / channel_noise_transmitter[tx_channel]) # SINR at the receiver
+    if tx_channel in rx_channel:
+        same_channel = True
+        channel = tx_channel
 
-    return (sinr > SINR_THRESHOLD) and (tx_channel == rx_channel)
+        sinr = 10*torch.log10(received_power / channel_noise_transmitter[channel])
+    else:
+        same_channel = False
+        sinr = torch.tensor(-10000, device=device)
+
+    return (sinr > SINR_THRESHOLD) and (same_channel)
 
 def sensed_signal_jammer(jammer_channel, tx_channel, jammer_power, channel_noise_jammer):
     sinr = 10*torch.log10(jammer_power / channel_noise_jammer[jammer_channel]) # SINR at the jammer
@@ -104,7 +118,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
     jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
 
     tx_transmit_channel = torch.tensor([0], device=device)
-    rx_receive_channel = torch.tensor([0], device=device)
+    rx_receive_channels = torch.tensor([0, 1, 2], device=device)
     jammer_channels = [torch.tensor([0], device=device) for _ in jammers]
     jammer_logprobs = [torch.tensor([0], device=device) for _ in jammers]
     jammer_values = [torch.tensor([0], device=device) for _ in jammers]
@@ -132,19 +146,18 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         tx_channels, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
-        tx_agent.add_previous_action(tx_transmit_channel)
         tx_sense_channels = tx_channels[1:]
+        # tx_agent.add_previous_action(tx_transmit_channel)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channel)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channels)
         rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_channels, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
-        rx_receive_channel = rx_channels[0].unsqueeze(0)
-        rx_agent.add_previous_action(rx_receive_channel)
-        rx_sense_channels = rx_channels[1:]
+        rx_receive_channels = rx_channels[0:NUM_RECEIVE]
+        rx_sense_channels = rx_channels[NUM_RECEIVE:]
+        # rx_agent.add_previous_action(rx_receive_channel)
 
         if IS_SMART_JAMMER:
             jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
-            # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
         else:
             jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         for i in range(len(jammers)):
@@ -179,9 +192,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
-        tx_next_observation = tx_agent.get_observation(tx_next_state, tx_transmit_channel)
+        # tx_next_observation = tx_agent.get_observation(tx_next_state, tx_transmit_channel)
         rx_next_state = rx_channel_noise.clone()
-        rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channel)
+        # rx_next_observation = rx_agent.get_observation(rx_next_state, rx_receive_channels)
         jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         if IS_SMART_JAMMER:
             jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
@@ -196,50 +209,56 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # ACK is sent from the receiver
         rx_observed_power = tx_agent.get_transmit_power(direction = "receiver")
         tx_observed_power = rx_agent.get_transmit_power(direction = "transmitter")
-        if received_signal_rx(tx_transmit_channel, rx_receive_channel, rx_observed_power, rx_channel_noise):
+        if received_signal_rx(tx_transmit_channel, rx_receive_channels, rx_observed_power, rx_channel_noise):
             rx_reward = REWARD_SUCCESSFUL
 
             # Update the predictive network in the Rx agent
-            rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, rx_receive_channel)
+            # rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, rx_receive_channel)
+            rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, tx_transmit_channel)
 
             # ACK is received at the transmitter
-            if received_signal_tx(tx_transmit_channel, rx_receive_channel, tx_observed_power, tx_channel_noise): # power should be changed to rx_agent later
+            if received_signal_tx(tx_transmit_channel, rx_receive_channels, tx_observed_power, tx_channel_noise): # power should be changed to rx_agent later
                 tx_reward = REWARD_SUCCESSFUL
 
                 # Update the predictive network in the Tx agent
-                # tx_agent.pred_agent.store_experience_in(tx_observation, torch.tensor(tx_transmit_channel, device=device))
                 tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, tx_transmit_channel)
+            # ACK is not received at the transmitter
             else:
                 tx_reward = REWARD_INTERFERENCE
 
-                tx_sensing = sensed_signal_tx(rx_receive_channel, tx_sense_channels, tx_observed_power, tx_channel_noise)
+                # tx_sensing = sensed_signal_tx(rx_receive_channels, tx_sense_channels, tx_observed_power, tx_channel_noise)
+                # if tx_sensing != -1:
+                #     tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, torch.tensor(tx_sensing, device=device))
 
-                if tx_sensing != -1:
-                    tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, torch.tensor(tx_sensing, device=device))
-
-                    tx_reward += REWARD_SENSE
+                #     tx_reward += REWARD_SENSE
         else:
             rx_reward = REWARD_INTERFERENCE
             tx_reward = REWARD_INTERFERENCE
 
             rx_sensing = sensed_signal_rx(tx_transmit_channel, rx_sense_channels, rx_observed_power, rx_channel_noise)
-
             # Managed to sense the Tx but not receive the signal
             if rx_sensing != -1:
                 rx_agent.pred_agent.store_experience_in(rx_observation_without_pred_action, torch.tensor(rx_sensing, device=device))
 
                 rx_reward += REWARD_SENSE
 
-        # If tx_transmit_channel is in tx_agent.previous_actions, then the reward is penalized
-        if tx_transmit_channel in tx_agent.previous_actions:
-            tx_reward -= PENALTY_NONDIVERSE
-        else:
-            tx_reward += REWARD_DIVERSE
-        # If rx_receive_channel is in rx_agent.previous_actions, then the reward is penalized
-        if rx_receive_channel in rx_agent.previous_actions:
-            rx_reward -= PENALTY_NONDIVERSE
-        else:
-            rx_reward += REWARD_DIVERSE
+            tx_sensing = sensed_signal_tx(rx_receive_channels[0], tx_sense_channels, tx_observed_power, tx_channel_noise)
+            # Managed to sense the Rx but not receive the signal
+            if tx_sensing != -1:
+                tx_agent.pred_agent.store_experience_in(tx_observation_without_pred_action, torch.tensor(tx_sensing, device=device).unsqueeze(0))
+
+                tx_reward += REWARD_SENSE
+
+        # # If tx_transmit_channel is in tx_agent.previous_actions, then the reward is penalized
+        # if tx_transmit_channel in tx_agent.previous_actions:
+        #     tx_reward -= PENALTY_NONDIVERSE
+        # else:
+        #     tx_reward += REWARD_DIVERSE
+        # # If rx_receive_channel is in rx_agent.previous_actions, then the reward is penalized
+        # if rx_receive_channel in rx_agent.previous_actions:
+        #     rx_reward -= PENALTY_NONDIVERSE
+        # else:
+        #     rx_reward += REWARD_DIVERSE
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart":
@@ -275,7 +294,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # Replay the agent's memory
         # tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
         tx_agent.store_in_memory(tx_observation, tx_transmit_channel, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
-        rx_agent.store_in_memory(rx_observation, rx_receive_channel, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
+        rx_agent.store_in_memory(rx_observation, rx_receive_channels, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart" and (jammers[i].type == "RNN" or jammers[i].type == "FNN"):
@@ -347,7 +366,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
     jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
 
     tx_transmit_channel = torch.tensor([0], device=device)
-    rx_receive_channel = torch.tensor([0], device=device)
+    rx_receive_channels = torch.tensor([0, 1, 2], device=device)
     jammer_channels = [torch.tensor([0], device=device) for _ in jammers]
 
     # Initialize the channel noise for the current (and first) time step
@@ -375,10 +394,10 @@ def test_ppo(tx_agent, rx_agent, jammers):
         tx_transmit_channel = tx_channels[0].unsqueeze(0)
         # tx_sense_channels = tx_channels[1:]
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channel)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channels)
         rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_channels, _, _ = rx_agent.choose_action(rx_observation)
-        rx_receive_channel = rx_channels[0].unsqueeze(0)
+        rx_receive_channels = rx_channels[0:NUM_RECEIVE].unsqueeze(0)
         # rx_sense_channels = rx_channels[1:]
 
         if IS_SMART_JAMMER:
@@ -399,7 +418,9 @@ def test_ppo(tx_agent, rx_agent, jammers):
                 jammer_channels[i] = jammers[i].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
 
         num_tx_channel_selected[tx_transmit_channel] += 1
-        num_rx_channel_selected[rx_receive_channel] += 1
+        for i in range(len(rx_receive_channels)):
+            num_rx_channel_selected[rx_receive_channels[i]] += 1
+            # num_rx_channel_selected[rx_receive_channel] += 1
         for i in range(len(jammers)):
             num_jammer_channel_selected[i][jammer_channels[i]] += 1
 
@@ -438,11 +459,11 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
-        if received_signal_rx(tx_transmit_channel, rx_receive_channel, tx_agent.get_transmit_power(direction = "receiver"), rx_channel_noise):
+        if received_signal_rx(tx_transmit_channel, rx_receive_channels, tx_agent.get_transmit_power(direction = "receiver"), rx_channel_noise):
             # rx_reward = REWARD_SUCCESSFUL
             
             # ACK is received at the transmitter
-            if received_signal_tx(tx_transmit_channel, rx_receive_channel, rx_agent.get_transmit_power(direction = "transmitter"), tx_channel_noise): # power should be changed to rx_agent later
+            if received_signal_tx(tx_transmit_channel, rx_receive_channels, rx_agent.get_transmit_power(direction = "transmitter"), tx_channel_noise): # power should be changed to rx_agent later
                 tx_reward = REWARD_SUCCESSFUL
             else:
                 tx_reward = REWARD_INTERFERENCE
