@@ -198,6 +198,9 @@ class txPPOAgent:
         self.actor_losses = torch.tensor([], device=self.device)
         self.critic_losses = torch.tensor([], device=self.device)
 
+        # Logging the channel selections
+        self.channels_selected = torch.tensor([], device=self.device)
+
     def add_previous_action(self, action):
         self.previous_actions = torch.cat((self.previous_actions, action.unsqueeze(0)), dim=0)
 
@@ -272,6 +275,8 @@ class txPPOAgent:
         actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
 
         action_logprob = torch.log(torch.gather(policy, 0, main_action.unsqueeze(0)))
+
+        self.channels_selected = torch.cat((self.channels_selected, main_action.unsqueeze(0)))
 
         return actions, action_logprob, values
     

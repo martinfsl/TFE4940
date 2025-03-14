@@ -177,6 +177,10 @@ def save_results_losses(tx_actor_losses, tx_critic_losses, rx_actor_losses, rx_c
 
         plt.close()
 
+#################################################################################
+### Plotting the channel selection during training
+#################################################################################
+
 def save_channel_selection_training(tx_channel_selection, rx_channel_selection, jammer_channel_selection, filepath = None):
     plt.figure(figsize=(12, 8))
 
