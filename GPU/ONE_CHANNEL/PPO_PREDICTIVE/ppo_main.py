@@ -9,7 +9,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 
 from plotting import plot_results, plot_probability_selection, plot_results_smart_jammer
-from saving_plots import save_results_plot, save_probability_selection, save_results_smart_jammer, save_results_losses
+from saving_plots import save_results_plot, save_probability_selection, save_results_smart_jammer, save_results_losses, save_channel_selection_training
 
 from constants import *
 
@@ -566,11 +566,15 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
 
         if jammer_type == "smart":
-            save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel, filepath = relative_path_run)
+            save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, 
+                                      prob_rx_channel, prob_jammer_channel, filepath = relative_path_run)
         else:
             save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
             save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
-            save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run)
+            save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
+                                rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run)
+            save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
+                                            list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run)
 
     # if jammer_type == "smart":
     #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
