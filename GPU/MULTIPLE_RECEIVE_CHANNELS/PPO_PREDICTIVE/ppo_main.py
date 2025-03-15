@@ -508,7 +508,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/receive_multiple/smart_ppo"
+    relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/test_3/receive_multiple/smart_ppo"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -569,28 +569,28 @@ if __name__ == '__main__':
         if jammer_type == "smart":
             print("Jamming rate: ", (smart.num_jammed/NUM_TEST_RUNS)*100, "%")
 
-        # relative_path_run = f"{relative_path}/{run+1}"
-        # if not os.path.exists(relative_path_run):
-        #     os.makedirs(relative_path_run)
+        relative_path_run = f"{relative_path}/{run+1}"
+        if not os.path.exists(relative_path_run):
+            os.makedirs(relative_path_run)
 
-        # # Save data in textfiles
-        # np.savetxt(f"{relative_path_run}/average_reward_tx.txt", tx_average_rewards)
-        # np.savetxt(f"{relative_path_run}/actor_losses_tx.txt", tx_agent.actor_losses.cpu().detach().numpy())
-        # np.savetxt(f"{relative_path_run}/critic_losses_tx.txt", tx_agent.critic_losses.cpu().detach().numpy())
-        # np.savetxt(f"{relative_path_run}/average_reward_rx.txt", rx_average_rewards)
-        # np.savetxt(f"{relative_path_run}/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
-        # np.savetxt(f"{relative_path_run}/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
-        # np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
-        # np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
+        # Save data in textfiles
+        np.savetxt(f"{relative_path_run}/average_reward_tx.txt", tx_average_rewards)
+        np.savetxt(f"{relative_path_run}/actor_losses_tx.txt", tx_agent.actor_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/critic_losses_tx.txt", tx_agent.critic_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/average_reward_rx.txt", rx_average_rewards)
+        np.savetxt(f"{relative_path_run}/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
+        np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
 
-        # save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
-        # save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
-        # save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
-        #                     rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run)
-        # save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
-        #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run)
-        # if jammer_behavior == "smart":
-        #     save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run)
+        save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
+        save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
+        save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
+                            rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run)
+        save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
+                                        list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run)
+        if jammer_behavior == "smart":
+            save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run)
 
     # if jammer_type == "smart":
     #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
@@ -604,5 +604,5 @@ if __name__ == '__main__':
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
 
-    # np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
-    # np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
+    np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])

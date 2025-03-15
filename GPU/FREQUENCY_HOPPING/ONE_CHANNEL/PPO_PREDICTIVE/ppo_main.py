@@ -504,7 +504,7 @@ if __name__ == '__main__':
     # relative_path = f"Comparison/march_tests/PPO/diversity/tracking_vs_smartppo/test_2/tracking"
     # relative_path = f"Comparison/march_tests/PPO/diversity/tracking_vs_smartppo/test_2/smart_ppo"
     # relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/receive_one/tracking"
-    relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/test_2/receive_one/smart_ppo"
+    relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/receive_one/smart_ppo"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
