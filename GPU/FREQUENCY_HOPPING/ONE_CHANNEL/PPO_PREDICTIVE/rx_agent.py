@@ -22,7 +22,8 @@ class rxPredNN(nn.Module):
     def __init__(self):
         super(rxPredNN, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = STATE_SPACE_SIZE
+        # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
@@ -58,7 +59,7 @@ class rxPredNNAgent:
 
         self.device = device
 
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = rxPredNN()
@@ -103,11 +104,14 @@ class rxPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOActor, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = STATE_SPACE_SIZE
+        # self.input_size = STATE_SPACE_SIZE + NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
-        self.output_size = NUM_CHANNELS
+        self.output_size = NUM_PATTERNS
+        # self.output_size = NUM_CHANNELS
 
         # Defining the fully connected layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
@@ -129,7 +133,9 @@ class rxPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOCritic, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
+        self.input_size = STATE_SPACE_SIZE
+        # self.input_size = STATE_SPACE_SIZE + NUM_CHANNELS
+        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
@@ -176,13 +182,14 @@ class rxPPOAgent:
         self.device = device
 
         # PPO on-policy storage
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
+        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
+        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE+NUM_CHANNELS), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
-        self.previous_actions = torch.empty((0, 1), device=self.device)
+        self.previous_patterns = torch.empty((0, 1), device=self.device)
 
         # Policy network (Actor network)
         self.actor_network = rxPPOActor()
@@ -208,15 +215,17 @@ class rxPPOAgent:
 
         # FH pattern
         self.fh = FH_Pattern(device = self.device)
+        self.fh_patterns_used = torch.tensor([], device=self.device)
 
-    def add_previous_action(self, action):
-        self.previous_actions = torch.cat((self.previous_actions, action.unsqueeze(0)), dim=0)
+    def add_previous_pattern(self, pattern):
+        self.previous_patterns = torch.cat((self.previous_patterns, pattern.unsqueeze(0)), dim=0)
 
-        if self.previous_actions.size(0) > NUM_PREV_ACTIONS:
-            self.previous_actions = self.previous_actions[1:]
+        if self.previous_patterns.size(0) > NUM_PREV_PATTERNS:
+            self.previous_patterns = self.previous_patterns[1:]
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
+        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
+        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE+NUM_CHANNELS), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
@@ -246,21 +255,23 @@ class rxPPOAgent:
         return torch.tensor(received_power, device=self.device)
 
     def get_observation(self, state, action):
-        if NUM_SENSE_CHANNELS < NUM_CHANNELS:
-            # Create a tensor of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
-            # The first elements are the state values centered around the action channel and the last element is the action channel
-            observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
-            half_sense_channels = NUM_SENSE_CHANNELS // 2
+        observation_pattern = torch.zeros(STATE_SPACE_SIZE, device=self.device)
 
-            for i in range(-half_sense_channels, half_sense_channels + 1):
-                index = (action + i) % len(state)
-                observation[i + half_sense_channels] = state[index]
+        for i in range(NUM_HOPS_PER_PATTERN):
+            # Same as before: create observation by concatenating state and action data.
+            if NUM_SENSE_CHANNELS < NUM_CHANNELS:
+                observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
+                half_sense_channels = NUM_SENSE_CHANNELS // 2
+                for j in range(-half_sense_channels, half_sense_channels + 1):
+                    index = (action[i] + j) % len(state[i])
+                    observation[j + half_sense_channels] = state[i][index.long()]
+                observation[-1] = action[i]
+            else:
+                observation = torch.cat((state[i], action[i]), dim=0)
+        
+            observation_pattern[i*(NUM_SENSE_CHANNELS+1):(i+1)*(NUM_SENSE_CHANNELS+1)] = observation
 
-            observation[-1] = action
-        else:
-            observation = torch.cat((state, action), dim=0)
-
-        return observation
+        return observation_pattern
     
     def concat_predicted_action(self, observation):
         # Get the predicted action from the predictive network
@@ -287,7 +298,7 @@ class rxPPOAgent:
 
         action_logprob = torch.log(torch.gather(policy, 0, main_action.unsqueeze(0)))
 
-        self.channels_selected = torch.cat((self.channels_selected, main_action.unsqueeze(0)))
+        self.fh_patterns_used = torch.cat((self.fh_patterns_used, main_action.unsqueeze(0)))
 
         return actions, action_logprob, values
 
@@ -321,40 +332,7 @@ class rxPPOAgent:
 
         return advantages
     
-    def update(self):
-        returns = self.compute_returns()
-        advantages = self.compute_advantages(returns, self.memory_value)
-
-        values = self.get_value(self.memory_state)
-
-        old_logits = self.actor_network_old(self.memory_state).detach()
-        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
-
-        new_logits = self.actor_network(self.memory_state)
-        new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, self.memory_action.long()))
-
-        ratio = torch.exp(new_logprobs - old_logprobs)
-
-        surr1 = ratio * advantages
-        surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*advantages
-
-        actor_loss = -torch.min(surr1, surr2).mean()
-        critic_loss = nn.MSELoss()(values, returns)
-        total_loss = actor_loss + critic_loss
-
-        self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
-
-        self.actor_optimizer.zero_grad()
-        self.critic_optimizer.zero_grad()
-        # actor_loss.backward()
-        # critic_loss.backward()
-        total_loss.backward()
-        self.actor_optimizer.step()
-        self.critic_optimizer.step()
-
-        self.clear_memory()
-
-    # def update_epochs_random(self):
+    # def update(self):
     #     returns = self.compute_returns()
     #     advantages = self.compute_advantages(returns, self.memory_value)
 
@@ -363,50 +341,27 @@ class rxPPOAgent:
     #     old_logits = self.actor_network_old(self.memory_state).detach()
     #     old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
 
-    #     data_size = self.memory_state.size(0)
+    #     new_logits = self.actor_network(self.memory_state)
+    #     new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, self.memory_action.long()))
 
-    #     for epoch in range(self.k):
-    #         indices = torch.randperm(data_size)
+    #     ratio = torch.exp(new_logprobs - old_logprobs)
 
-    #         for start in range(0, data_size, self.m):
-    #             end = start + self.m
-    #             batch_indices = indices[start:end]
+    #     surr1 = ratio * advantages
+    #     surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*advantages
 
-    #             batch_state = self.memory_state[batch_indices]
-    #             batch_action = self.memory_action[batch_indices]
-    #             batch_logprob = self.memory_logprob[batch_indices]
-    #             batch_return = returns[batch_indices].detach()
-    #             batch_advantage = advantages[batch_indices].detach()
+    #     actor_loss = -torch.min(surr1, surr2).mean()
+    #     critic_loss = nn.MSELoss()(values, returns)
+    #     total_loss = actor_loss + critic_loss
 
-    #             new_logits = self.actor_network(batch_state)
-    #             new_policy = nn.Softmax(dim=1)(new_logits)
-    #             new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
-
-    #             # new_dist = torch.distributions.Categorical(new_policy)
-    #             # new_entropy = new_dist.entropy().mean()
-
-    #             ratio = torch.exp(new_logprobs - batch_logprob)
-
-    #             surr1 = ratio*batch_advantage
-    #             surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
-
-    #             actor_loss = -torch.min(surr1, surr2).mean()
-    #             # actor_loss = -torch.min(surr1, surr2).mean() - self.c2*new_entropy
-
-    #             batch_value = self.get_value(batch_state)
-    #             critic_loss = nn.MSELoss()(batch_value, batch_return)
-                
-    #             total_loss = actor_loss + self.c1*critic_loss
-
-    #             self.actor_optimizer.zero_grad()
-    #             self.critic_optimizer.zero_grad()
-    #             # actor_loss.backward()
-    #             # critic_loss.backward()
-    #             total_loss.backward()
-    #             self.actor_optimizer.step()
-    #             self.critic_optimizer.step()
-            
     #     self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
+
+    #     self.actor_optimizer.zero_grad()
+    #     self.critic_optimizer.zero_grad()
+    #     # actor_loss.backward()
+    #     # critic_loss.backward()
+    #     total_loss.backward()
+    #     self.actor_optimizer.step()
+    #     self.critic_optimizer.step()
 
     #     self.clear_memory()
 
@@ -463,54 +418,54 @@ class rxPPOAgent:
         self.actor_losses = torch.cat((self.actor_losses, actor_loss.unsqueeze(0)))
         self.critic_losses = torch.cat((self.critic_losses, critic_loss.unsqueeze(0)))
 
-    def update_epochs_sequential(self):
-        returns = self.compute_returns()
-        advantages = self.compute_advantages(returns, self.memory_value)
+    # def update_epochs_sequential(self):
+    #     returns = self.compute_returns()
+    #     advantages = self.compute_advantages(returns, self.memory_value)
 
-        values = self.get_value(self.memory_state)
+    #     values = self.get_value(self.memory_state)
 
-        old_logits = self.actor_network_old(self.memory_state).detach()
-        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
+    #     old_logits = self.actor_network_old(self.memory_state).detach()
+    #     old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
 
-        data_size = self.memory_state.size(0)
+    #     data_size = self.memory_state.size(0)
 
-        for epoch in range(self.k):
-            # Instead of shuffling randomly, we process consecutive sequences (episodes) as batches.
-            num_batches = data_size // self.m
-            for _ in range(num_batches):
-                start = random.randint(0, data_size - self.m)
-                end = start + self.m
-                batch_state = self.memory_state[start:end]
-                batch_action = self.memory_action[start:end]
-                batch_logprob = self.memory_logprob[start:end]
-                batch_return = returns[start:end].detach()
-                batch_advantage = advantages[start:end].detach()
+    #     for epoch in range(self.k):
+    #         # Instead of shuffling randomly, we process consecutive sequences (episodes) as batches.
+    #         num_batches = data_size // self.m
+    #         for _ in range(num_batches):
+    #             start = random.randint(0, data_size - self.m)
+    #             end = start + self.m
+    #             batch_state = self.memory_state[start:end]
+    #             batch_action = self.memory_action[start:end]
+    #             batch_logprob = self.memory_logprob[start:end]
+    #             batch_return = returns[start:end].detach()
+    #             batch_advantage = advantages[start:end].detach()
 
-                new_logits = self.actor_network(batch_state)
-                new_policy = nn.Softmax(dim=1)(new_logits)
-                new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
+    #             new_logits = self.actor_network(batch_state)
+    #             new_policy = nn.Softmax(dim=1)(new_logits)
+    #             new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
                 
-                # new_dist = torch.distributions.Categorical(new_policy)
-                # new_entropy = new_dist.entropy().mean()
+    #             # new_dist = torch.distributions.Categorical(new_policy)
+    #             # new_entropy = new_dist.entropy().mean()
 
-                ratio = torch.exp(new_logprobs - batch_logprob)
+    #             ratio = torch.exp(new_logprobs - batch_logprob)
 
-                surr1 = ratio * batch_advantage
-                surr2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * batch_advantage
+    #             surr1 = ratio * batch_advantage
+    #             surr2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * batch_advantage
 
-                actor_loss = -torch.min(surr1, surr2).mean()
-                # actor_loss = -torch.min(surr1, surr2).mean() - self.c2*new_entropy
+    #             actor_loss = -torch.min(surr1, surr2).mean()
+    #             # actor_loss = -torch.min(surr1, surr2).mean() - self.c2*new_entropy
 
-                batch_value = self.get_value(batch_state)
-                critic_loss = nn.MSELoss()(batch_value, batch_return)
+    #             batch_value = self.get_value(batch_state)
+    #             critic_loss = nn.MSELoss()(batch_value, batch_return)
 
-                total_loss = actor_loss + self.c1*critic_loss
+    #             total_loss = actor_loss + self.c1*critic_loss
 
-                self.actor_optimizer.zero_grad()
-                self.critic_optimizer.zero_grad()
-                total_loss.backward()
-                self.actor_optimizer.step()
-                self.critic_optimizer.step()
+    #             self.actor_optimizer.zero_grad()
+    #             self.critic_optimizer.zero_grad()
+    #             total_loss.backward()
+    #             self.actor_optimizer.step()
+    #             self.critic_optimizer.step()
 
-        self.actor_network_old.load_state_dict(self.actor_network.state_dict())
-        self.clear_memory()
+    #     self.actor_network_old.load_state_dict(self.actor_network.state_dict())
+    #     self.clear_memory()

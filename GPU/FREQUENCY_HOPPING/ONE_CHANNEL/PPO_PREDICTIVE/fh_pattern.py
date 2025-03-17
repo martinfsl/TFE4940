@@ -4,7 +4,7 @@ import random
 import torch
 
 class FH_Pattern:
-    def __init__(self, M = NUM_PATTERNS, L = NUM_CHANNELS_PER_PATTERN, d = MINIMUM_SPACING, seed = SEED, device = "cpu"):
+    def __init__(self, M = NUM_PATTERNS, L = NUM_HOPS_PER_PATTERN, d = MINIMUM_SPACING, seed = SEED, device = "cpu"):
         self.M = M
         self.L = L
         self.d = d
@@ -51,5 +51,7 @@ class FH_Pattern:
 if __name__ == '__main__':
     fh = FH_Pattern()
     fh.print_patterns()
-    fh.get_pattern(0)
+    pattern_0 = fh.get_pattern(0)
     fh.get_pattern(1)
+
+    print("Pattern 0: ", pattern_0)
