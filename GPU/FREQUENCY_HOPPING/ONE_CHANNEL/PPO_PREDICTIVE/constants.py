@@ -87,3 +87,8 @@ REWARD_SENSE = 0.5 # Additional reward for being able to sense the other agent's
 PENALTY_NONDIVERSE = 0 # Penalty for staying on the same channels for NUM_PREV_ACTIONS episodes
 REWARD_DIVERSE = 0 # Reward for choosing a channel that has not been used in the past NUM_PREV_ACTIONS episodes
 NUM_PREV_ACTIONS = 2 # Number of previous actions to consider for the penalty
+
+# Frequency-Hopping parameters
+NUM_PATTERNS = 10
+NUM_CHANNELS_PER_PATTERN = 5
+MINIMUM_SPACING = 2
