@@ -126,6 +126,13 @@ def train_ppo(tx_agent, rx_agent, jammers):
         jammer_states[i] = jammer_channel_noises[i].clone()
     ###################################
 
+    # Printing FH pattern 1
+    print("Tx FH pattern 1: ", tx_agent.fh.get_pattern(0))
+    print("Rx FH pattern 1: ", rx_agent.fh.get_pattern(0))
+    print("------")
+    print("Tx FH pattern: ", tx_agent.fh.print_patterns())
+    print("Rx FH pattern: ", rx_agent.fh.print_patterns())
+
     for episode in tqdm(range(NUM_EPISODES)):
         # The agents chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_transmit_channel)

@@ -8,6 +8,7 @@ import numpy as np
 import copy
 
 from constants import *
+from fh_pattern import FH_Pattern
 
 #################################################################################
 ### Defining classes for the model predicting Tx's action at the Rx
@@ -204,6 +205,9 @@ class rxPPOAgent:
 
         # Logging the channels selected
         self.channels_selected = torch.tensor([], device=self.device)
+
+        # FH pattern
+        self.fh = FH_Pattern(device = self.device)
 
     def add_previous_action(self, action):
         self.previous_actions = torch.cat((self.previous_actions, action.unsqueeze(0)), dim=0)

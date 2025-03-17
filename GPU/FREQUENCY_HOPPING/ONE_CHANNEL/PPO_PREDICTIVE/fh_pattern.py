@@ -4,7 +4,7 @@ import random
 import torch
 
 class FH_Pattern:
-    def __init__(self, M = NUM_PATTERNS, L = NUM_CHANNELS_PER_PATTERN, d = MINIMUM_SPACING, seed = 32, device = "cpu"):
+    def __init__(self, M = NUM_PATTERNS, L = NUM_CHANNELS_PER_PATTERN, d = MINIMUM_SPACING, seed = SEED, device = "cpu"):
         self.M = M
         self.L = L
         self.d = d
@@ -33,7 +33,6 @@ class FH_Pattern:
             used_at_time_step = set()
             for i in range(self.M):
                 available = set(range(NUM_CHANNELS)) - pattern_used[i] - used_at_time_step
-                print("available", available)
                 valid = [ch for ch in available if (j == 0 or (abs(ch - int(self.patterns[i][j-1].item())) >= self.d))]
                 if not valid:
                     raise ValueError(f"No valid channels available for pattern {i}, time step {j}")

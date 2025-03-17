@@ -92,3 +92,4 @@ NUM_PREV_ACTIONS = 2 # Number of previous actions to consider for the penalty
 NUM_PATTERNS = 10
 NUM_CHANNELS_PER_PATTERN = 5
 MINIMUM_SPACING = 2
+SEED = 32
