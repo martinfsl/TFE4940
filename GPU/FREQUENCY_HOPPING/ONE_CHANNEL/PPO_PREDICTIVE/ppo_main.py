@@ -344,6 +344,13 @@ def test_ppo(tx_agent, rx_agent, jammers):
     num_rx_channel_selected = np.zeros(NUM_CHANNELS)
     num_jammer_channel_selected = np.zeros((len(jammers), NUM_CHANNELS))
 
+    tx_agent.channels_selected = torch.tensor([], device=tx_agent.device)
+    rx_agent.channels_selected = torch.tensor([], device=rx_agent.device)
+    tx_agent.fh_patterns_used = torch.tensor([], device=tx_agent.device)
+    rx_agent.fh_patterns_used = torch.tensor([], device=rx_agent.device)
+    for i in range(len(jammers)):
+        jammers[i].channels_selected = torch.tensor([], device=jammers[i].device)
+
     # Initialize the start channel for the sweep
     for jammer in jammers:
         if jammer.behavior == "sweep":
@@ -412,9 +419,9 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
         for i in range(NUM_HOPS_PER_PATTERN):
             tx_transmit_channel = tx_hops[i].unsqueeze(0)
-            # tx_agent.channels_selected = torch.concat((tx_agent.channels_selected, tx_transmit_channel), dim=0)
+            tx_agent.channels_selected = torch.concat((tx_agent.channels_selected, tx_transmit_channel), dim=0)
             rx_receive_channel = rx_hops[i].unsqueeze(0)
-            # rx_agent.channels_selected = torch.concat((rx_agent.channels_selected, rx_receive_channel), dim=0)
+            rx_agent.channels_selected = torch.concat((rx_agent.channels_selected, rx_receive_channel), dim=0)
 
             if IS_SMART_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
@@ -583,8 +590,20 @@ if __name__ == '__main__':
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
 
+        tx_channel_selection_training = tx_agent.channels_selected.cpu().detach().numpy()
+        rx_channel_selection_training = rx_agent.channels_selected.cpu().detach().numpy()
+        tx_pattern_selection_training = tx_agent.fh_patterns_used.cpu().detach().numpy()
+        rx_pattern_selection_training = rx_agent.fh_patterns_used.cpu().detach().numpy()
+        jammer_channel_selection_training = list_of_other_users[0].channels_selected.cpu().detach().numpy()
+
         num_successful_transmissions, num_tx_successful_hop_transmissions, num_rx_successful_hop_transmissions, \
             prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_ppo(tx_agent, rx_agent, list_of_other_users)
+
+        tx_channel_selection_testing = tx_agent.channels_selected.cpu().detach().numpy()
+        rx_channel_selection_testing = rx_agent.channels_selected.cpu().detach().numpy()
+        tx_pattern_selection_testing = tx_agent.fh_patterns_used.cpu().detach().numpy()
+        rx_pattern_selection_testing = rx_agent.fh_patterns_used.cpu().detach().numpy()
+        jammer_channel_selection_testing = list_of_other_users[0].channels_selected.cpu().detach().numpy()
 
         print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100, "%")
@@ -612,10 +631,14 @@ if __name__ == '__main__':
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
                             rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
-        save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
-                                        list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
+        # save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
+        #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
+        save_channel_selection(tx_channel_selection_training, rx_channel_selection_training, jammer_channel_selection_training,
+                                tx_channel_selection_testing, rx_channel_selection_testing, jammer_channel_selection_testing, filepath = relative_path_run+"/plots")
+        save_pattern_selection(tx_pattern_selection_training, rx_pattern_selection_training, tx_pattern_selection_testing, 
+                               rx_pattern_selection_testing, filepath = relative_path_run+"/plots")
         if jammer_behavior == "smart":
-            save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run)
+            save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run+"/plots")
 
     # if jammer_type == "smart":
     #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
