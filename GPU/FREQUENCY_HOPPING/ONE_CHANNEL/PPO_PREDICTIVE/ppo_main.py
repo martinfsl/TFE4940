@@ -530,8 +530,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    # relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/receive_one/smart_ppo"
-    relative_path = f"Comparison/march_tests/PPO/frequency_hopping/tracking"
+    relative_path = f"Comparison/march_tests/PPO/frequency_hopping/test_1/tracking"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -588,8 +587,8 @@ if __name__ == '__main__':
             prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_ppo(tx_agent, rx_agent, list_of_other_users)
 
         print("Finished testing:")
-        print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
-        success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
+        print("Successful transmission rate: ", (num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100, "%")
+        success_rates.append((num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100)
 
         relative_path_run = f"{relative_path}/{run+1}"
         if not os.path.exists(relative_path_run):

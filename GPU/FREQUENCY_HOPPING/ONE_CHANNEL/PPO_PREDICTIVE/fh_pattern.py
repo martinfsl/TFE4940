@@ -51,7 +51,3 @@ class FH_Pattern:
 if __name__ == '__main__':
     fh = FH_Pattern()
     fh.print_patterns()
-    pattern_0 = fh.get_pattern(0)
-    fh.get_pattern(1)
-
-    print("Pattern 0: ", pattern_0)
