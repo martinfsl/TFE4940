@@ -187,6 +187,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
                     jammer_observations[j] = jammer_observation
                     jammer_channels[j] = jammers[j].choose_action(jammer_observation, tx_transmit_channel).unsqueeze(0)
             
+            # Set a new channel noise for the next state for the jammer
             jammer_channel_noises = torch.empty((len(jammers), NUM_CHANNELS), device=device)
             for j, jammer in enumerate(jammers):
                 noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -204,7 +205,6 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
             rx_observed_power = tx_agent.get_transmit_power(direction = "receiver")
             tx_observed_power = rx_agent.get_transmit_power(direction = "transmitter")
-
             # Calculate the reward based on the patterns chosen
             # ACK is sent from the receiver
             if received_signal_rx(tx_transmit_channel.long(), rx_receive_channel.long(), rx_observed_power, rx_channel_noise[i]):
@@ -223,6 +223,52 @@ def train_ppo(tx_agent, rx_agent, jammers):
                 # rx_reward += REWARD_INTERFERENCE
                 # tx_reward += REWARD_INTERFERENCE
 
+            for j in range(len(jammers)):
+                if jammers[j].behavior == "smart":
+                    if sensed_signal_jammer(jammer_channels[j], tx_transmit_channel, jammers[j].observed_tx_power, jammers[j].observed_noise):
+                        jammers[j].observed_reward = REWARD_SUCCESSFUL
+                    else:
+                        jammers[j].observed_reward = REWARD_UNSUCCESSFUL
+
+            if episode == 0:
+                for j in range(len(jammers)):
+                    if jammers[j].behavior == "smart":
+                        jammer_accumulated_rewards.append(jammers[j].observed_reward)
+                        jammer_average_rewards.append(jammers[j].observed_reward)
+            else:
+                for j in range(len(jammers)):
+                    if jammers[j].behavior == "smart":
+                        jammer_accumulated_rewards.append(jammer_accumulated_rewards[-1] + jammers[j].observed_reward)
+                        jammer_average_rewards.append(jammer_accumulated_rewards[-1]/len(jammer_accumulated_rewards))
+
+            # Store the experience in the jammer's memory
+            for j in range(len(jammers)):
+                if jammers[j].behavior == "smart" and (jammers[j].type == "RNN" or jammers[j].type == "FNN"):
+                    jammers[j].agent.store_experience_in(jammer_observations[j], jammer_channels[j], 
+                                                        torch.tensor([jammers[j].observed_reward], device=device), jammer_next_observations[j])
+                elif jammers[j].behavior == "smart" and jammers[j].type == "PPO":
+                    jammers[j].agent.store_in_memory(jammer_observations[j], jammer_channels[j], 
+                                                    jammer_logprobs[j], torch.tensor([jammers[j].observed_reward], device=device), jammer_values[j])
+                    
+            if ((episode*NUM_HOPS_PER_PATTERN) + i + 1) % (T+1) == T:
+                for j in range(len(jammers)):
+                    if jammers[j].behavior == "smart" and jammers[j].type == "PPO":
+                        jammers[j].agent.update()
+
+            # Update for each episode if the jammer uses Q-learning
+            for j in range(len(jammers)):
+                if jammers[j].behavior == "smart" and (jammers[j].type == "RNN" or jammers[j].type == "FNN"):
+                    jammers[j].agent.update()
+
+            # Periodic update of the target Q-network
+            if ((episode*NUM_HOPS_PER_PATTERN) + i) % 10 == 0:
+                for j in range(len(jammers)):
+                    if jammers[j].behavior == "smart" and (jammers[j].type == "RNN" or jammers[j].type == "FNN"):
+                        jammers[j].agent.update_target_q_network()
+
+            for j in range(len(jammers)):
+                jammer_states[j] = jammer_next_states[j].clone()
+
         ##################
 
         tx_reward = tx_reward/NUM_HOPS_PER_PATTERN
@@ -238,13 +284,6 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_reward += PENALTY_NONDIVERSE
         else:
             rx_reward += REWARD_DIVERSE
-
-        for j in range(len(jammers)):
-            if jammers[j].behavior == "smart":
-                if sensed_signal_jammer(jammer_channels[j], tx_transmit_channel, jammers[j].observed_tx_power, jammers[j].observed_noise):
-                    jammers[j].observed_reward = REWARD_SUCCESSFUL
-                else:
-                    jammers[j].observed_reward = REWARD_UNSUCCESSFUL
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
@@ -269,11 +308,6 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
             rx_accumulated_rewards.append(rx_reward)
             rx_average_rewards.append(rx_reward)
-
-            for i in range(len(jammers)):
-                if jammers[i].behavior == "smart":
-                    jammer_accumulated_rewards.append(jammers[i].observed_reward)
-                    jammer_average_rewards.append(jammers[i].observed_reward)
         else:
             tx_accumulated_rewards.append(tx_accumulated_rewards[-1] + tx_reward)
             tx_average_rewards.append(tx_accumulated_rewards[-1]/len(tx_accumulated_rewards))
@@ -281,22 +315,11 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_accumulated_rewards.append(rx_accumulated_rewards[-1] + rx_reward)
             rx_average_rewards.append(rx_accumulated_rewards[-1]/len(rx_accumulated_rewards))
 
-            for i in range(len(jammers)):
-                if jammers[i].behavior == "smart":
-                    jammer_accumulated_rewards.append(jammer_accumulated_rewards[-1] + jammers[i].observed_reward)
-                    jammer_average_rewards.append(jammer_accumulated_rewards[-1]/len(jammer_accumulated_rewards))
-
         # Store the experience in the agent's memory
         # Replay the agent's memory
         # tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
         tx_agent.store_in_memory(tx_observation, tx_pattern, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
         rx_agent.store_in_memory(rx_observation, rx_pattern, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
-
-        for i in range(len(jammers)):
-            if jammers[i].behavior == "smart" and (jammers[i].type == "RNN" or jammers[i].type == "FNN"):
-                jammers[i].agent.store_experience_in(jammer_observations[i], jammer_channels[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_next_observations[i])
-            elif jammers[i].behavior == "smart" and jammers[i].type == "PPO":
-                jammers[i].agent.store_in_memory(jammer_observations[i], jammer_channels[i], jammer_logprobs[i], torch.tensor([jammers[i].observed_reward], device=device), jammer_values[i])
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
@@ -310,25 +333,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
             tx_agent.pred_agent.train()
             rx_agent.pred_agent.train()
 
-            for i in range(len(jammers)):
-                if jammers[i].behavior == "smart" and jammers[i].type == "PPO":
-                    jammers[i].agent.update()
-
-        # Update for each episode if the jammer uses Q-learning
-        for i in range(len(jammers)):
-            if jammers[i].behavior == "smart" and (jammers[i].type == "RNN" or jammers[i].type == "FNN"):
-                jammers[i].agent.update()
-
-        # Periodic update of the target Q-network
-        if episode % 10 == 0:
-            for i in range(len(jammers)):
-                if jammers[i].behavior == "smart" and (jammers[i].type == "RNN" or jammers[i].type == "FNN"):
-                    jammers[i].agent.update_target_q_network()
-
         tx_state = tx_next_state.clone()
         rx_state = rx_next_state.clone()
-        for i in range(len(jammers)):
-            jammer_states[i] = jammer_next_states[i].clone()
 
     print("Training complete")
 
