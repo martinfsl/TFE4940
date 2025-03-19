@@ -630,6 +630,8 @@ if __name__ == '__main__':
             os.makedirs(f"{relative_path_run}/plots")
         if not os.path.exists(f"{relative_path_run}/data"):
             os.makedirs(f"{relative_path_run}/data")
+        if not os.path.exists(f"{relative_path_run}/data/channel_pattern"):
+            os.makedirs(f"{relative_path_run}/data/channel_pattern")
 
         # Save data in textfiles
         np.savetxt(f"{relative_path_run}/data/average_reward_tx.txt", tx_average_rewards)
@@ -640,6 +642,18 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/average_reward_jammer.txt", jammer_average_rewards)
         np.savetxt(f"{relative_path_run}/data/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
+
+        # Saving the channel and pattern selections
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_channel_selection_training.txt", tx_channel_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_channel_selection_training.txt", rx_channel_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/jammer_channel_selection_training.txt", jammer_channel_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_pattern_selection_training.txt", tx_pattern_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_pattern_selection_training.txt", rx_pattern_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_channel_selection_testing.txt", tx_channel_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_channel_selection_testing.txt", rx_channel_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/jammer_channel_selection_testing.txt", jammer_channel_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_pattern_selection_testing.txt", tx_pattern_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_pattern_selection_testing.txt", rx_pattern_selection_testing)
 
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
