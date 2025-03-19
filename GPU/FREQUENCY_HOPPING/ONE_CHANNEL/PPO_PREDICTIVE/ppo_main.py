@@ -230,6 +230,18 @@ def train_ppo(tx_agent, rx_agent, jammers):
                     else:
                         jammers[j].observed_reward = REWARD_UNSUCCESSFUL
 
+            jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+            if IS_SMART_JAMMER:
+                jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
+                # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+            elif IS_TRACKING_JAMMER:
+                jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+            else:
+                jammer_next_observations = torch.empty((len(jammers), 0))
+            for j in range(len(jammers)):
+                jammer_next_states[j] = jammer_channel_noises[j].clone()
+                jammer_next_observations[j] = jammers[j].get_observation(jammer_next_states[j], jammer_channels[j])
+
             if episode == 0:
                 for j in range(len(jammers)):
                     if jammers[j].behavior == "smart":
@@ -287,20 +299,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
-        tx_next_observation = tx_agent.get_observation(tx_next_state, tx_hops)
         rx_next_state = rx_channel_noise.clone()
-        rx_next_observation = rx_agent.get_observation(rx_next_state, rx_hops)
-        jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
-        if IS_SMART_JAMMER:
-            jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
-            # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
-        elif IS_TRACKING_JAMMER:
-            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
-        else:
-            jammer_next_observations = torch.empty((len(jammers), 0))
-        for i in range(len(jammers)):
-            jammer_next_states[i] = jammer_channel_noises[i].clone()
-            jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
 
         if episode == 0:
             tx_accumulated_rewards.append(tx_reward)
@@ -463,6 +462,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
             for j in range(len(jammers)):
                 num_jammer_channel_selected[j][jammer_channels[j]] += 1
 
+            # Set a new channel noise for the next state for the jammer
             jammer_channel_noises = torch.empty((len(jammers), NUM_CHANNELS), device=device)
             for j, jammer in enumerate(jammers):
                 noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -502,41 +502,35 @@ def test_ppo(tx_agent, rx_agent, jammers):
             if success:
                 num_successful_transmissions += 1
 
+            for j in range(len(jammers)):
+                if jammers[j].behavior == "smart":
+                    if sensed_signal_jammer(jammer_channels[j], tx_transmit_channel, jammers[j].observed_tx_power, jammers[j].observed_noise):
+                        jammers[j].observed_reward = REWARD_SUCCESSFUL
+                    else:
+                        jammers[j].observed_reward = REWARD_UNSUCCESSFUL
+                    
+                    if jammers[j].observed_reward >= 0:
+                        jammers[j].num_jammed += 1
+
+            jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+            for j in range(len(jammers)):
+                jammer_next_states[j] = jammer_channel_noises[j].clone()
+
+            for j in range(len(jammers)):
+                jammer_states[j] = jammer_next_states[j].clone()
+
         ##################
 
         num_tx_successful_hop_transmissions += tx_reward/NUM_HOPS_PER_PATTERN
         num_rx_successful_hop_transmissions += rx_reward/NUM_HOPS_PER_PATTERN
 
-        for i in range(len(jammers)):
-            if jammers[i].behavior == "smart":
-                if sensed_signal_jammer(jammer_channels[i], tx_transmit_channel, jammers[i].observed_tx_power, jammers[i].observed_noise):
-                    jammers[i].observed_reward = REWARD_SUCCESSFUL
-                else:
-                    jammers[i].observed_reward = REWARD_UNSUCCESSFUL
-                
-                if jammers[i].observed_reward >= 0:
-                    jammers[i].num_jammed += 1
-
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
         rx_next_state = rx_channel_noise.clone()
-        jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
-        if IS_SMART_JAMMER:
-            jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
-            # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
-        elif IS_TRACKING_JAMMER:
-            jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
-        else:
-            jammer_next_observations = torch.empty((len(jammers), 0))
-        for i in range(len(jammers)):
-            jammer_next_states[i] = jammer_channel_noises[i].clone()
-            jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
 
         # Set the state for the next iteration based on the new observed power spectrum
         tx_state = tx_next_state.clone()
         rx_state = rx_next_state.clone()
-        for i in range(len(jammers)):
-            jammer_states[i] = jammer_next_states[i].clone()
 
     probability_tx_channel_selected = num_tx_channel_selected / np.sum(num_tx_channel_selected)
     probability_rx_channel_selected = num_rx_channel_selected / np.sum(num_rx_channel_selected)
