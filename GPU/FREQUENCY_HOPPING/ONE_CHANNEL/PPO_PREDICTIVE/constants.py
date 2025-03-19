@@ -26,8 +26,8 @@ T = 100 # Number of steps between each update, i.e. length of the trajectory
 M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
-# C2 = 0.01 # Coefficient for the entropy loss
-C2 = 0.05 # Coefficient for the entropy loss
+C2 = 0.01 # Coefficient for the entropy loss
+# C2 = 0.05 # Coefficient for the entropy loss
 
 # Parameters
 BATCH_SIZE = 2
@@ -81,7 +81,8 @@ TRANSITION_3 = 0.02
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
 # NUM_SENSE_CHANNELS = 15
 NUM_SENSE_CHANNELS = 10 # This allows the Tx and Rx to sense all channels
-NUM_JAMMER_SENSE_CHANNELS = 10 # Number of channels the jammer can sense
+# NUM_JAMMER_SENSE_CHANNELS = 10 # Number of channels the jammer can sense
+NUM_JAMMER_SENSE_CHANNELS = NUM_CHANNELS
 
 REWARD_SENSE = 0.5 # Additional reward for being able to sense the other agent's action even though it did receive the message
 PENALTY_NONDIVERSE = 0 # Penalty for staying on the same pattern for NUM_PREV_PATTERN episodes

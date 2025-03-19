@@ -294,7 +294,8 @@ class jammerPPOAgent:
                 lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP,
                 k = K, m = M, c1 = C1, c2 = C2, device = "cpu"):
         self.gamma = gamma
-        self.learning_rate = 0.001
+        # self.learning_rate = 0.001
+        self.learning_rate = 0.005
 
         # self.LAMBDA = lambda_param
         self.LAMBDA = 0.40
@@ -303,7 +304,8 @@ class jammerPPOAgent:
         self.k = k
         self.m = m
         self.c1 = 0.5
-        self.c2 = 0.01
+        # self.c2 = 0.01
+        self.c2 = 0.05
 
         self.device = device
 

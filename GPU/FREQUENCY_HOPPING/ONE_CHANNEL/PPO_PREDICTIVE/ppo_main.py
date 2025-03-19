@@ -78,6 +78,7 @@ def sensed_signal_jammer(jammer_channel, tx_channel, jammer_power, channel_noise
 
 def train_ppo(tx_agent, rx_agent, jammers):
     IS_SMART_JAMMER = False
+    IS_TRACKING_JAMMER = False
     
     print("Training")
     tx_accumulated_rewards = []
@@ -96,6 +97,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         if jammer.behavior == "smart":
             IS_SMART_JAMMER = True
+        elif jammer.behavior == "tracking":
+            IS_TRACKING_JAMMER = True
 
     ###################################
     # Initializing the first state consisting of just noise
@@ -168,8 +171,10 @@ def train_ppo(tx_agent, rx_agent, jammers):
             if IS_SMART_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
                 # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
-            else:
+            elif IS_TRACKING_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+            else:
+                jammer_observations = torch.empty((len(jammers), 0))
             for j in range(len(jammers)):
                 if jammers[j].behavior == "smart" and jammers[j].type == "PPO":
                     jammer_observation = jammers[j].get_observation(jammer_states[j], jammer_channels[j])
@@ -249,9 +254,11 @@ def train_ppo(tx_agent, rx_agent, jammers):
         jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         if IS_SMART_JAMMER:
             jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
-            # jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
-        else:
+            # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        elif IS_TRACKING_JAMMER:
             jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+        else:
+            jammer_next_observations = torch.empty((len(jammers), 0))
         for i in range(len(jammers)):
             jammer_next_states[i] = jammer_channel_noises[i].clone()
             jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
@@ -333,6 +340,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
 def test_ppo(tx_agent, rx_agent, jammers):
     IS_SMART_JAMMER = False
+    IS_TRACKING_JAMMER = False
 
     print("Testing")
     num_successful_transmissions = 0
@@ -358,6 +366,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
         
         if jammer.behavior == "smart":
             IS_SMART_JAMMER = True
+        elif jammer.behavior == "tracking":
+            IS_TRACKING_JAMMER = True
 
     ###################################
     # Initializing the first state
@@ -426,8 +436,10 @@ def test_ppo(tx_agent, rx_agent, jammers):
             if IS_SMART_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
                 # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
-            else:
+            elif IS_TRACKING_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+            else:
+                jammer_observations = torch.empty((len(jammers), 0))
             for j in range(len(jammers)):
                 if jammers[j].behavior == "smart" and jammers[j].type == "PPO":
                     jammer_observation = jammers[j].get_observation(jammer_states[j], jammer_channels[j])
@@ -505,9 +517,11 @@ def test_ppo(tx_agent, rx_agent, jammers):
         jammer_next_states = torch.empty((len(jammers), NUM_CHANNELS), device=device)
         if IS_SMART_JAMMER:
             jammer_next_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
-            # jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
-        else:
+            # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
+        elif IS_TRACKING_JAMMER:
             jammer_next_observations = torch.empty((len(jammers), NUM_CHANNELS), device=device)
+        else:
+            jammer_next_observations = torch.empty((len(jammers), 0))
         for i in range(len(jammers)):
             jammer_next_states[i] = jammer_channel_noises[i].clone()
             jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
@@ -535,9 +549,9 @@ if __name__ == '__main__':
 
     success_rates = []
     
-    num_runs = 5
+    num_runs = 1
 
-    relative_path = f"Comparison/march_tests/PPO/frequency_hopping/test_1/tracking"
+    relative_path = f"Comparison/march_tests/PPO/frequency_hopping/test_3"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -567,10 +581,10 @@ if __name__ == '__main__':
         # jammer_type = "sweeping"
         # jammer_behavior = "naive"
 
-        tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
-        list_of_other_users.append(tracking_1)
-        jammer_type = "tracking"
-        jammer_behavior = "naive"
+        # tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
+        # list_of_other_users.append(tracking_1)
+        # jammer_type = "tracking"
+        # jammer_behavior = "naive"
 
         # smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
         # list_of_other_users.append(smart)
@@ -582,10 +596,10 @@ if __name__ == '__main__':
         # jammer_type = "smart_fnn"
         # jammer_behavior = "smart"
 
-        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        # list_of_other_users.append(smart)
-        # jammer_type = "smart_ppo"
-        # jammer_behavior = "smart"
+        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        list_of_other_users.append(smart)
+        jammer_type = "smart_ppo"
+        jammer_behavior = "smart"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
@@ -609,7 +623,7 @@ if __name__ == '__main__':
         print("Successful transmission rate: ", (num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100, "%")
         success_rates.append((num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100)
 
-        relative_path_run = f"{relative_path}/{run+1}"
+        relative_path_run = f"{relative_path}/{jammer_type}/{run+1}"
         if not os.path.exists(relative_path_run):
             os.makedirs(relative_path_run)
         if not os.path.exists(f"{relative_path_run}/plots"):
@@ -652,5 +666,5 @@ if __name__ == '__main__':
         print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
 
-    np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
-    np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/all_success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/average_success_rate.txt", [np.mean(success_rates)])
