@@ -21,7 +21,7 @@ class rxSenseNN(nn.Module):
         self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
-        self.output_size = NUM_EXTRA_ACTIONS
+        self.output_size = NUM_CHANNELS
 
         # Defining the fully connected layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
@@ -91,12 +91,15 @@ class rxSenseNNAgent:
 
         return observation
 
-    def choose_sensing_channels(self, observation):
+    def choose_receive_and_sensing_channels(self, observation):
         with torch.no_grad():
             pred = self.sense_network(observation)
         
-        # Return the NUM_EXTRA_ACTIONS most probable channels
-        return torch.argsort(pred, descending=True)[:NUM_EXTRA_ACTIONS]
+        sorted_indices = torch.argsort(pred, descending=True)
+        receive_channels = sorted_indices[:NUM_EXTRA_RECEIVE]
+        extra_actions = sorted_indices[NUM_EXTRA_RECEIVE:NUM_EXTRA_RECEIVE+NUM_EXTRA_ACTIONS]
+        
+        return receive_channels, extra_actions
 
 #################################################################################
 ### Defining classes for the model predicting Tx's action at the Rx
