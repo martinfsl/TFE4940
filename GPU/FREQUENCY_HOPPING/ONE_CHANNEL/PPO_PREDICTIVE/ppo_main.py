@@ -105,6 +105,10 @@ def train_ppo(tx_agent, rx_agent, jammers):
     tx_state = torch.empty(STATE_SPACE_SIZE, device=device)
     rx_state = torch.empty(STATE_SPACE_SIZE, device=device)
     jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
+    
+    # Intializing the first channels
+    tx_transmit_channel = torch.tensor([0], device=device)
+    rx_receive_channel = torch.tensor([0], device=device)
 
     tx_hops = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
     rx_hops = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
@@ -138,19 +142,20 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
         tx_observation = tx_observation_without_pred_action
         # tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
-        tx_channels, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
-        tx_pattern = tx_channels[0].unsqueeze(0)
+        tx_pattern, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_agent.add_previous_pattern(tx_pattern)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, tx_hops)
         rx_observation = rx_observation_without_pred_action
         # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
-        rx_channels, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
-        rx_pattern = rx_channels[0].unsqueeze(0)
+        rx_pattern, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
         rx_agent.add_previous_pattern(rx_pattern)
 
         tx_hops = tx_agent.fh.get_pattern(tx_pattern)[0]
         rx_hops = rx_agent.fh.get_pattern(rx_pattern)[0]
+
+        # tx_observed_rx = torch.tensor([], device=device)
+        # rx_observed_tx = torch.tensor([], device=device)
 
         # Set a new channel noise for the next state
         tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
@@ -163,6 +168,17 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_reward = 0
 
         for i in range(NUM_HOPS_PER_PATTERN):
+            # # Get the sub-observation of Tx and Rx for the previous hop
+            # if i == 0:
+            #     tx_subobservation = tx_agent.sensing_agent.get_subobservation(tx_state[-1], tx_transmit_channel)
+            #     rx_subobservation = rx_agent.sensing_agent.get_subobservation(rx_state[-1], rx_receive_channel)
+            # else:
+            #     tx_subobservation = tx_agent.sensing_agent.get_subobservation(tx_channel_noise[i-1], tx_transmit_channel)
+            #     rx_subobservation = rx_agent.sensing_agent.get_subobservation(rx_channel_noise[i-1], rx_receive_channel)
+
+            # tx_sense_channels = tx_agent.sensing_agent.choose_sensing_channels(tx_subobservation)
+            # rx_sense_channels = rx_agent.sensing_agent.choose_sensing_channels(rx_subobservation)
+
             tx_transmit_channel = tx_hops[i].unsqueeze(0)
             tx_agent.channels_selected = torch.concat((tx_agent.channels_selected, tx_transmit_channel), dim=0)
             rx_receive_channel = rx_hops[i].unsqueeze(0)
@@ -210,18 +226,31 @@ def train_ppo(tx_agent, rx_agent, jammers):
             if received_signal_rx(tx_transmit_channel.long(), rx_receive_channel.long(), rx_observed_power, rx_channel_noise[i]):
                 rx_reward += REWARD_SUCCESSFUL
 
+                # rx_agent.sensing_agent.store_in_memory(rx_subobservation, tx_transmit_channel)
+
                 # ACK is received at the transmitter
                 if received_signal_tx(tx_transmit_channel.long(), rx_receive_channel.long(), tx_observed_power, tx_channel_noise[i]):
                     tx_reward += REWARD_SUCCESSFUL
+
+                    # tx_agent.sensing_agent.store_in_memory(tx_subobservation, tx_transmit_channel)
                 else:
                     # tx_reward += REWARD_INTERFERENCE
                     tx_reward += REWARD_MISS
-
             else:
                 rx_reward += REWARD_MISS
                 tx_reward += REWARD_MISS
                 # rx_reward += REWARD_INTERFERENCE
                 # tx_reward += REWARD_INTERFERENCE
+
+                # # Rx might still be able to sense the Tx's action even though it did not receive the message
+                # rx_sensing = sensed_signal_rx(tx_transmit_channel.long(), rx_sense_channels, rx_observed_power, rx_channel_noise[i])
+                # if rx_sensing != -1:
+                #     rx_agent.sensing_agent.store_in_memory(rx_subobservation, tx_transmit_channel)
+
+                # # Tx might still be able to sense the Rx's action even though it did not receive the ACK
+                # tx_sensing = sensed_signal_tx(rx_receive_channel.long(), tx_sense_channels, tx_observed_power, tx_channel_noise[i])
+                # if tx_sensing != -1:
+                #     tx_agent.sensing_agent.store_in_memory(tx_subobservation, rx_receive_channel)
 
             for j in range(len(jammers)):
                 if jammers[j].behavior == "smart":
@@ -322,15 +351,16 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
-            # tx_agent.update()
-            # rx_agent.update()
-            tx_agent.update_epochs_random()
-            rx_agent.update_epochs_random()
-            # tx_agent.update_epochs_sequential()
-            # rx_agent.update_epochs_sequential()
+            tx_agent.update()
+            rx_agent.update()
 
             tx_agent.pred_agent.train()
             rx_agent.pred_agent.train()
+
+        # # Updating the sensing networks every 10-th episode
+        # if episode % 10 == 0:
+        #     tx_agent.sensing_agent.train()
+        #     rx_agent.sensing_agent.train()
 
         tx_state = tx_next_state.clone()
         rx_state = rx_next_state.clone()
@@ -410,16 +440,12 @@ def test_ppo(tx_agent, rx_agent, jammers):
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
         tx_observation = tx_observation_without_pred_action
         # tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
-        tx_channels, _, _ = tx_agent.choose_action(tx_observation)
-        tx_pattern = tx_channels[0].unsqueeze(0)
-        # tx_sense_channels = tx_channels[1:]
+        tx_pattern, _, _ = tx_agent.choose_action(tx_observation)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
         rx_observation = rx_observation_without_pred_action
         # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
-        rx_channels, _, _ = rx_agent.choose_action(rx_observation)
-        rx_pattern = rx_channels[0].unsqueeze(0)
-        # rx_sense_channels = rx_channels[1:]
+        rx_pattern, _, _ = rx_agent.choose_action(rx_observation)
 
         tx_hops = tx_agent.fh.get_pattern(tx_pattern)[0]
         rx_hops = rx_agent.fh.get_pattern(rx_pattern)[0]

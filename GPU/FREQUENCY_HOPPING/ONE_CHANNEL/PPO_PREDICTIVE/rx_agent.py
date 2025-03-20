@@ -11,6 +11,94 @@ from constants import *
 from fh_pattern import FH_Pattern
 
 #################################################################################
+### Defining classes for the model choosing which additional channels the Rx can sense
+#################################################################################
+
+class rxSenseNN(nn.Module):
+    def __init__(self):
+        super(rxSenseNN, self).__init__()
+
+        self.input_size = NUM_SENSE_CHANNELS + 1
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
+        self.output_size = NUM_EXTRA_ACTIONS
+
+        # Defining the fully connected layers
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
+        self.dropout1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.dropout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.dropout1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.dropout2(x)
+        x = self.fc3(x)
+
+        return x
+    
+class rxSenseNNAgent:
+    def __init__(self, device = "cpu"):
+        self.learning_rate = 0.01
+
+        # Parameters for the neural network
+        self.batch_size = 16
+        self.maximum_memory_size = 100
+
+        self.device = device
+
+        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+
+        self.sense_network = rxSenseNN()
+        self.sense_network.to(self.device)
+        self.optimizer = optim.Adam(self.sense_network.parameters(), lr=self.learning_rate)
+
+    def store_in_memory(self, state, action):
+        if self.memory_state.size(0) >= self.maximum_memory_size:
+            self.memory_state = self.memory_state[1:]
+            self.memory_action = self.memory_action[1:]
+
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+
+    def train(self):
+        if self.memory_state.size(0) >= self.batch_size:
+            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
+
+            batch_state = self.memory_state[indices]
+            batch_action = self.memory_action[indices]
+
+            pred = self.sense_network(batch_state)
+            loss = nn.CrossEntropyLoss()(pred, batch_action.long().squeeze())
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+    def get_subobservation(self, state, action):
+        if NUM_SENSE_CHANNELS < NUM_CHANNELS:
+            observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
+            half_sense_channels = NUM_SENSE_CHANNELS // 2
+            for i in range(-half_sense_channels, half_sense_channels + 1):
+                index = (action + i) % len(state)
+                observation[i + half_sense_channels] = state[index.long()]
+            observation[-1] = action
+        else:
+            observation = torch.cat((state, action), dim=0)
+
+        return observation
+
+    def choose_sensing_channels(self, observation):
+        with torch.no_grad():
+            pred = self.sense_network(observation)
+        
+        # Return the NUM_EXTRA_ACTIONS most probable channels
+        return torch.argsort(pred, descending=True)[:NUM_EXTRA_ACTIONS]
+
+#################################################################################
 ### Defining classes for the model predicting Tx's action at the Rx
 #################################################################################
 
@@ -206,6 +294,9 @@ class rxPPOAgent:
         # Predictive network remains unchanged
         self.pred_agent = rxPredNNAgent(device=self.device)
 
+        # Sensing network
+        self.sensing_agent = rxSenseNNAgent(device=self.device)
+
         # Logging actor and critic losses
         self.actor_losses = torch.tensor([], device=self.device)
         self.critic_losses = torch.tensor([], device=self.device)
@@ -285,22 +376,33 @@ class rxPPOAgent:
     def get_value(self, observation):
         return self.critic_network(observation)
 
+    # # Returning the most probable action and the NUM_EXTRA_ACTIONS next most probable actions
+    # def choose_action(self, observation):
+    #     with torch.no_grad():
+    #         policy = nn.Softmax(dim=0)(self.actor_network(observation))
+    #         values = self.get_value(observation)
+
+    #     # Extract the most probable action as main action and NUM_EXTRA_ACTIONS additional actions which are the next most probable actions
+    #     main_action = torch.argmax(policy)
+    #     additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
+    #     actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
+
+    #     action_logprob = torch.log(torch.gather(policy, 0, main_action.unsqueeze(0)))
+    #     self.fh_patterns_used = torch.cat((self.fh_patterns_used, main_action.unsqueeze(0)))
+
+    #     return actions, action_logprob, values
+
+    # Only returning the most probable action
     def choose_action(self, observation):
         with torch.no_grad():
             policy = nn.Softmax(dim=0)(self.actor_network(observation))
             values = self.get_value(observation)
 
-        # Extract the most probable action as main action and NUM_EXTRA_ACTIONS additional actions which are the next most probable actions
-        main_action = torch.argmax(policy)
-        additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
+        action = torch.argmax(policy)
+        action_logprob = torch.log(torch.gather(policy, 0, action.unsqueeze(0)))
+        self.fh_patterns_used = torch.cat((self.fh_patterns_used, action.unsqueeze(0)))
 
-        actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
-
-        action_logprob = torch.log(torch.gather(policy, 0, main_action.unsqueeze(0)))
-
-        self.fh_patterns_used = torch.cat((self.fh_patterns_used, main_action.unsqueeze(0)))
-
-        return actions, action_logprob, values
+        return action.unsqueeze(0), action_logprob, values
 
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
@@ -332,40 +434,7 @@ class rxPPOAgent:
 
         return advantages
     
-    # def update(self):
-    #     returns = self.compute_returns()
-    #     advantages = self.compute_advantages(returns, self.memory_value)
-
-    #     values = self.get_value(self.memory_state)
-
-    #     old_logits = self.actor_network_old(self.memory_state).detach()
-    #     old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
-
-    #     new_logits = self.actor_network(self.memory_state)
-    #     new_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(new_logits), 1, self.memory_action.long()))
-
-    #     ratio = torch.exp(new_logprobs - old_logprobs)
-
-    #     surr1 = ratio * advantages
-    #     surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*advantages
-
-    #     actor_loss = -torch.min(surr1, surr2).mean()
-    #     critic_loss = nn.MSELoss()(values, returns)
-    #     total_loss = actor_loss + critic_loss
-
-    #     self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
-
-    #     self.actor_optimizer.zero_grad()
-    #     self.critic_optimizer.zero_grad()
-    #     # actor_loss.backward()
-    #     # critic_loss.backward()
-    #     total_loss.backward()
-    #     self.actor_optimizer.step()
-    #     self.critic_optimizer.step()
-
-    #     self.clear_memory()
-
-    def update_epochs_random(self):
+    def update(self):
         returns = self.compute_returns()
         advantages = self.compute_advantages(returns, self.memory_value)
 
@@ -417,55 +486,3 @@ class rxPPOAgent:
 
         self.actor_losses = torch.cat((self.actor_losses, actor_loss.unsqueeze(0)))
         self.critic_losses = torch.cat((self.critic_losses, critic_loss.unsqueeze(0)))
-
-    # def update_epochs_sequential(self):
-    #     returns = self.compute_returns()
-    #     advantages = self.compute_advantages(returns, self.memory_value)
-
-    #     values = self.get_value(self.memory_state)
-
-    #     old_logits = self.actor_network_old(self.memory_state).detach()
-    #     old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
-
-    #     data_size = self.memory_state.size(0)
-
-    #     for epoch in range(self.k):
-    #         # Instead of shuffling randomly, we process consecutive sequences (episodes) as batches.
-    #         num_batches = data_size // self.m
-    #         for _ in range(num_batches):
-    #             start = random.randint(0, data_size - self.m)
-    #             end = start + self.m
-    #             batch_state = self.memory_state[start:end]
-    #             batch_action = self.memory_action[start:end]
-    #             batch_logprob = self.memory_logprob[start:end]
-    #             batch_return = returns[start:end].detach()
-    #             batch_advantage = advantages[start:end].detach()
-
-    #             new_logits = self.actor_network(batch_state)
-    #             new_policy = nn.Softmax(dim=1)(new_logits)
-    #             new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
-                
-    #             # new_dist = torch.distributions.Categorical(new_policy)
-    #             # new_entropy = new_dist.entropy().mean()
-
-    #             ratio = torch.exp(new_logprobs - batch_logprob)
-
-    #             surr1 = ratio * batch_advantage
-    #             surr2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * batch_advantage
-
-    #             actor_loss = -torch.min(surr1, surr2).mean()
-    #             # actor_loss = -torch.min(surr1, surr2).mean() - self.c2*new_entropy
-
-    #             batch_value = self.get_value(batch_state)
-    #             critic_loss = nn.MSELoss()(batch_value, batch_return)
-
-    #             total_loss = actor_loss + self.c1*critic_loss
-
-    #             self.actor_optimizer.zero_grad()
-    #             self.critic_optimizer.zero_grad()
-    #             total_loss.backward()
-    #             self.actor_optimizer.step()
-    #             self.critic_optimizer.step()
-
-    #     self.actor_network_old.load_state_dict(self.actor_network.state_dict())
-    #     self.clear_memory()
