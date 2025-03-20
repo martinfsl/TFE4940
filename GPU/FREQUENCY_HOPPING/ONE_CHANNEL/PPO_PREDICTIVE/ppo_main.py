@@ -564,7 +564,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_new_program_flow/test_2"
+    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_new_program_flow/test_3"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -594,10 +594,10 @@ if __name__ == '__main__':
         # jammer_type = "sweeping"
         # jammer_behavior = "naive"
 
-        # tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
-        # list_of_other_users.append(tracking_1)
-        # jammer_type = "tracking"
-        # jammer_behavior = "naive"
+        tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
+        list_of_other_users.append(tracking_1)
+        jammer_type = "tracking"
+        jammer_behavior = "naive"
 
         # smart = Jammer(behavior = "smart", smart_type = "RNN", device = device)
         # list_of_other_users.append(smart)
@@ -609,10 +609,10 @@ if __name__ == '__main__':
         # jammer_type = "smart_fnn"
         # jammer_behavior = "smart"
 
-        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        list_of_other_users.append(smart)
-        jammer_type = "smart_ppo"
-        jammer_behavior = "smart"
+        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        # list_of_other_users.append(smart)
+        # jammer_type = "smart_ppo"
+        # jammer_behavior = "smart"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
