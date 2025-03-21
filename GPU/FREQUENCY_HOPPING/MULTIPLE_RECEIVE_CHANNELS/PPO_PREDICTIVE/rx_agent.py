@@ -119,7 +119,8 @@ class rxPredNN(nn.Module):
         # self.input_size = NUM_SENSE_CHANNELS + 1
         self.hidden_size1 = 128
         self.hidden_size2 = 64
-        self.output_size = NUM_CHANNELS
+        # self.output_size = NUM_CHANNELS
+        self.output_size = NUM_PATTERNS
 
         # Defining the fully connected layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)

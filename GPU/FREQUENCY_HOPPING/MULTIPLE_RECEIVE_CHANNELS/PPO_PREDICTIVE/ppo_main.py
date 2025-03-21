@@ -152,14 +152,14 @@ def train_ppo(tx_agent, rx_agent, jammers):
     for episode in tqdm(range(NUM_EPISODES)):
         # The agents chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
-        tx_observation = tx_observation_without_pred_action
-        # tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        # tx_observation = tx_observation_without_pred_action
+        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         tx_pattern, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_agent.add_previous_pattern(tx_pattern)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, tx_hops)
-        rx_observation = rx_observation_without_pred_action
-        # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        # rx_observation = rx_observation_without_pred_action
+        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_pattern, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
         rx_agent.add_previous_pattern(rx_pattern)
 
@@ -336,6 +336,11 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         tx_reward = tx_reward/NUM_HOPS_PER_PATTERN
         rx_reward = rx_reward/NUM_HOPS_PER_PATTERN
+
+        if tx_reward >= 0.5:
+            tx_agent.pred_agent.store_in_memory(tx_observation, tx_pattern)
+        if rx_reward >= 0.5:
+            rx_agent.pred_agent.store_in_memory(rx_observation, rx_pattern)
 
         # If tx_hops was used in the previous NUM_PREV_PATTERNS episodes, then penalize the agent
         if tx_pattern in tx_agent.previous_patterns:
