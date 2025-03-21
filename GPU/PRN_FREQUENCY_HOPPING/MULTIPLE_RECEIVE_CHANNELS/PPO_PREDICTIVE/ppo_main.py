@@ -418,8 +418,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
     tx_agent.channels_selected = torch.tensor([], device=tx_agent.device)
     rx_agent.channels_selected = torch.tensor([], device=rx_agent.device)
-    tx_agent.fh_patterns_used = torch.tensor([], device=tx_agent.device)
-    rx_agent.fh_patterns_used = torch.tensor([], device=rx_agent.device)
+    tx_agent.fh_seeds_used = torch.tensor([], device=tx_agent.device)
+    rx_agent.fh_seeds_used = torch.tensor([], device=rx_agent.device)
     for i in range(len(jammers)):
         jammers[i].channels_selected = torch.tensor([], device=jammers[i].device)
 
@@ -638,7 +638,7 @@ if __name__ == '__main__':
     num_runs = 5
 
     # relative_path = f"Comparison/march_tests/PPO/frequency_hopping/test_3"
-    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_multiple_receive/test_6_w_pred"
+    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_prn/test_1_wo_pred"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -693,8 +693,8 @@ if __name__ == '__main__':
 
         tx_channel_selection_training = tx_agent.channels_selected.cpu().detach().numpy()
         rx_channel_selection_training = rx_agent.channels_selected.cpu().detach().numpy()
-        tx_pattern_selection_training = tx_agent.fh_patterns_used.cpu().detach().numpy()
-        rx_pattern_selection_training = rx_agent.fh_patterns_used.cpu().detach().numpy()
+        tx_pattern_selection_training = tx_agent.fh_seeds_used.cpu().detach().numpy()
+        rx_pattern_selection_training = rx_agent.fh_seeds_used.cpu().detach().numpy()
         jammer_channel_selection_training = list_of_other_users[0].channels_selected.cpu().detach().numpy()
 
         num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
@@ -703,8 +703,8 @@ if __name__ == '__main__':
 
         tx_channel_selection_testing = tx_agent.channels_selected.cpu().detach().numpy()
         rx_channel_selection_testing = rx_agent.channels_selected.cpu().detach().numpy()
-        tx_pattern_selection_testing = tx_agent.fh_patterns_used.cpu().detach().numpy()
-        rx_pattern_selection_testing = rx_agent.fh_patterns_used.cpu().detach().numpy()
+        tx_pattern_selection_testing = tx_agent.fh_seeds_used.cpu().detach().numpy()
+        rx_pattern_selection_testing = rx_agent.fh_seeds_used.cpu().detach().numpy()
         jammer_channel_selection_testing = list_of_other_users[0].channels_selected.cpu().detach().numpy()
 
         print("Finished testing:")
