@@ -4,50 +4,28 @@ import random
 import torch
 
 class FH_Pattern:
-    def __init__(self, M = NUM_PATTERNS, L = NUM_HOPS_PER_PATTERN, d = MINIMUM_SPACING, seed = SEED, device = "cpu"):
-        self.M = M
+    def __init__(self, L = NUM_HOPS_PER_PATTERN, device = "cpu"):
         self.L = L
-        self.d = d
         self.device = device
-        self.patterns = torch.zeros(M, L, device = self.device)
-        self.seed = seed
-        self.generate_patterns()
 
-    def generate_patterns(self):
-        random.seed(self.seed)
+        # self.seeds = [random.randint(0, 1000) for i in range(NUM_SEEDS)]
+        self.seeds = [616, 52, 218]
+        self.prng_objects = [random.Random(seed) for seed in self.seeds]
 
-        # for i in range(self.M):
-        #     used_channels = set()
-        #     for j in range(self.L):
-        #         while True:
-        #             channel = random.randint(0, NUM_CHANNELS - 1)
-        #             if channel in used_channels:
-        #                 continue
-        #             if j == 0 or abs(channel - int(self.patterns[i][j-1].item())) >= self.d:
-        #                 self.patterns[i][j] = channel
-        #                 used_channels.add(channel)
-        #                 break
+    def generate_sequence(self, seed_index):
+        prng_object = self.prng_objects[seed_index]
+        return torch.tensor([prng_object.randint(0, NUM_CHANNELS-1) for i in range(self.L)], device = self.device)
 
-        pattern_used = [set() for _ in range(self.M)]
-        for j in range(self.L):
-            used_at_time_step = set()
-            for i in range(self.M):
-                available = set(range(NUM_CHANNELS)) - pattern_used[i] - used_at_time_step
-                valid = [ch for ch in available if (j == 0 or (abs(ch - int(self.patterns[i][j-1].item())) >= self.d))]
-                if not valid:
-                    raise ValueError(f"No valid channels available for pattern {i}, time step {j}")
-                channel = random.choice(valid)
-                self.patterns[i][j] = channel
-                pattern_used[i].add(channel)
-                used_at_time_step.add(channel)
-
-    def get_pattern(self, index):
-        return self.patterns[index]
+    # def get_pattern(self, index):
+        # return self.patterns[index]
     
-    def print_patterns(self):
-        for i in range(self.M):
-            print("Pattern ", i, ": ", self.patterns[i])
+    # def print_patterns(self):
+    #     for i in range(self.M):
+    #         print("Pattern ", i, ": ", self.patterns[i])
 
 if __name__ == '__main__':
     fh = FH_Pattern()
-    fh.print_patterns()
+    print("Seeds: ", fh.seeds)
+    print("Seed 1: ", fh.generate_sequence(0))
+    print("Seed 2: ", fh.generate_sequence(1))
+    print("Seed 3: ", fh.generate_sequence(2))

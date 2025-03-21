@@ -152,19 +152,19 @@ def train_ppo(tx_agent, rx_agent, jammers):
     for episode in tqdm(range(NUM_EPISODES)):
         # The agents chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
-        # tx_observation = tx_observation_without_pred_action
-        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
-        tx_pattern, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
-        tx_agent.add_previous_pattern(tx_pattern)
+        tx_observation = tx_observation_without_pred_action
+        # tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        tx_seed, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
+        tx_agent.add_previous_seed(tx_seed)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, tx_hops)
-        # rx_observation = rx_observation_without_pred_action
-        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
-        rx_pattern, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
-        rx_agent.add_previous_pattern(rx_pattern)
+        rx_observation = rx_observation_without_pred_action
+        # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        rx_seed, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
+        rx_agent.add_previous_seed(rx_seed)
 
-        tx_hops = tx_agent.fh.get_pattern(tx_pattern)[0]
-        rx_hops = rx_agent.fh.get_pattern(rx_pattern)[0]
+        tx_hops = tx_agent.fh.generate_sequence(tx_seed)
+        rx_hops = rx_agent.fh.generate_sequence(rx_seed)
 
         # tx_observed_rx = torch.tensor([], device=device)
         # rx_observed_tx = torch.tensor([], device=device)
@@ -338,17 +338,17 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_reward = rx_reward/NUM_HOPS_PER_PATTERN
 
         if tx_reward >= 0.5:
-            tx_agent.pred_agent.store_in_memory(tx_observation_without_pred_action, tx_pattern)
+            tx_agent.pred_agent.store_in_memory(tx_observation_without_pred_action, tx_seed)
         if rx_reward >= 0.5:
-            rx_agent.pred_agent.store_in_memory(rx_observation_without_pred_action, rx_pattern)
+            rx_agent.pred_agent.store_in_memory(rx_observation_without_pred_action, rx_seed)
 
         # If tx_hops was used in the previous NUM_PREV_PATTERNS episodes, then penalize the agent
-        if tx_pattern in tx_agent.previous_patterns:
+        if tx_seed in tx_agent.previous_seeds:
             tx_reward += PENALTY_NONDIVERSE
         else:
             tx_reward += REWARD_DIVERSE
         # If rx_hops was used in the previous NUM_PREV_PATTERNS episodes, then penalize the agent
-        if rx_pattern in rx_agent.previous_patterns:
+        if rx_seed in rx_agent.previous_seeds:
             rx_reward += PENALTY_NONDIVERSE
         else:
             rx_reward += REWARD_DIVERSE
@@ -373,8 +373,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # Store the experience in the agent's memory
         # Replay the agent's memory
         # tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
-        tx_agent.store_in_memory(tx_observation, tx_pattern, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
-        rx_agent.store_in_memory(rx_observation, rx_pattern, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
+        tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
+        rx_agent.store_in_memory(rx_observation, rx_seed, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
@@ -410,8 +410,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
     num_missed = 0
     num_tx_successful_hop_transmissions = 0
     num_rx_successful_hop_transmissions = 0
-    num_tx_pattern_selected = np.zeros(NUM_PATTERNS)
-    num_rx_pattern_selected = np.zeros(NUM_PATTERNS)
+    num_tx_pattern_selected = np.zeros(NUM_SEEDS)
+    num_rx_pattern_selected = np.zeros(NUM_SEEDS)
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
     num_rx_channel_selected = np.zeros(NUM_CHANNELS)
     num_jammer_channel_selected = np.zeros((len(jammers), NUM_CHANNELS))
@@ -469,17 +469,17 @@ def test_ppo(tx_agent, rx_agent, jammers):
     for run in tqdm(range(NUM_TEST_RUNS)):
         # The agent chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
-        # tx_observation = tx_observation_without_pred_action
-        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
-        tx_pattern, _, _ = tx_agent.choose_action(tx_observation)
+        tx_observation = tx_observation_without_pred_action
+        # tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        tx_seed, _, _ = tx_agent.choose_action(tx_observation)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
-        # rx_observation = rx_observation_without_pred_action
-        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
-        rx_pattern, _, _ = rx_agent.choose_action(rx_observation)
+        rx_observation = rx_observation_without_pred_action
+        # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        rx_seed, _, _ = rx_agent.choose_action(rx_observation)
 
-        tx_hops = tx_agent.fh.get_pattern(tx_pattern)[0]
-        rx_hops = rx_agent.fh.get_pattern(rx_pattern)[0]
+        tx_hops = tx_agent.fh.generate_sequence(tx_seed)
+        rx_hops = rx_agent.fh.generate_sequence(rx_seed)
 
         # Set a new channel noise for the next state
         tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
