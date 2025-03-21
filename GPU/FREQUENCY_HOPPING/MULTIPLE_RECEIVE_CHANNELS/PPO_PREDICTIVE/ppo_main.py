@@ -338,9 +338,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_reward = rx_reward/NUM_HOPS_PER_PATTERN
 
         if tx_reward >= 0.5:
-            tx_agent.pred_agent.store_in_memory(tx_observation, tx_pattern)
+            tx_agent.pred_agent.store_in_memory(tx_observation_without_pred_action, tx_pattern)
         if rx_reward >= 0.5:
-            rx_agent.pred_agent.store_in_memory(rx_observation, rx_pattern)
+            rx_agent.pred_agent.store_in_memory(rx_observation_without_pred_action, rx_pattern)
 
         # If tx_hops was used in the previous NUM_PREV_PATTERNS episodes, then penalize the agent
         if tx_pattern in tx_agent.previous_patterns:
@@ -469,13 +469,13 @@ def test_ppo(tx_agent, rx_agent, jammers):
     for run in tqdm(range(NUM_TEST_RUNS)):
         # The agent chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
-        tx_observation = tx_observation_without_pred_action
-        # tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        # tx_observation = tx_observation_without_pred_action
+        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         tx_pattern, _, _ = tx_agent.choose_action(tx_observation)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
-        rx_observation = rx_observation_without_pred_action
-        # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        # rx_observation = rx_observation_without_pred_action
+        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_pattern, _, _ = rx_agent.choose_action(rx_observation)
 
         tx_hops = tx_agent.fh.get_pattern(tx_pattern)[0]
@@ -638,7 +638,7 @@ if __name__ == '__main__':
     num_runs = 5
 
     # relative_path = f"Comparison/march_tests/PPO/frequency_hopping/test_3"
-    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_multiple_receive/test_4"
+    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_multiple_receive/test_6_w_pred"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

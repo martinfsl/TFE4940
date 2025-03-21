@@ -19,7 +19,8 @@ class txSenseNN(nn.Module):
         super(txSenseNN, self).__init__()
 
         # self.input_size = NUM_SENSE_CHANNELS + 1
-        self.input_size = STATE_SPACE_SIZE
+        # self.input_size = STATE_SPACE_SIZE
+        self.input_size = STATE_SPACE_SIZE + NUM_PATTERNS
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
@@ -51,7 +52,7 @@ class txSenseNNAgent:
         self.device = device
 
         # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1), device=self.device)
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, STATE_SPACE_SIZE + NUM_PATTERNS), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.sense_network = txSenseNN()
@@ -142,7 +143,8 @@ class txPredNN(nn.Module):
 # The output of the neural network is the predicted Rx's action using a softmax function
 class txPredNNAgent:
     def __init__(self, device = "cpu"):
-        self.learning_rate = 0.01
+        # self.learning_rate = 0.01
+        self.learning_rate = 0.001
 
         # Parameters for the neural network
         self.batch_size = 16
@@ -157,7 +159,7 @@ class txPredNNAgent:
         self.pred_network.to(self.device)
         self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
 
-    def store_experience_in(self, state, action):
+    def store_in_memory(self, state, action):
         if self.memory_state.size(0) >= self.maximum_memory_size:
             self.memory_state = self.memory_state[1:]
             self.memory_action = self.memory_action[1:]
@@ -192,7 +194,8 @@ class txPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOActor, self).__init__()
 
-        self.input_size = STATE_SPACE_SIZE
+        self.input_size = STATE_SPACE_SIZE + NUM_PATTERNS
+        # self.input_size = STATE_SPACE_SIZE
         # self.input_size = STATE_SPACE_SIZE + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
@@ -221,7 +224,7 @@ class txPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOCritic, self).__init__()
 
-        self.input_size = STATE_SPACE_SIZE
+        self.input_size = STATE_SPACE_SIZE + NUM_PATTERNS
         # self.input_size = STATE_SPACE_SIZE + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
@@ -268,7 +271,8 @@ class txPPOAgent:
         self.device = device
 
         # PPO on-policy storage (use lists to store one episode/trajectory)
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, STATE_SPACE_SIZE + NUM_PATTERNS), device=self.device)
+        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
         # self.memory_state = torch.empty((0, STATE_SPACE_SIZE+NUM_CHANNELS), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
@@ -314,7 +318,8 @@ class txPPOAgent:
             self.previous_patterns = self.previous_patterns[1:]
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, STATE_SPACE_SIZE + NUM_PATTERNS), device=self.device)
+        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
         # self.memory_state = torch.empty((0, STATE_SPACE_SIZE+NUM_CHANNELS), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
