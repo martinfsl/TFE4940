@@ -18,7 +18,8 @@ class txSenseNN(nn.Module):
     def __init__(self):
         super(txSenseNN, self).__init__()
 
-        self.input_size = NUM_SENSE_CHANNELS + 1
+        # self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = STATE_SPACE_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
@@ -41,7 +42,7 @@ class txSenseNN(nn.Module):
     
 class txSenseNNAgent:
     def __init__(self, device = "cpu"):
-        self.learning_rate = 0.001
+        self.learning_rate = 0.005
 
         # Parameters for the neural network
         self.batch_size = 16
@@ -49,7 +50,8 @@ class txSenseNNAgent:
 
         self.device = device
 
-        self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1), device=self.device)
+        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1), device=self.device)
+        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.sense_network = txSenseNN()
