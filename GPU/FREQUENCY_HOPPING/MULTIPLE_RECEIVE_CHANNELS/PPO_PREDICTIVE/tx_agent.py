@@ -41,7 +41,7 @@ class txSenseNN(nn.Module):
     
 class txSenseNNAgent:
     def __init__(self, device = "cpu"):
-        self.learning_rate = 0.01
+        self.learning_rate = 0.001
 
         # Parameters for the neural network
         self.batch_size = 16
