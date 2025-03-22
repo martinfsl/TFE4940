@@ -14,7 +14,8 @@ NUM_EXTRA_RECEIVE = 2
 channel = [0]*NUM_CHANNELS
 
 # Hyperparameters
-LEARNING_RATE = 0.001
+# LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0001
 GAMMA = 0.60
 # GAMMA = 0.50
 LAMBDA = 0.40
@@ -28,8 +29,8 @@ T = 100 # Number of steps between each update, i.e. length of the trajectory
 M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
-C2 = 0.01 # Coefficient for the entropy loss
-# C2 = 0.05 # Coefficient for the entropy loss
+# C2 = 0.01 # Coefficient for the entropy loss
+C2 = 0.05 # Coefficient for the entropy loss
 
 # Parameters
 BATCH_SIZE = 2
@@ -37,10 +38,10 @@ MAXIMUM_MEMORY_SIZE = 100
 MEMORY_SIZE_BEFORE_TRAINING = 2*BATCH_SIZE
 
 # Rewards
-REWARD_SUCCESSFUL = 1
-REWARD_INTERFERENCE = -1
-REWARD_UNSUCCESSFUL = -1
-REWARD_MISS = -1
+REWARD_SUCCESSFUL = 1 # Reward
+REWARD_INTERFERENCE = -1 # Penalty
+REWARD_UNSUCCESSFUL = -1 # Penalty
+REWARD_MISS = -1 # Penalty
 
 # Number of episodes for training
 # NUM_EPISODES = 1000
