@@ -8,7 +8,8 @@ from constants import *
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from jammerSmart import jammerRNNQNAgent, jammerRNNQN, SmartJammer
+from jammerSmart import SmartJammer
+from jammerGenie import GenieJammer
 
 #################################################################################
 ### Defining class for jammers and interfering users
@@ -19,7 +20,7 @@ from jammerSmart import jammerRNNQNAgent, jammerRNNQN, SmartJammer
 # Possible weights = any vector with size NUM_CHANNELS and integers >= 1 ----> ONLY APPLICABLE FOR behavior = probabilistic
 # Initialization can look like: jammer = Jammer(behavior = "probabilistic", weights = [5, 2, 2]) for a system with three channels
 class Jammer:
-    def __init__(self, behavior = "fixed", channel = 0, weights = [1]*NUM_CHANNELS, sweep_interval = 1, smart_type = "RNN", device = "cpu"):
+    def __init__(self, behavior = "fixed", channel = 0, weights = [1]*NUM_CHANNELS, sweep_interval = 1, smart_type = "PPO", device = "cpu"):
         self.behavior = behavior # Used to determine how the actions are chosen
         self.channel = channel # Used to choose channel in static, fixed behavior, initialization for spectrum sensing
         self.weights = weights # Used for probabilistic behavior
@@ -39,7 +40,11 @@ class Jammer:
         self.num_jammed = 0
         self.type = smart_type
         self.device = device
-        self.agent = SmartJammer(type=self.type, device=self.device)
+
+        if self.behavior == "genie":
+            self.agent = GenieJammer(type=self.type, device=self.device)
+        else:
+            self.agent = SmartJammer(type=self.type, device=self.device)
 
         # Logging the channels selected
         self.channels_selected = torch.tensor([], device=self.device)
@@ -63,7 +68,7 @@ class Jammer:
         return torch.argmax(observation).detach() # Return the channel with the highest power
 
     def get_observation(self, state, action):
-        if self.behavior == "smart":
+        if self.behavior == "smart" or self.behavior == "genie":
             # observation = state.clone()
             # observation = torch.cat((observation, torch.tensor([action], device=observation.device)))
             # return observation
@@ -79,13 +84,14 @@ class Jammer:
                 observation = torch.cat((state, action), dim=0)
 
             return observation
+        # elif self.behavior == "tracking" or self.behavior == "genie":
         elif self.behavior == "tracking":
             return state.clone()
         else:
             return torch.tensor([], device=state.device)
 
     def choose_action(self, observation, tx_channel):
-        if self.behavior == "smart":
+        if self.behavior == "smart" or self.behavior == "genie":
             action = torch.tensor(self.agent.choose_action(observation), device=observation.device)
         else:
             if self.behavior == "random":

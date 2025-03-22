@@ -19,6 +19,10 @@ class FH_Pattern:
         for prng in self.prng_objects:
             seq = [prng.randint(0, NUM_CHANNELS - 1) for _ in range(self.L)]
             sequences.append(seq)
+
+        if self.L == 1:
+            seed_index = seed_index.unsqueeze(0).long()
+
         return torch.tensor(sequences[seed_index], device=self.device)
 
     # def generate_sequence(self, seed_index):
