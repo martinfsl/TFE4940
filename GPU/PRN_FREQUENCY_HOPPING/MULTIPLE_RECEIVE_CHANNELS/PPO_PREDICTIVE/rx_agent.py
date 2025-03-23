@@ -361,7 +361,7 @@ class rxPPOAgent:
     def get_observation(self, state, action):
         observation_pattern = torch.zeros(STATE_SPACE_SIZE, device=self.device)
 
-        for i in range(NUM_HOPS_PER_PATTERN):
+        for i in range(NUM_HOPS):
             # Same as before: create observation by concatenating state and action data.
             if NUM_SENSE_CHANNELS < NUM_CHANNELS:
                 observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)

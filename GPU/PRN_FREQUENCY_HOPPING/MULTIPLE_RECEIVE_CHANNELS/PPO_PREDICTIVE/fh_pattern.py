@@ -4,7 +4,7 @@ import random
 import torch
 
 class FH_Pattern:
-    def __init__(self, L = NUM_HOPS_PER_PATTERN, device = "cpu"):
+    def __init__(self, L = NUM_HOPS, device = "cpu"):
         self.L = L
         self.device = device
 

@@ -94,9 +94,9 @@ REWARD_DIVERSE = 0 # Reward for choosing a pattern that has not been used in the
 NUM_PREV_PATTERNS = 2 # Number of previous patterns to consider for the penalty
 
 # Frequency-Hopping parameters
-NUM_HOPS_PER_PATTERN = 5
+NUM_HOPS = 5
 NUM_SEEDS = 3
 
 # Determining the state space size
-STATE_SPACE_SIZE = NUM_HOPS_PER_PATTERN*(NUM_SENSE_CHANNELS + 1)
+STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1)
 # STATE_SPACE_SIZE = 1*(NUM_SENSE_CHANNELS + 1)

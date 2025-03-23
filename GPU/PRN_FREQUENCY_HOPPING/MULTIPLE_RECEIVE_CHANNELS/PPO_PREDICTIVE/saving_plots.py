@@ -374,3 +374,73 @@ def save_pattern_selection(tx_pattern_selection_training, rx_pattern_selection_t
         plt.savefig(f"{filepath}/pattern_selection.png")
 
         plt.close()
+
+#################################################################################
+### Plotting the seed selection with jammer selection
+#################################################################################
+
+def save_seed_selection_jammer(tx_seed_training, rx_seed_training, jammer_seed_training, 
+                               tx_seed_testing, rx_seed_testing, jammer_seed_testing, filepath = None):
+    plt.figure(figsize=(12, 8))
+    plt.subplot(4, 2, 1)
+    plt.plot(tx_seed_training)
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Tx seed selection during training")
+
+    plt.subplot(4, 2, 2)
+    plt.plot(rx_seed_training)
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Rx seed selection during training")
+
+    plt.subplot(4, 2, 3)
+    plt.plot(jammer_seed_training)
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Jammer seed selection during training")
+
+    plt.subplot(4, 2, 4)
+    plt.plot(tx_seed_training, label = "Tx")
+    plt.plot(rx_seed_training, label = "Rx")
+    plt.plot(jammer_seed_training, label = "Jammer")
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Seed selection during training")
+    plt.legend()
+
+    plt.subplot(4, 2, 5)
+    plt.plot(tx_seed_testing)
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Tx seed selection during testing")
+
+    plt.subplot(4, 2, 6)
+    plt.plot(rx_seed_testing)
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Rx seed selection during testing")
+
+    plt.subplot(4, 2, 7)
+    plt.plot(jammer_seed_testing)
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Jammer seed selection during testing")
+
+    plt.subplot(4, 2, 8)
+    plt.plot(tx_seed_testing, label = "Tx")
+    plt.plot(rx_seed_testing, label = "Rx")
+    plt.plot(jammer_seed_testing, label = "Jammer")
+    plt.xlabel("Episode")
+    plt.ylabel("Seed")
+    plt.title("Seed selection during testing")
+    plt.legend()
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.suptitle(f"PPO algorithm")
+    # plt.show()
+
+    if filepath is not None:
+        plt.savefig(f"{filepath}/seed_selection.png")
+
+        plt.close()

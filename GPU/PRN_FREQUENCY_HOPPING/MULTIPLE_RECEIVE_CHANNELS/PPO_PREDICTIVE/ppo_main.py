@@ -122,10 +122,10 @@ def train_ppo(tx_agent, rx_agent, jammers):
     tx_transmit_channel = torch.tensor([0], device=device)
     rx_receive_channel = torch.tensor([0], device=device)
 
-    tx_hops = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
-    rx_hops = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
-    # tx_transmit_channel = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
-    # rx_receive_channel = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
+    tx_hops = torch.tensor(NUM_HOPS*[0], device=device)
+    rx_hops = torch.tensor(NUM_HOPS*[0], device=device)
+    # tx_transmit_channel = torch.tensor(NUM_HOPS*[0], device=device)
+    # rx_receive_channel = torch.tensor(NUM_HOPS*[0], device=device)
     jammer_channels = [torch.tensor([0], device=device) for _ in jammers]
     jammer_logprobs = [torch.tensor([0], device=device) for _ in jammers]
     jammer_values = [torch.tensor([0], device=device) for _ in jammers]
@@ -134,8 +134,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
     # Initialize the channel noise for the current (and first) time step
     # tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
     # rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
-    tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
-    rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
+    tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
+    rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
     jammer_channel_noises = torch.empty((len(jammers), NUM_CHANNELS), device=device)
     for i, jammer in enumerate(jammers):
         noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -171,8 +171,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # rx_observed_tx = torch.tensor([], device=device)
 
         # Set a new channel noise for the next state
-        tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
-        rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
+        tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
+        rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
 
         ##################
         # One iteration through the hopping pattern is done here
@@ -180,7 +180,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_reward = 0
         rx_reward = 0
 
-        for i in range(NUM_HOPS_PER_PATTERN):
+        for i in range(NUM_HOPS):
             # # Get the sub-observation of Tx and Rx for the previous hop
             # if i == 0:
             #     tx_subobservation = tx_agent.sensing_agent.get_subobservation(tx_state[-1], tx_transmit_channel)
@@ -322,7 +322,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
                                                     jammer_logprobs[j], torch.tensor([jammers[j].observed_reward], device=device), jammer_values[j])
                     
             # Only changing the policy after a certain number of episodes, trajectory length T
-            if ((episode*NUM_HOPS_PER_PATTERN) + i + 1) % (T+1) == T:
+            if ((episode*NUM_HOPS) + i + 1) % (T+1) == T:
                 for j in range(len(jammers)):
                     if jammers[j].behavior == "smart" or jammers[j].behavior == "genie":
                         jammers[j].agent.update()
@@ -332,8 +332,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         ##################
 
-        tx_reward = tx_reward/NUM_HOPS_PER_PATTERN
-        rx_reward = rx_reward/NUM_HOPS_PER_PATTERN
+        tx_reward = tx_reward/NUM_HOPS
+        rx_reward = rx_reward/NUM_HOPS
 
         if tx_reward >= 0.5:
             tx_agent.pred_agent.store_in_memory(tx_observation_without_pred_action, tx_seed)
@@ -420,6 +420,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
     rx_agent.fh_seeds_used = torch.tensor([], device=rx_agent.device)
     for i in range(len(jammers)):
         jammers[i].channels_selected = torch.tensor([], device=jammers[i].device)
+        if jammers[i].behavior == "genie":
+            jammers[i].fh_seeds_used = torch.tensor([], device=jammers[i].device)
 
     # Initialize the start channel for the sweep
     for jammer in jammers:
@@ -441,15 +443,15 @@ def test_ppo(tx_agent, rx_agent, jammers):
     tx_transmit_channel = torch.tensor([0], device=device)
     rx_receive_channel = torch.tensor([0], device=device)
 
-    tx_hops = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
-    rx_hops = torch.tensor(NUM_HOPS_PER_PATTERN*[0], device=device)
+    tx_hops = torch.tensor(NUM_HOPS*[0], device=device)
+    rx_hops = torch.tensor(NUM_HOPS*[0], device=device)
     # tx_transmit_channel = torch.tensor([0], device=device)
     # rx_receive_channel = torch.tensor([0], device=device)
     jammer_channels = [torch.tensor([0], device=device) for _ in jammers]
 
     # Initialize the channel noise for the current (and first) time step
-    tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
-    rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
+    tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
+    rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
     jammer_channel_noises = []
     for jammer in jammers:
         noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_CHANNELS,), device=device))
@@ -480,8 +482,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
         rx_hops = rx_agent.fh.generate_sequence(rx_seed)
 
         # Set a new channel noise for the next state
-        tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
-        rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS_PER_PATTERN, NUM_CHANNELS), device=device))
+        tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
+        rx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
 
         ##################
         # One iteration through the hopping pattern is done here
@@ -489,7 +491,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
         tx_reward = 0
         rx_reward = 0
 
-        for i in range(NUM_HOPS_PER_PATTERN):
+        for i in range(NUM_HOPS):
             # # Get the sub-observation of Tx and Rx for the previous hop
             # if i == 0:
             #     tx_subobservation = tx_agent.sensing_agent.get_subobservation(tx_state[-1], tx_transmit_channel)
@@ -609,8 +611,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
         ##################
 
-        num_tx_successful_hop_transmissions += tx_reward/NUM_HOPS_PER_PATTERN
-        num_rx_successful_hop_transmissions += rx_reward/NUM_HOPS_PER_PATTERN
+        num_tx_successful_hop_transmissions += tx_reward/NUM_HOPS
+        num_rx_successful_hop_transmissions += rx_reward/NUM_HOPS
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
@@ -692,9 +694,11 @@ if __name__ == '__main__':
 
         tx_channel_selection_training = tx_agent.channels_selected.cpu().detach().numpy()
         rx_channel_selection_training = rx_agent.channels_selected.cpu().detach().numpy()
-        tx_pattern_selection_training = tx_agent.fh_seeds_used.cpu().detach().numpy()
-        rx_pattern_selection_training = rx_agent.fh_seeds_used.cpu().detach().numpy()
+        tx_seed_selection_training = tx_agent.fh_seeds_used.cpu().detach().numpy()
+        rx_seed_selection_training = rx_agent.fh_seeds_used.cpu().detach().numpy()
         jammer_channel_selection_training = list_of_other_users[0].channels_selected.cpu().detach().numpy()
+        if jammer_behavior == "genie":
+            jammer_seed_selection_training = list_of_other_users[0].fh_seeds_used.cpu().detach().numpy()
 
         num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
             num_rx_successful_hop_transmissions, prob_tx_channel, prob_rx_channel, \
@@ -702,17 +706,19 @@ if __name__ == '__main__':
 
         tx_channel_selection_testing = tx_agent.channels_selected.cpu().detach().numpy()
         rx_channel_selection_testing = rx_agent.channels_selected.cpu().detach().numpy()
-        tx_pattern_selection_testing = tx_agent.fh_seeds_used.cpu().detach().numpy()
-        rx_pattern_selection_testing = rx_agent.fh_seeds_used.cpu().detach().numpy()
+        tx_seed_selection_testing = tx_agent.fh_seeds_used.cpu().detach().numpy()
+        rx_seed_selection_testing = rx_agent.fh_seeds_used.cpu().detach().numpy()
         jammer_channel_selection_testing = list_of_other_users[0].channels_selected.cpu().detach().numpy()
+        if jammer_behavior == "genie":
+            jammer_seed_selection_testing = list_of_other_users[0].fh_seeds_used.cpu().detach().numpy()
 
         print("Finished testing:")
-        print("Successful transmission rate: ", (num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100, "%")
-        print("Jammed or Faded transmission rate: ", (num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100, "%")
-        print("Num missed: ", (num_missed/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100, "%")
-        success_rates.append((num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100)
-        jammed_or_fading_rates.append((num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100)
-        missed_rates.append((num_missed/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100)
+        print("Successful transmission rate: ", (num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS))*100, "%")
+        print("Jammed or Faded transmission rate: ", (num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS))*100, "%")
+        print("Num missed: ", (num_missed/(NUM_TEST_RUNS*NUM_HOPS))*100, "%")
+        success_rates.append((num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS))*100)
+        jammed_or_fading_rates.append((num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS))*100)
+        missed_rates.append((num_missed/(NUM_TEST_RUNS*NUM_HOPS))*100)
 
         relative_path_run = f"{relative_path}/{jammer_type}/{run+1}"
         if not os.path.exists(relative_path_run):
@@ -732,22 +738,22 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/average_reward_jammer.txt", jammer_average_rewards)
-        np.savetxt(f"{relative_path_run}/data/success_rates.txt", [(num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100])
-        np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [(num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100])
-        np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [(num_missed/(NUM_TEST_RUNS*NUM_HOPS_PER_PATTERN))*100])
+        np.savetxt(f"{relative_path_run}/data/success_rates.txt", [(num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS))*100])
+        np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [(num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS))*100])
+        np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [(num_missed/(NUM_TEST_RUNS*NUM_HOPS))*100])
         
 
         # Saving the channel and pattern selections
         np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_channel_selection_training.txt", tx_channel_selection_training)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_channel_selection_training.txt", rx_channel_selection_training)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/jammer_channel_selection_training.txt", jammer_channel_selection_training)
-        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_pattern_selection_training.txt", tx_pattern_selection_training)
-        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_pattern_selection_training.txt", rx_pattern_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_seed_selection_training.txt", tx_seed_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_seed_selection_training.txt", rx_seed_selection_training)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_channel_selection_testing.txt", tx_channel_selection_testing)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_channel_selection_testing.txt", rx_channel_selection_testing)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/jammer_channel_selection_testing.txt", jammer_channel_selection_testing)
-        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_pattern_selection_testing.txt", tx_pattern_selection_testing)
-        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_pattern_selection_testing.txt", rx_pattern_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_seed_selection_testing.txt", tx_seed_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_seed_selection_testing.txt", rx_seed_selection_testing)
 
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
@@ -757,10 +763,13 @@ if __name__ == '__main__':
         #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
         save_channel_selection(tx_channel_selection_training, rx_channel_selection_training, jammer_channel_selection_training,
                                 tx_channel_selection_testing, rx_channel_selection_testing, jammer_channel_selection_testing, filepath = relative_path_run+"/plots")
-        save_pattern_selection(tx_pattern_selection_training, rx_pattern_selection_training, tx_pattern_selection_testing, 
-                               rx_pattern_selection_testing, filepath = relative_path_run+"/plots")
+        save_pattern_selection(tx_seed_selection_training, rx_seed_selection_training, tx_seed_selection_testing, 
+                               rx_seed_selection_testing, filepath = relative_path_run+"/plots")
         if jammer_behavior == "smart":
             save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run+"/plots")
+        if jammer_behavior == "genie":
+            save_seed_selection_jammer(tx_seed_selection_training, rx_seed_selection_training, jammer_seed_selection_training,
+                                       tx_seed_selection_testing, rx_seed_selection_testing, jammer_seed_selection_testing, filepath = relative_path_run+"/plots")
 
     # if jammer_type == "smart":
     #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)

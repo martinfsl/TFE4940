@@ -215,9 +215,11 @@ class GenieJammer:
 
         self.agent = jammerPPOGenieAgent(device=device)
         self.fh = FH_Pattern(L=1, device=device)
+        self.fh_seeds_used = torch.tensor([], device=device)
 
     def choose_action(self, observation):
         action, logprob, value = self.agent.choose_action(observation)
+        self.fh_seeds_used = torch.cat((self.fh_seeds_used, action.unsqueeze(0)), dim=0)
         return action.unsqueeze(0), logprob.unsqueeze(0), value
         
     # Used for the PPO smart jammer
