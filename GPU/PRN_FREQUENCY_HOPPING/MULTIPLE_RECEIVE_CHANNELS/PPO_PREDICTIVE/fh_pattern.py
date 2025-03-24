@@ -8,8 +8,10 @@ class FH_Pattern:
         self.L = L
         self.device = device
 
-        # self.seeds = [random.randint(0, 1000) for i in range(NUM_SEEDS)]
-        self.seeds = [616, 52, 218]
+        # Initialize PRNG objects
+        random.seed(100)
+        self.seeds = [random.randint(0, 1000) for _ in range(NUM_SEEDS)]
+        # self.seeds = [616, 52, 218]
         self.prng_objects = [random.Random(seed) for seed in self.seeds]
 
     # Generate a sequence of random numbers from all PRNG objects to keep them in sync,

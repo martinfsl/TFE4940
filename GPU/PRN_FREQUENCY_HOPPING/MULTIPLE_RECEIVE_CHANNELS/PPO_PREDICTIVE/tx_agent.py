@@ -18,9 +18,7 @@ class txSenseNN(nn.Module):
     def __init__(self):
         super(txSenseNN, self).__init__()
 
-        # self.input_size = NUM_SENSE_CHANNELS + 1
-        self.input_size = STATE_SPACE_SIZE
-        # self.input_size = STATE_SPACE_SIZE + NUM_SEEDS
+        self.input_size = SENSING_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
@@ -51,9 +49,7 @@ class txSenseNNAgent:
 
         self.device = device
 
-        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1), device=self.device)
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
-        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE + NUM_PATTERNS), device=self.device)
+        self.memory_state = torch.empty((0, SENSING_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.sense_network = txSenseNN()
@@ -114,11 +110,9 @@ class txPredNN(nn.Module):
     def __init__(self):
         super(txPredNN, self).__init__()
 
-        self.input_size = STATE_SPACE_SIZE
-        # self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = PREDICTION_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
-        # self.output_size = NUM_CHANNELS
         self.output_size = NUM_SEEDS
 
         # Defining the fully connected layers
@@ -153,7 +147,7 @@ class txPredNNAgent:
 
         self.device = device
 
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = txPredNN()
@@ -195,15 +189,10 @@ class txPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOActor, self).__init__()
 
-        # self.input_size = STATE_SPACE_SIZE + NUM_SEEDS
-        self.input_size = STATE_SPACE_SIZE
-        # self.input_size = STATE_SPACE_SIZE + NUM_CHANNELS
-        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
-        # self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_SEEDS
-        # self.output_size = NUM_CHANNELS
 
         # Defining the fully connected layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
@@ -225,11 +214,7 @@ class txPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOCritic, self).__init__()
 
-        # self.input_size = STATE_SPACE_SIZE + NUM_SEEDS
-        self.input_size = STATE_SPACE_SIZE
-        # self.input_size = STATE_SPACE_SIZE + NUM_CHANNELS
-        # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
-        # self.input_size = NUM_SENSE_CHANNELS + 1
+        self.input_size = PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = 1
@@ -273,9 +258,7 @@ class txPPOAgent:
         self.device = device
 
         # PPO on-policy storage (use lists to store one episode/trajectory)
-        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE + NUM_SEEDS), device=self.device)
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
-        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE+NUM_CHANNELS), device=self.device)
+        self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
@@ -320,9 +303,7 @@ class txPPOAgent:
             self.previous_seeds = self.previous_seeds[1:]
 
     def clear_memory(self):
-        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE + NUM_SEEDS), device=self.device)
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
-        # self.memory_state = torch.empty((0, STATE_SPACE_SIZE+NUM_CHANNELS), device=self.device)
+        self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)

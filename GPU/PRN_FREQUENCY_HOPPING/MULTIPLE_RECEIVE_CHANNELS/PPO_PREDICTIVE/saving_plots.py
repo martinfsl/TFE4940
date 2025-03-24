@@ -323,47 +323,47 @@ def save_channel_selection(tx_channel_selection_training, rx_channel_selection_t
 ### Plotting the pattern selection
 #################################################################################
 
-def save_pattern_selection(tx_pattern_selection_training, rx_pattern_selection_training,
-                           tx_pattern_selection_testing, rx_pattern_selection_testing, filepath = None):
+def save_seed_selection(tx_seed_selection_training, rx_seed_selection_training,
+                           tx_seed_selection_testing, rx_seed_selection_testing, filepath = None):
     plt.figure(figsize=(12, 8))
     plt.subplot(3, 2, 1)
-    plt.plot(tx_pattern_selection_training)
+    plt.plot(tx_seed_selection_training)
     plt.xlabel("Episode")
-    plt.ylabel("Pattern")
-    plt.title("Tx pattern selection during training")
+    plt.ylabel("Seed")
+    plt.title("Tx seed selection during training")
 
     plt.subplot(3, 2, 2)
-    plt.plot(rx_pattern_selection_training)
+    plt.plot(rx_seed_selection_training)
     plt.xlabel("Episode")
-    plt.ylabel("Pattern")
-    plt.title("Rx pattern selection during training")
+    plt.ylabel("Seed")
+    plt.title("Rx seed selection during training")
 
     plt.subplot(3, 2, 3)
-    plt.plot(tx_pattern_selection_training, label = "Tx")
-    plt.plot(rx_pattern_selection_training, label = "Rx")
+    plt.plot(tx_seed_selection_training, label = "Tx")
+    plt.plot(rx_seed_selection_training, label = "Rx")
     plt.xlabel("Episode")
-    plt.ylabel("Pattern")
-    plt.title("Pattern selection during training")
+    plt.ylabel("Seed")
+    plt.title("Seed selection during training")
     plt.legend()
 
     plt.subplot(3, 2, 4)
-    plt.plot(tx_pattern_selection_testing)
+    plt.plot(tx_seed_selection_testing)
     plt.xlabel("Episode")
-    plt.ylabel("Pattern")
-    plt.title("Tx pattern selection during testing")
+    plt.ylabel("Seed")
+    plt.title("Tx seed selection during testing")
 
     plt.subplot(3, 2, 5)
-    plt.plot(rx_pattern_selection_testing)
+    plt.plot(rx_seed_selection_testing)
     plt.xlabel("Episode")
-    plt.ylabel("Pattern")
-    plt.title("Rx pattern selection during testing")
+    plt.ylabel("Seed")
+    plt.title("Rx seed selection during testing")
 
     plt.subplot(3, 2, 6)
-    plt.plot(tx_pattern_selection_testing, label = "Tx")
-    plt.plot(rx_pattern_selection_testing, label = "Rx")
+    plt.plot(tx_seed_selection_testing, label = "Tx")
+    plt.plot(rx_seed_selection_testing, label = "Rx")
     plt.xlabel("Episode")
-    plt.ylabel("Pattern")
-    plt.title("Pattern selection during testing")
+    plt.ylabel("Seed")
+    plt.title("Seed selection during testing")
     plt.legend()
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -371,7 +371,7 @@ def save_pattern_selection(tx_pattern_selection_training, rx_pattern_selection_t
     # plt.show()
 
     if filepath is not None:
-        plt.savefig(f"{filepath}/pattern_selection.png")
+        plt.savefig(f"{filepath}/tx_rx_seed_selection.png")
 
         plt.close()
 

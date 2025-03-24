@@ -19,8 +19,7 @@ class jammerPPOGenieActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(jammerPPOGenieActor, self).__init__()
 
-        self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
-        # self.input_size = NUM_CHANNELS + 1
+        self.input_size = JAMMER_PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_SEEDS
@@ -44,8 +43,7 @@ class jammerPPOGenieCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(jammerPPOGenieCritic, self).__init__()
 
-        self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
-        # self.input_size = NUM_CHANNELS + 1
+        self.input_size = JAMMER_PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = 1
@@ -95,16 +93,14 @@ class jammerPPOGenieAgent:
         self.critic_network.to(self.device)
         self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
 
-        self.memory_state = torch.empty((0, NUM_JAMMER_SENSE_CHANNELS+1), device=self.device)
-        # self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, JAMMER_PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, NUM_JAMMER_SENSE_CHANNELS+1), device=self.device)
-        # self.memory_state = torch.empty((0, NUM_CHANNELS+1), device=self.device)
+        self.memory_state = torch.empty((0, JAMMER_PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)

@@ -756,6 +756,9 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/channel_pattern/jammer_channel_selection_testing.txt", jammer_channel_selection_testing)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_seed_selection_testing.txt", tx_seed_selection_testing)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_seed_selection_testing.txt", rx_seed_selection_testing)
+        if jammer_behavior == "genie":
+            np.savetxt(f"{relative_path_run}/data/channel_pattern/jammer_seed_selection_training.txt", jammer_seed_selection_training)
+            np.savetxt(f"{relative_path_run}/data/channel_pattern/jammer_seed_selection_testing.txt", jammer_seed_selection_testing)
 
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
@@ -765,9 +768,9 @@ if __name__ == '__main__':
         #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
         save_channel_selection(tx_channel_selection_training, rx_channel_selection_training, jammer_channel_selection_training,
                                 tx_channel_selection_testing, rx_channel_selection_testing, jammer_channel_selection_testing, filepath = relative_path_run+"/plots")
-        save_pattern_selection(tx_seed_selection_training, rx_seed_selection_training, tx_seed_selection_testing, 
+        save_seed_selection(tx_seed_selection_training, rx_seed_selection_training, tx_seed_selection_testing, 
                                rx_seed_selection_testing, filepath = relative_path_run+"/plots")
-        if jammer_behavior == "smart":
+        if jammer_behavior == "smart" or jammer_behavior == "genie":
             save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run+"/plots")
         if jammer_behavior == "genie":
             save_seed_selection_jammer(tx_seed_selection_training, rx_seed_selection_training, jammer_seed_selection_training,

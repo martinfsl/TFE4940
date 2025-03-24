@@ -4,20 +4,14 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 20
-NUM_USERS = 1
-ACTIONS = np.arange(0, NUM_CHANNELS, 1)
-# NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_ACTIONS = 5
-NUM_EXTRA_RECEIVE = 2
-
-channel = [0]*NUM_CHANNELS
+NUM_CHANNELS = 20 # Number of channels in the system
+NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
+NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
 LEARNING_RATE = 0.0001
 GAMMA = 0.60
-# GAMMA = 0.50
 LAMBDA = 0.40
 EPSILON_CLIP = 0.2
 EPSILON = 0.3
@@ -29,7 +23,6 @@ T = 100 # Number of steps between each update, i.e. length of the trajectory
 M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
-# C2 = 0.01 # Coefficient for the entropy loss
 C2 = 0.05 # Coefficient for the entropy loss
 
 # Parameters
@@ -44,17 +37,10 @@ REWARD_UNSUCCESSFUL = -1 # Penalty
 REWARD_MISS = -1 # Penalty
 
 # Number of episodes for training
-# NUM_EPISODES = 1000
-# NUM_EPISODES = 20000
 NUM_EPISODES = 40000
-# NUM_EPISODES = 100000
 
 # Number of runs for testing
-# NUM_TEST_RUNS = 1000
-# NUM_TEST_RUNS = 10000
 NUM_TEST_RUNS = 40000
-# NUM_TEST_RUNS = 50000
-# NUM_TEST_RUNS = 100000
 
 # Bool variable to decide whether fading is to be considered
 CONSIDER_FADING = True
@@ -75,18 +61,15 @@ H_JR_VARIANCE = 1 # Variance of the Rayleigh distribution for the Rayleigh fadin
 # Noise power at the receiver
 NOISE_VARIANCE = 0.1 # Normalized power, everything is relative to this
 
-# Spectrum sensing jammer parameters
+# Tracking jammer parameters
 TRANSITION_STAY = 0.8
 TRANSITION_1 = 0.05
 TRANSITION_2 = 0.03
 TRANSITION_3 = 0.02
 
 # Number of sensed channels
-# How many channels the Tx and Rx can sense at a time (including the channel they are on)
-# NUM_SENSE_CHANNELS = 15
-NUM_SENSE_CHANNELS = 10 # This allows the Tx and Rx to sense all channels
-# NUM_JAMMER_SENSE_CHANNELS = 10 # Number of channels the jammer can sense
-NUM_JAMMER_SENSE_CHANNELS = NUM_CHANNELS
+NUM_SENSE_CHANNELS = 10 # Number of channels the Tx and Rx can sense, including the channel they are on
+NUM_JAMMER_SENSE_CHANNELS = NUM_CHANNELS # Number of channels the jammer can sense
 
 REWARD_SENSE = 0.5 # Additional reward for being able to sense the other agent's action even though it did receive the message
 PENALTY_NONDIVERSE = 0 # Penalty for staying on the same pattern for NUM_PREV_PATTERN episodes
@@ -99,4 +82,12 @@ NUM_SEEDS = 3
 
 # Determining the state space size
 STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1)
-# STATE_SPACE_SIZE = 1*(NUM_SENSE_CHANNELS + 1)
+
+#################################################################################
+### Defining input and output sizes for the neural networks
+SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+
+JAMMER_PPO_NETWORK_INPUT_SIZE = NUM_JAMMER_SENSE_CHANNELS + 1
+#################################################################################
