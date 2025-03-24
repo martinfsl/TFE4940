@@ -222,6 +222,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
                     jammer_seed, jammer_logprobs[j], jammer_values[j] = jammers[j].choose_action(jammer_observation, tx_transmit_channel)
                     jammer_seeds[j] = jammer_seed
                     jammer_channel = jammers[j].agent.fh.generate_sequence(jammer_seed)
+                    jammers[j].channels_selected = torch.cat((jammers[j].channels_selected, jammer_channel))
                     jammer_channels[j] = jammer_channel.long()
                 else:
                     jammer_observation = jammers[j].get_observation(jammer_states[j], jammer_channels[j])
@@ -532,6 +533,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
                     jammer_observations[j] = jammer_observation
                     jammer_seed, _, _ = jammers[j].choose_action(jammer_observation, tx_transmit_channel)
                     jammer_channel = jammers[j].agent.fh.generate_sequence(jammer_seed)
+                    jammers[j].channels_selected = torch.cat((jammers[j].channels_selected, jammer_channel))
                     jammer_channels[j] = jammer_channel.long()
                 else:
                     jammer_observation = jammers[j].get_observation(jammer_states[j], jammer_channels[j])
@@ -644,7 +646,7 @@ if __name__ == '__main__':
     num_runs = 5
 
     # relative_path = f"Comparison/march_tests/PPO/frequency_hopping/test_3"
-    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_prn/test_4_wo_pred"
+    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_prn/test_3_wo_pred"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -698,7 +700,7 @@ if __name__ == '__main__':
         rx_seed_selection_training = rx_agent.fh_seeds_used.cpu().detach().numpy()
         jammer_channel_selection_training = list_of_other_users[0].channels_selected.cpu().detach().numpy()
         if jammer_behavior == "genie":
-            jammer_seed_selection_training = list_of_other_users[0].fh_seeds_used.cpu().detach().numpy()
+            jammer_seed_selection_training = list_of_other_users[0].agent.fh_seeds_used.cpu().detach().numpy()
 
         num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
             num_rx_successful_hop_transmissions, prob_tx_channel, prob_rx_channel, \
@@ -710,7 +712,7 @@ if __name__ == '__main__':
         rx_seed_selection_testing = rx_agent.fh_seeds_used.cpu().detach().numpy()
         jammer_channel_selection_testing = list_of_other_users[0].channels_selected.cpu().detach().numpy()
         if jammer_behavior == "genie":
-            jammer_seed_selection_testing = list_of_other_users[0].fh_seeds_used.cpu().detach().numpy()
+            jammer_seed_selection_testing = list_of_other_users[0].agent.fh_seeds_used.cpu().detach().numpy()
 
         print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS))*100, "%")

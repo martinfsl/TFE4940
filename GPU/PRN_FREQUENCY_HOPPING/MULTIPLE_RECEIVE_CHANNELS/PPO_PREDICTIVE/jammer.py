@@ -117,7 +117,7 @@ class Jammer:
 
         if self.behavior == "smart":
             self.channels_selected = torch.cat((self.channels_selected, action[0].unsqueeze(0)))
-        else:
+        elif self.behavior != "genie" and self.behavior != "smart":
             self.channels_selected = torch.cat((self.channels_selected, action.unsqueeze(0)))
 
         return action
