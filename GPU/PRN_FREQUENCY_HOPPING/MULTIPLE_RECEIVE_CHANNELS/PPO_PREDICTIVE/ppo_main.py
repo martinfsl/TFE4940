@@ -161,11 +161,27 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, tx_hops)
         rx_observation = rx_observation_without_pred_action
         # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
-        rx_seed, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
+        rx_seed, rx_prob_action, rx_value, rx_additional_seeds = rx_agent.choose_action(rx_observation)
         rx_agent.add_previous_seed(rx_seed)
 
-        tx_hops = tx_agent.fh.generate_sequence(tx_seed)
-        rx_hops = rx_agent.fh.generate_sequence(rx_seed)
+        # print("--------------------------------")
+        # print("Episode - ", episode)
+        # print("tx_seed:", tx_seed)
+        # print("rx_seed:", rx_seed)
+        # print("rx_additional_seeds: ", rx_additional_seeds)
+
+        tx_agent.fh.generate_sequence()
+        tx_hops = tx_agent.fh.get_sequence(tx_seed)
+        rx_agent.fh.generate_sequence()
+        rx_hops = rx_agent.fh.get_sequence(rx_seed)
+        rx_additional_hops = torch.tensor([], device=device)
+        for seed in rx_additional_seeds:
+            rx_additional_hops = torch.cat((rx_additional_hops, rx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
+
+        # print("tx_hops: ", tx_hops)
+        # print("rx_hops: ", rx_hops)
+        # print("rx_additional_hops: ", rx_additional_hops)
+        # print("--------------------------------")
 
         # tx_observed_rx = torch.tensor([], device=device)
         # rx_observed_tx = torch.tensor([], device=device)
@@ -200,15 +216,18 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_receive_channel = rx_hops[i].unsqueeze(0)
             rx_agent.channels_selected = torch.concat((rx_agent.channels_selected, rx_receive_channel), dim=0)
 
+            rx_extra_receive_channels = torch.tensor([], device=device)
+            for j in range(len(rx_additional_hops)):
+                rx_extra_receive_channels = torch.cat((rx_extra_receive_channels, rx_additional_hops[j][i].unsqueeze(0)), dim=0)
+
             rx_receive_channels = torch.cat((rx_receive_channel, rx_extra_receive_channels), dim=0)
 
-            # print("--------------------------------")
+            # print("--------------")
             # print("Episode - ", episode, " | Hop - ", i)
             # print("tx_transmit_channel:", tx_transmit_channel)
-            # print("tx_sense_channels: ", tx_sense_channels)
             # print("rx_receive_channels: ", rx_receive_channels)
-            # print("rx_sense_channels:", rx_sense_channels)
-            # print("--------------------------------")
+            # print("rx_extra_receive_channels: ", rx_extra_receive_channels)
+            # print("--------------")
 
             if IS_SMART_OR_GENIE_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
@@ -229,7 +248,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
                     jammer_observations[j] = jammer_observation
                     jammer_seed, jammer_logprobs[j], jammer_values[j] = jammers[j].choose_action(jammer_observation, tx_transmit_channel)
                     jammer_seeds[j] = jammer_seed
-                    jammer_channel = jammers[j].agent.fh.generate_sequence(jammer_seed)
+                    jammers[j].agent.fh.generate_sequence()
+                    jammer_channel = jammers[j].agent.fh.get_sequence(jammer_seed)
                     jammers[j].channels_selected = torch.cat((jammers[j].channels_selected, jammer_channel))
                     jammer_channels[j] = jammer_channel.long()
                 else:
@@ -485,10 +505,15 @@ def test_ppo(tx_agent, rx_agent, jammers):
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
         rx_observation = rx_observation_without_pred_action
         # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
-        rx_seed, _, _ = rx_agent.choose_action(rx_observation)
+        rx_seed, _, _, rx_additional_seeds = rx_agent.choose_action(rx_observation)
 
-        tx_hops = tx_agent.fh.generate_sequence(tx_seed)
-        rx_hops = rx_agent.fh.generate_sequence(rx_seed)
+        tx_agent.fh.generate_sequence()
+        tx_hops = tx_agent.fh.get_sequence(tx_seed)
+        rx_agent.fh.generate_sequence()
+        rx_hops = rx_agent.fh.get_sequence(rx_seed)
+        rx_additional_hops = torch.tensor([], device=device)
+        for seed in rx_additional_seeds:
+            rx_additional_hops = torch.cat((rx_additional_hops, rx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
 
         # Set a new channel noise for the next state
         tx_channel_noise = torch.abs(torch.normal(0, NOISE_VARIANCE, size=(NUM_HOPS, NUM_CHANNELS), device=device))
@@ -512,13 +537,17 @@ def test_ppo(tx_agent, rx_agent, jammers):
             # tx_sense_channels = tx_agent.sensing_agent.choose_sensing_channels(tx_subobservation)
             # rx_extra_receive_channels, rx_sense_channels = rx_agent.sensing_agent.choose_receive_and_sensing_channels(rx_subobservation)
 
-            tx_sense_channels = tx_agent.sensing_agent.choose_sensing_channels(tx_observation)
-            rx_extra_receive_channels, rx_sense_channels = rx_agent.sensing_agent.choose_receive_and_sensing_channels(rx_observation)
+            # tx_sense_channels = tx_agent.sensing_agent.choose_sensing_channels(tx_observation)
+            # rx_extra_receive_channels, rx_sense_channels = rx_agent.sensing_agent.choose_receive_and_sensing_channels(rx_observation)
 
             tx_transmit_channel = tx_hops[i].unsqueeze(0)
             tx_agent.channels_selected = torch.concat((tx_agent.channels_selected, tx_transmit_channel), dim=0)
             rx_receive_channel = rx_hops[i].unsqueeze(0)
             rx_agent.channels_selected = torch.concat((rx_agent.channels_selected, rx_receive_channel), dim=0)
+
+            rx_extra_receive_channels = torch.tensor([], device=device)
+            for j in range(len(rx_additional_hops)):
+                rx_extra_receive_channels = torch.cat((rx_extra_receive_channels, rx_additional_hops[j][i].unsqueeze(0)), dim=0)
 
             rx_receive_channels = torch.cat((rx_receive_channel, rx_extra_receive_channels), dim=0)
 
@@ -540,7 +569,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
                     jammer_observation = jammers[j].get_observation(jammer_states[j], jammer_channels[j])
                     jammer_observations[j] = jammer_observation
                     jammer_seed, _, _ = jammers[j].choose_action(jammer_observation, tx_transmit_channel)
-                    jammer_channel = jammers[j].agent.fh.generate_sequence(jammer_seed)
+                    jammers[j].agent.fh.generate_sequence()
+                    jammer_channel = jammers[j].agent.fh.get_sequence(jammer_seed)
                     jammers[j].channels_selected = torch.cat((jammers[j].channels_selected, jammer_channel))
                     jammer_channels[j] = jammer_channel.long()
                 else:

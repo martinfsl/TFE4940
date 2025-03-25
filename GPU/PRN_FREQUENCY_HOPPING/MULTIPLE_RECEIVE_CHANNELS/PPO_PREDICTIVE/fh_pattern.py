@@ -14,22 +14,21 @@ class FH_Pattern:
         # self.seeds = [616, 52, 218]
         self.prng_objects = [random.Random(seed) for seed in self.seeds]
 
+        self.sequences = torch.tensor([], device=self.device)
+
     # Generate a sequence of random numbers from all PRNG objects to keep them in sync,
     # but only return the one corresponding to seed_index.
-    def generate_sequence(self, seed_index):
-        sequences = []
+    def generate_sequence(self):
+        self.sequences = torch.tensor([], device=self.device)
         for prng in self.prng_objects:
             seq = [prng.randint(0, NUM_CHANNELS - 1) for _ in range(self.L)]
-            sequences.append(seq)
+            self.sequences = torch.cat((self.sequences, torch.tensor(seq, device=self.device).unsqueeze(0)), dim=0)
 
+    def get_sequence(self, seed_index):
         if self.L == 1:
             seed_index = seed_index.unsqueeze(0).long()
 
-        return torch.tensor(sequences[seed_index], device=self.device)
-
-    # def generate_sequence(self, seed_index):
-    #     prng_object = self.prng_objects[seed_index]
-    #     return torch.tensor([prng_object.randint(0, NUM_CHANNELS-1) for i in range(self.L)], device = self.device)
+        return self.sequences[seed_index].squeeze(0)
 
 if __name__ == '__main__':
     fh1 = FH_Pattern()
