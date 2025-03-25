@@ -202,6 +202,14 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
             rx_receive_channels = torch.cat((rx_receive_channel, rx_extra_receive_channels), dim=0)
 
+            # print("--------------------------------")
+            # print("Episode - ", episode, " | Hop - ", i)
+            # print("tx_transmit_channel:", tx_transmit_channel)
+            # print("tx_sense_channels: ", tx_sense_channels)
+            # print("rx_receive_channels: ", rx_receive_channels)
+            # print("rx_sense_channels:", rx_sense_channels)
+            # print("--------------------------------")
+
             if IS_SMART_OR_GENIE_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
                 # jammer_observations = torch.empty((len(jammers), NUM_CHANNELS+1), device=device)
@@ -645,8 +653,8 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    # relative_path = f"Comparison/march_tests/PPO/frequency_hopping/test_3"
-    relative_path = f"Comparison/march_tests/PPO/frequency_hopping_prn/test_3_wo_pred"
+    # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
+    relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -681,15 +689,15 @@ if __name__ == '__main__':
         # jammer_type = "tracking"
         # jammer_behavior = "naive"
 
-        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        # list_of_other_users.append(smart)
-        # jammer_type = "smart_ppo"
-        # jammer_behavior = "smart"
+        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        list_of_other_users.append(smart)
+        jammer_type = "smart_ppo"
+        jammer_behavior = "smart"
 
-        genie = Jammer(behavior = "genie", smart_type = "PPO_Genie", device = device)
-        list_of_other_users.append(genie)
-        jammer_type = "PPO_Genie"
-        jammer_behavior = "genie"
+        # genie = Jammer(behavior = "genie", smart_type = "PPO_Genie", device = device)
+        # list_of_other_users.append(genie)
+        # jammer_type = "PPO_Genie"
+        # jammer_behavior = "genie"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))

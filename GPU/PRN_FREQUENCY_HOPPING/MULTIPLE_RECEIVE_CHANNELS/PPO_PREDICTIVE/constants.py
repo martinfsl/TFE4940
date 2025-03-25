@@ -5,8 +5,8 @@ import numpy as np
 #################################################################################
 
 NUM_CHANNELS = 20 # Number of channels in the system
-NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
+NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
@@ -78,7 +78,7 @@ NUM_PREV_PATTERNS = 2 # Number of previous patterns to consider for the penalty
 
 # Frequency-Hopping parameters
 NUM_HOPS = 5
-NUM_SEEDS = 3
+NUM_SEEDS = 8
 
 # Determining the state space size
 STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1)
