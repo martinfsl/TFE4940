@@ -399,8 +399,10 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_observed_tx_seed: ", rx_observed_tx_seed)
 
         if tx_observed_rx_seed != -1:
+            # print("tx stored in memory")
             tx_agent.pred_agent.store_in_memory(tx_observation_without_pred_action, tx_observed_rx_seed)
         if rx_observed_tx_seed != -1:
+            # print("rx stored in memory")
             rx_agent.pred_agent.store_in_memory(rx_observation_without_pred_action, rx_observed_tx_seed)
 
         # # If tx_hops was used in the previous NUM_PREV_PATTERNS episodes, then penalize the agent
@@ -438,9 +440,13 @@ def train_ppo(tx_agent, rx_agent, jammers):
                 rx_prob_action_correct = rx_prob_action
             else:
                 idx = (rx_additional_seeds == rx_observed_tx_seed).nonzero(as_tuple=True)[0]
-                rx_prob_action_correct = rx_prob_additional_actions[idx.item()]
+                rx_prob_action_correct = rx_prob_additional_actions[idx.item()].unsqueeze(0)
         else:
             rx_seed_correct = rx_seed
+            rx_prob_action_correct = rx_prob_action
+
+        # print("rx_seed_correct: ", rx_seed_correct)
+        # print("rx_prob_action_correct: ", rx_prob_action_correct)
 
         # Store the experience in the agent's memory
         tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
