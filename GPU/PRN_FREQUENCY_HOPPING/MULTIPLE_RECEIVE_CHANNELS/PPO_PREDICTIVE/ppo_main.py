@@ -153,14 +153,18 @@ def train_ppo(tx_agent, rx_agent, jammers):
     for episode in tqdm(range(NUM_EPISODES)):
         # The agents chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
-        # tx_observation = tx_observation_without_pred_action
-        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        if USE_PREDICTION:
+            tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        else:
+            tx_observation = tx_observation_without_pred_action
         tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation)
         tx_agent.add_previous_seed(tx_seed)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, tx_hops)
-        # rx_observation = rx_observation_without_pred_action
-        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
+        if USE_PREDICTION:
+            rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        else:
+            rx_observation = rx_observation_without_pred_action
         rx_seed, rx_prob_action, rx_value, rx_additional_seeds, rx_sense_seeds = rx_agent.choose_action(rx_observation)
         rx_agent.add_previous_seed(rx_seed)
 
@@ -424,11 +428,16 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_accumulated_rewards.append(rx_accumulated_rewards[-1] + rx_reward)
             rx_average_rewards.append(rx_accumulated_rewards[-1]/len(rx_accumulated_rewards))
 
+        # If Rx chose the same seed as Tx, it needs to use the correctly selected one in the training
+        if rx_reward >= 0.5:
+            rx_seed_correct = rx_observed_tx_seed
+        else:
+            rx_seed_correct = rx_seed
+
         # Store the experience in the agent's memory
-        # Replay the agent's memory
-        # tx_agent.store_experience_in(tx_observation, tx_transmit_channel, torch.tensor([tx_reward], device=device), tx_next_observation)
         tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
-        rx_agent.store_in_memory(rx_observation, rx_seed, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
+        # rx_agent.store_in_memory(rx_observation, rx_seed, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
+        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
@@ -694,7 +703,8 @@ if __name__ == '__main__':
     num_runs = 5
 
     # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
-    relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
+    # relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
+    relative_path = f"Comparison/implementation_tests/pred/8_seeds/2_additional_seeds_5_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

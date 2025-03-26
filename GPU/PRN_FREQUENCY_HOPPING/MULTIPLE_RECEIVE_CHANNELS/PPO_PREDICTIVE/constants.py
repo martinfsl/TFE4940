@@ -5,7 +5,7 @@ import numpy as np
 #################################################################################
 
 NUM_CHANNELS = 20 # Number of channels in the system
-NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
+NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
 NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
@@ -87,7 +87,11 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1)
 ### Defining input and output sizes for the neural networks
 SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
 PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_SEEDS
+USE_PREDICTION = True
+if USE_PREDICTION:
+    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_SEEDS
+else:
+    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
 
 JAMMER_PPO_NETWORK_INPUT_SIZE = NUM_JAMMER_SENSE_CHANNELS + 1
 #################################################################################
