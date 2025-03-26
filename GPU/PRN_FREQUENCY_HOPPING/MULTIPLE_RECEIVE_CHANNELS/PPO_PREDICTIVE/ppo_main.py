@@ -165,7 +165,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         else:
             rx_observation = rx_observation_without_pred_action
-        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, rx_sense_seeds = rx_agent.choose_action(rx_observation)
+        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, rx_prob_additional_actions, rx_sense_seeds = rx_agent.choose_action(rx_observation)
         rx_agent.add_previous_seed(rx_seed)
 
         # print("--------------------------------")
@@ -195,6 +195,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_hops: ", rx_hops)
         # print("rx_additional_hops: ", rx_additional_hops)
         # print("rx_sense_hops: ", rx_sense_hops)
+        # print()
+        # print("rx_prob_action: ", rx_prob_action)
+        # print("rx_prob_additional_actions: ", rx_prob_additional_actions)
         # print()
 
         # Arrays for storing Tx and Rx observation of each others selected channels
@@ -428,16 +431,21 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_accumulated_rewards.append(rx_accumulated_rewards[-1] + rx_reward)
             rx_average_rewards.append(rx_accumulated_rewards[-1]/len(rx_accumulated_rewards))
 
-        # If Rx chose the same seed as Tx, it needs to use the correctly selected one in the training
+        # If Rx chose the same seed as Tx, but as an additional action, it needs to use the correctly selected seed in the training
         if rx_reward >= 0.5:
             rx_seed_correct = rx_observed_tx_seed
+            if rx_seed_correct == rx_seed:
+                rx_prob_action_correct = rx_prob_action
+            else:
+                idx = (rx_additional_seeds == rx_observed_tx_seed).nonzero(as_tuple=True)[0]
+                rx_prob_action_correct = rx_prob_additional_actions[idx.item()]
         else:
             rx_seed_correct = rx_seed
 
         # Store the experience in the agent's memory
         tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
         # rx_agent.store_in_memory(rx_observation, rx_seed, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
-        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
+        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value)
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
@@ -538,7 +546,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
         # rx_observation = rx_observation_without_pred_action
         rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
-        rx_seed, _, _, rx_additional_seeds, _ = rx_agent.choose_action(rx_observation)
+        rx_seed, _, _, rx_additional_seeds, _, _ = rx_agent.choose_action(rx_observation)
 
         tx_agent.fh.generate_sequence()
         tx_hops = tx_agent.fh.get_sequence(tx_seed)

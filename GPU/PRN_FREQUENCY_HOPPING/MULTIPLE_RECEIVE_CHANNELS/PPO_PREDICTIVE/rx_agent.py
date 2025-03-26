@@ -303,9 +303,10 @@ class rxPPOAgent:
         self.fh_seeds_used = torch.cat((self.fh_seeds_used, action.unsqueeze(0)))
 
         additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_RECEIVE+1]
+        additional_actions_logprob = torch.log(torch.gather(policy, 0, additional_actions))
         additional_sense = torch.argsort(policy, descending=True)[NUM_EXTRA_RECEIVE+1:NUM_EXTRA_RECEIVE+NUM_EXTRA_ACTIONS+1]
 
-        return action.unsqueeze(0), action_logprob, values, additional_actions, additional_sense
+        return action.unsqueeze(0), action_logprob, values, additional_actions, additional_actions_logprob, additional_sense
 
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
