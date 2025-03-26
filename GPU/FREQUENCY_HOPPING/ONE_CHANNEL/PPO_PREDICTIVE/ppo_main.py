@@ -145,7 +145,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_pattern, tx_prob_action, tx_value = tx_agent.choose_action(tx_observation)
         tx_agent.add_previous_pattern(tx_pattern)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, tx_hops)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
         rx_observation = rx_observation_without_pred_action
         # rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         rx_pattern, rx_prob_action, rx_value = rx_agent.choose_action(rx_observation)
