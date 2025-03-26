@@ -11,94 +11,6 @@ from constants import *
 from fh_pattern import FH_Pattern
 
 #################################################################################
-### Defining classes for the model choosing which additional channels the Tx can sense
-#################################################################################
-
-class txSenseNN(nn.Module):
-    def __init__(self):
-        super(txSenseNN, self).__init__()
-
-        self.input_size = SENSING_NETWORK_INPUT_SIZE
-        self.hidden_size1 = 128
-        self.hidden_size2 = 64
-        self.output_size = NUM_CHANNELS
-
-        # Defining the fully connected layers
-        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
-        self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
-        self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
-
-    def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = self.dropout1(x)
-        x = torch.relu(self.fc2(x))
-        x = self.dropout2(x)
-        x = self.fc3(x)
-
-        return x
-    
-class txSenseNNAgent:
-    def __init__(self, device = "cpu"):
-        self.learning_rate = 0.005
-
-        # Parameters for the neural network
-        self.batch_size = 16
-        self.maximum_memory_size = 100
-
-        self.device = device
-
-        self.memory_state = torch.empty((0, SENSING_NETWORK_INPUT_SIZE), device=self.device)
-        self.memory_action = torch.empty((0, 1), device=self.device)
-
-        self.sense_network = txSenseNN()
-        self.sense_network.to(self.device)
-        self.optimizer = optim.Adam(self.sense_network.parameters(), lr=self.learning_rate)
-
-    def store_in_memory(self, state, action):
-        if self.memory_state.size(0) >= self.maximum_memory_size:
-            self.memory_state = self.memory_state[1:]
-            self.memory_action = self.memory_action[1:]
-
-        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
-        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
-
-    def train(self):
-        if self.memory_state.size(0) >= self.batch_size:
-            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
-
-            batch_state = self.memory_state[indices]
-            batch_action = self.memory_action[indices]
-
-            pred = self.sense_network(batch_state)
-            loss = nn.CrossEntropyLoss()(pred, batch_action.long().squeeze())
-
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-    def get_subobservation(self, state, action):
-        if NUM_SENSE_CHANNELS < NUM_CHANNELS:
-            observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
-            half_sense_channels = NUM_SENSE_CHANNELS // 2
-            for i in range(-half_sense_channels, half_sense_channels + 1):
-                index = (action + i) % len(state)
-                observation[i + half_sense_channels] = state[index.long()]
-            observation[-1] = action
-        else:
-            observation = torch.cat((state, action), dim=0)
-
-        return observation
-
-    def choose_sensing_channels(self, observation):
-        with torch.no_grad():
-            pred = self.sense_network(observation)
-        
-        # Return the NUM_EXTRA_ACTIONS most probable channels
-        return torch.argsort(pred, descending=True)[:NUM_EXTRA_ACTIONS]
-
-#################################################################################
 ### Defining classes for the model predicting Rx's action at the Tx
 #################################################################################
 
@@ -282,9 +194,6 @@ class txPPOAgent:
         # Predictive network remains unchanged.
         self.pred_agent = txPredNNAgent(device=self.device)
 
-        # Sensing network
-        self.sensing_agent = txSenseNNAgent(device=self.device)
-
         # Logging actor and critic losses
         self.actor_losses = torch.tensor([], device=self.device)
         self.critic_losses = torch.tensor([], device=self.device)
@@ -389,7 +298,9 @@ class txPPOAgent:
         action_logprob = torch.log(torch.gather(policy, 0, action.unsqueeze(0)))
         self.fh_seeds_used = torch.cat((self.fh_seeds_used, action.unsqueeze(0)))
 
-        return action.unsqueeze(0), action_logprob, values
+        additional_sense = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
+
+        return action.unsqueeze(0), action_logprob, values, additional_sense
     
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):

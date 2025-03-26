@@ -29,6 +29,12 @@ class FH_Pattern:
             seed_index = seed_index.unsqueeze(0).long()
 
         return self.sequences[seed_index].squeeze(0)
+    
+    def get_seed(self, observed_channels):
+        for i, seq in enumerate(self.sequences):
+            if (seq == observed_channels).sum().item() > self.L / 2:
+                return torch.tensor([i], device=self.device)
+        return torch.tensor([-1], device=self.device)
 
 if __name__ == '__main__':
     fh1 = FH_Pattern()
