@@ -446,6 +446,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_seed_correct = rx_seed
             rx_prob_action_correct = rx_prob_action
 
+        # The hops used for the observation should be based on the correct seed
+        rx_hops = rx_agent.fh.get_sequence(rx_seed_correct)
+
         # print("rx_seed_correct: ", rx_seed_correct)
         # print("rx_prob_action_correct: ", rx_prob_action_correct)
 
