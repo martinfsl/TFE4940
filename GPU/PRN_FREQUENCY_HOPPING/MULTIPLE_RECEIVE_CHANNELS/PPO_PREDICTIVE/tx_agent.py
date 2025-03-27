@@ -242,8 +242,8 @@ class txPPOAgent:
 
         return torch.tensor(received_power, device=self.device)
 
-    def get_observation(self, state, action):
-        observation_pattern = torch.zeros(STATE_SPACE_SIZE, device=self.device)
+    def get_observation(self, state, action, seed):
+        observation_pattern = torch.zeros(STATE_SPACE_SIZE-1, device=self.device)
 
         for i in range(NUM_HOPS):
             # Same as before: create observation by concatenating state and action data.
@@ -258,6 +258,8 @@ class txPPOAgent:
                 observation = torch.cat((state[i], action[i]), dim=0)
         
             observation_pattern[i*(NUM_SENSE_CHANNELS+1):(i+1)*(NUM_SENSE_CHANNELS+1)] = observation
+            
+        observation_pattern = torch.concat((observation_pattern, seed))
 
         return observation_pattern
     

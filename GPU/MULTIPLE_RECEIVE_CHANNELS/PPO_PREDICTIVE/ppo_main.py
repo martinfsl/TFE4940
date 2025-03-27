@@ -414,11 +414,17 @@ def test_ppo(tx_agent, rx_agent, jammers):
     for run in tqdm(range(NUM_TEST_RUNS)):
         # The agent chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_transmit_channel)
-        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        if USE_PREDICTION:
+            tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        else:
+            tx_observation = tx_observation_without_pred_action
         tx_transmit_channel, _, _, _ = tx_agent.choose_action(tx_observation)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_receive_channel_correct)
-        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        if USE_PREDICTION:
+            rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        else:
+            rx_observation = rx_observation_without_pred_action
         rx_receive_channels, _, _, _, _ = rx_agent.choose_action(rx_observation)
 
         if IS_SMART_JAMMER:
@@ -479,7 +485,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
             jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
 
         success = False
-        jammed_or_fading = False
+        jamming_or_fading = False
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
         if received_signal_rx(tx_transmit_channel, rx_receive_channels, tx_agent.get_transmit_power(direction = "receiver"), rx_channel_noise):
@@ -549,7 +555,7 @@ if __name__ == '__main__':
     num_runs = 5
 
     # relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/test_3/receive_multiple/smart_ppo"
-    relative_path = f"Comparison/non-fh_vs_fh/non-fh/2_additional_receive_5_additional_sensing"
+    relative_path = f"Comparison/pts_vs_fh/pts/no-pred_0_additional_receive_0_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -602,14 +608,19 @@ if __name__ == '__main__':
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
 
+        tx_channel_selection_training = tx_agent.channels_selected.cpu().detach().numpy()
+        tx_agent.channels_selected = torch.tensor([], device=device)
+        rx_channel_selection_training = rx_agent.channels_selected.cpu().detach().numpy()
+        rx_agent.channels_selected = torch.tensor([], device=device)
+        jammer_channel_selection_training = list_of_other_users[0].channels_selected.cpu().detach().numpy()
+        list_of_other_users[0].channels_selected = torch.tensor([], device=device)
+
         num_successful_transmissions, num_jammed_or_fading_transmissions, num_missed_transmissions, \
             prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_ppo(tx_agent, rx_agent, list_of_other_users)
-
-        print("Finished testing:")
-        print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
-        success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
-        if jammer_type == "smart":
-            print("Jamming rate: ", (smart.num_jammed/NUM_TEST_RUNS)*100, "%")
+        
+        tx_channel_selection_testing = tx_agent.channels_selected.cpu().detach().numpy()
+        rx_channel_selection_testing = rx_agent.channels_selected.cpu().detach().numpy()
+        jammer_channel_selection_testing = list_of_other_users[0].channels_selected.cpu().detach().numpy()
 
         print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
@@ -626,6 +637,8 @@ if __name__ == '__main__':
             os.makedirs(f"{relative_path_run}/plots")
         if not os.path.exists(f"{relative_path_run}/data"):
             os.makedirs(f"{relative_path_run}/data")
+        if not os.path.exists(f"{relative_path_run}/data/channel_selection"):
+            os.makedirs(f"{relative_path_run}/data/channel_selection")
 
         # Save data in textfiles
         np.savetxt(f"{relative_path_run}/data/average_reward_tx.txt", tx_average_rewards)
@@ -639,12 +652,21 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [(num_jammed_or_fading_transmissions/NUM_TEST_RUNS)*100])
         np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [(num_missed_transmissions/NUM_TEST_RUNS)*100])
 
+        np.savetxt(f"{relative_path_run}/data/channel_selection/tx_channel_selection_training.txt", tx_channel_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_selection/rx_channel_selection_training.txt", rx_channel_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_selection/jammer_channel_selection_training.txt", jammer_channel_selection_training)
+        np.savetxt(f"{relative_path_run}/data/channel_selection/tx_channel_selection_testing.txt", tx_channel_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_selection/rx_channel_selection_testing.txt", rx_channel_selection_testing)
+        np.savetxt(f"{relative_path_run}/data/channel_selection/jammer_channel_selection_testing.txt", jammer_channel_selection_testing)
+
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
                             rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
-        save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
-                                        list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
+        save_channel_selection_training(tx_channel_selection_training, rx_channel_selection_training, jammer_channel_selection_training, 
+                                        filepath = relative_path_run+"/plots")
+        save_channel_selection_testing(tx_channel_selection_testing, rx_channel_selection_testing, jammer_channel_selection_testing, 
+                                        filepath = relative_path_run+"/plots")
         if jammer_behavior == "smart":
             save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run+"/plots")
 

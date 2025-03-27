@@ -122,6 +122,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
     tx_transmit_channel = torch.tensor([0], device=device)
     rx_receive_channel = torch.tensor([0], device=device)
 
+    tx_seed = torch.tensor([0], device=device)
+    rx_seed = torch.tensor([0], device=device)
     tx_hops = torch.tensor(NUM_HOPS*[0], device=device)
     rx_hops = torch.tensor(NUM_HOPS*[0], device=device)
     # tx_transmit_channel = torch.tensor(NUM_HOPS*[0], device=device)
@@ -152,7 +154,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
     for episode in tqdm(range(NUM_EPISODES)):
         # The agents chooses an action based on the current state
-        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
+        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
             tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         else:
@@ -160,7 +162,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation)
         tx_agent.add_previous_seed(tx_seed)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
             rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         else:
@@ -448,6 +450,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         # The hops used for the observation should be based on the correct seed
         rx_hops = rx_agent.fh.get_sequence(rx_seed_correct)
+        # The seed used for the observation should correspond to this
+        rx_seed = rx_seed_correct
 
         # print("rx_seed_correct: ", rx_seed_correct)
         # print("rx_prob_action_correct: ", rx_prob_action_correct)
@@ -523,6 +527,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
     tx_transmit_channel = torch.tensor([0], device=device)
     rx_receive_channel = torch.tensor([0], device=device)
 
+    tx_seed = torch.tensor([0], device=device)
+    rx_seed = torch.tensor([0], device=device)
     tx_hops = torch.tensor(NUM_HOPS*[0], device=device)
     rx_hops = torch.tensor(NUM_HOPS*[0], device=device)
     # tx_transmit_channel = torch.tensor([0], device=device)
@@ -548,14 +554,18 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
     for run in tqdm(range(NUM_TEST_RUNS)):
         # The agent chooses an action based on the current state
-        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops)
-        # tx_observation = tx_observation_without_pred_action
-        tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
+        if USE_PREDICTION:
+            tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+        else:
+            tx_observation = tx_observation_without_pred_action
         tx_seed, _, _, _ = tx_agent.choose_action(tx_observation)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops)
-        # rx_observation = rx_observation_without_pred_action
-        rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
+        if USE_PREDICTION:
+            rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+        else:
+            rx_observation = rx_observation_without_pred_action
         rx_seed, _, _, rx_additional_seeds, _, _ = rx_agent.choose_action(rx_observation)
 
         tx_agent.fh.generate_sequence()
@@ -722,7 +732,7 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
     # relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
-    relative_path = f"Comparison/implementation_tests/learning_rate/0_001/2_additional_seeds_0_additional_sensing"
+    relative_path = f"Comparison/pts_vs_fh/fh/2_additional_receive_5_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

@@ -237,3 +237,46 @@ def save_channel_selection_training(tx_channel_selection, rx_channel_selection, 
         plt.savefig(f"{filepath}/channel_selection_training.png")
 
         plt.close()
+
+#################################################################################
+### Plotting the channel selection during testing
+#################################################################################
+
+def save_channel_selection_testing(tx_channel_selection, rx_channel_selection, jammer_channel_selection, filepath = None):
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(2, 2, 1)
+    plt.plot(tx_channel_selection)
+    plt.xlabel("Episode")
+    plt.ylabel("Channel")
+    plt.title("Tx channel selection over episodes during testing")
+
+    plt.subplot(2, 2, 2)
+    plt.plot(rx_channel_selection)
+    plt.xlabel("Episode")
+    plt.ylabel("Channel")
+    plt.title("Rx channel selection over episodes during testing")
+
+    plt.subplot(2, 2, 3)
+    plt.plot(jammer_channel_selection)
+    plt.xlabel("Episode")
+    plt.ylabel("Channel")
+    plt.title("Jammer channel selection over episodes during testing")
+
+    plt.subplot(2, 2, 4)
+    plt.plot(tx_channel_selection, label = "Tx")
+    plt.plot(rx_channel_selection, label = "Rx")
+    plt.plot(jammer_channel_selection, label = "Jammer")
+    plt.xlabel("Episode")
+    plt.ylabel("Channel")
+    plt.title("Channel selection over episodes during testing")
+    plt.legend()
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.suptitle(f"PPO algorithm")
+    # plt.show()
+
+    if filepath is not None:
+        plt.savefig(f"{filepath}/channel_selection_testing.png")
+
+        plt.close()

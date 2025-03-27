@@ -5,12 +5,13 @@ import numpy as np
 #################################################################################
 
 NUM_CHANNELS = 20 # Number of channels in the system
-NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
+NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.0005
+# LEARNING_RATE = 0.0001
 GAMMA = 0.60
 LAMBDA = 0.40
 EPSILON_CLIP = 0.2
@@ -81,7 +82,7 @@ NUM_HOPS = 5
 NUM_SEEDS = 8
 
 # Determining the state space size
-STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1)
+STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 
 #################################################################################
 ### Defining input and output sizes for the neural networks
