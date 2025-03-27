@@ -4,13 +4,9 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 20
-NUM_USERS = 1
-ACTIONS = np.arange(0, NUM_CHANNELS, 1)
+NUM_CHANNELS = 20 # Number of channels in the system
 NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
 NUM_RECEIVE = 3 # Number of channels that Rx receives on simultaneously
-
-channel = [0]*NUM_CHANNELS
 
 # Hyperparameters
 LEARNING_RATE = 0.001
@@ -26,7 +22,6 @@ T = 100 # Number of steps between each update, i.e. length of the trajectory
 M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
-# C2 = 0.01 # Coefficient for the entropy loss
 C2 = 0.05 # Coefficient for the entropy loss
 
 # Parameters
@@ -43,14 +38,11 @@ REWARD_INTERFERENCE = -1
 REWARD_UNSUCCESSFUL = -1
 
 # Number of episodes for training
-# NUM_EPISODES = 500
-# NUM_EPISODES = 20000
-# NUM_EPISODES = 50000
-NUM_EPISODES = 100000
+NUM_EPISODES = 1000
+# NUM_EPISODES = 100000
 
 # Number of runs for testing
-NUM_TEST_RUNS = 10000
-# NUM_TEST_RUNS = 50000
+NUM_TEST_RUNS = 1000
 # NUM_TEST_RUNS = 100000
 
 # Bool variable to decide whether fading is to be considered
@@ -80,11 +72,23 @@ TRANSITION_3 = 0.02
 
 # Number of sensed channels
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
-# NUM_SENSE_CHANNELS = 15
 NUM_SENSE_CHANNELS = 7 # This allows the Tx and Rx to sense all channels
 NUM_JAMMER_SENSE_CHANNELS = 7 # Number of channels the jammer can sense
 
-REWARD_SENSE = 0.5 # Additional reward for being able to sense the other agent's action even though it did receive the message
+REWARD_SENSE = 0 # Additional reward for being able to sense the other agent's action even though it did receive the message
 PENALTY_NONDIVERSE = 0 # Penalty for staying on the same channels for NUM_PREV_ACTIONS episodes
 REWARD_DIVERSE = 0 # Reward for choosing a channel that has not been used in the past NUM_PREV_ACTIONS episodes
-NUM_PREV_ACTIONS = 2 # Number of previous actions to consider for the penalty
+NUM_PREV_ACTIONS = 0 # Number of previous actions to consider for the penalty
+
+STATE_SPACE_SIZE = NUM_SENSE_CHANNELS + 1
+#################################################################################
+### Defining inputs and outputs for the neural networks
+PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+USE_PREDICTION = True
+if USE_PREDICTION:
+    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_CHANNELS
+else:
+    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+
+JAMMER_PPO_NETWORK_INPUT_SIZE = NUM_JAMMER_SENSE_CHANNELS + 1
+#################################################################################
