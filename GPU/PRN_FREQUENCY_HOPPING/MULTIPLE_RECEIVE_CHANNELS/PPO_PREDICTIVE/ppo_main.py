@@ -434,13 +434,14 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_average_rewards.append(rx_accumulated_rewards[-1]/len(rx_accumulated_rewards))
 
         # If Rx chose the same seed as Tx, but as an additional action, it needs to use the correctly selected seed in the training
-        if rx_reward >= 0.5:
+        if rx_reward >= ((REWARD_SUCCESSFUL+REWARD_MISS)/2):
             rx_seed_correct = rx_observed_tx_seed
-            if rx_seed_correct == rx_seed:
-                rx_prob_action_correct = rx_prob_action
-            else:
-                idx = (rx_additional_seeds == rx_observed_tx_seed).nonzero(as_tuple=True)[0]
-                rx_prob_action_correct = rx_prob_additional_actions[idx.item()].unsqueeze(0)
+
+            rx_prob_action_correct = rx_prob_action
+            if rx_seed_correct != rx_seed:
+                for i in range(len(rx_additional_seeds)):
+                    if rx_additional_seeds[i] == rx_seed_correct:
+                        rx_prob_action_correct = rx_prob_additional_actions[i].unsqueeze(0)
         else:
             rx_seed_correct = rx_seed
             rx_prob_action_correct = rx_prob_action
@@ -718,7 +719,7 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
     # relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
-    relative_path = f"Comparison/implementation_tests/pred/8_seeds/2_additional_seeds_5_additional_sensing"
+    relative_path = f"Comparison/implementation_tests/entropy_factor/0_05/2_additional_seeds_5_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

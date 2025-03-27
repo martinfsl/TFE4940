@@ -24,21 +24,21 @@ class rxPredNN(nn.Module):
 
         self.input_size = PREDICTION_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
-        self.hidden_size2 = 64
+        # self.hidden_size2 = 64
         self.output_size = NUM_SEEDS
 
         # Defining the fully connected layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
-        self.dropout2 = nn.Dropout(0.3)
+        # self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        # self.dropout2 = nn.Dropout(0.3)
         self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = self.dropout1(x)
-        x = torch.relu(self.fc2(x))
-        x = self.dropout2(x)
+        # x = torch.relu(self.fc2(x))
+        # x = self.dropout2(x)
         x = self.fc3(x)
 
         return x
@@ -50,7 +50,6 @@ class rxPredNN(nn.Module):
 # The output of the neural network is the predicted Tx's action using a softmax function
 class rxPredNNAgent:
     def __init__(self, device = "cpu"):
-        # self.learning_rate = 0.01
         self.learning_rate = 0.001
 
         # Parameters for the neural network
