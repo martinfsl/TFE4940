@@ -1,5 +1,0 @@
-# Multiple Channels
-
-The previous implementation (NAME HERE) considered the case where Tx transmits on one channel and Rx receives on one channel, but they both select more channels to sense in an attempt to sense what channel the other agent choose in case they selected wrong.
-
-What is new with this implementation is that Rx now selects multiple channels to receive on, and in addition to this it selects a few additional channels that it is just able to sense. The Tx however still only transmits on one, but is able to sense other channels in an attempt to detect Rx. If Rx is not able to decode the signal from Tx, it sends a "blip", i.e. a short burst, to make Tx aware of what it's most desirable channel was.
