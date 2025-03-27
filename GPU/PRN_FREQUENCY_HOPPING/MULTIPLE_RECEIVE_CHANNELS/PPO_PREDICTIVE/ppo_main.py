@@ -732,7 +732,7 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
     # relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
-    relative_path = f"Comparison/pts_vs_fh/fh/2_additional_receive_5_additional_sensing"
+    relative_path = f"Comparison/pts_vs_fh/fh/no-pred_0_additional_receive_0_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
