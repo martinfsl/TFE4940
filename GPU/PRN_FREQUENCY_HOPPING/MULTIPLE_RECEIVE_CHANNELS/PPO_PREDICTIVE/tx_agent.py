@@ -32,7 +32,8 @@ class txPredNN(nn.Module):
         self.dropout1 = nn.Dropout(0.3)
         # self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
         # self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+        # self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+        self.fc3 = nn.Linear(self.hidden_size1, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -270,22 +271,6 @@ class txPPOAgent:
 
     def get_value(self, observation):
         return self.critic_network(observation)
-
-    # # Returning the most probable action and NUM_EXTRA_ACTIONS additional actions
-    # def choose_action(self, observation):
-    #     with torch.no_grad():
-    #         policy = nn.Softmax(dim=0)(self.actor_network(observation))
-    #         values = self.get_value(observation)
-
-    #     # Extract the most probable action as main action and NUM_EXTRA_ACTIONS additional actions which are the next most probable actions
-    #     main_action = torch.argmax(policy)
-    #     additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
-    #     actions = torch.cat((torch.tensor([main_action], device=self.device), additional_actions))
-
-    #     action_logprob = torch.log(torch.gather(policy, 0, main_action.unsqueeze(0)))
-    #     self.fh_patterns_used = torch.cat((self.fh_patterns_used, main_action.unsqueeze(0)))
-
-    #     return actions, action_logprob, values
 
     # Only returning the most probable action
     def choose_action(self, observation):
