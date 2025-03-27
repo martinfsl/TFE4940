@@ -51,7 +51,8 @@ class txPredNN(nn.Module):
 # The output of the neural network is the predicted Rx's action using a softmax function
 class txPredNNAgent:
     def __init__(self, device = "cpu"):
-        self.learning_rate = 0.001
+        # self.learning_rate = 0.001
+        self.learning_rate = 0.01
 
         # Parameters for the neural network
         self.batch_size = 16

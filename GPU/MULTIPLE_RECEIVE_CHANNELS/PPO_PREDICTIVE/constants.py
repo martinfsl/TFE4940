@@ -9,7 +9,7 @@ NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
 NUM_RECEIVE = 3 # Number of channels that Rx receives on simultaneously
 
 # Hyperparameters
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0005
 GAMMA = 0.60
 LAMBDA = 0.40
 EPSILON_CLIP = 0.2
@@ -38,12 +38,10 @@ REWARD_INTERFERENCE = -1
 REWARD_UNSUCCESSFUL = -1
 
 # Number of episodes for training
-NUM_EPISODES = 1000
-# NUM_EPISODES = 100000
+NUM_EPISODES = 100000
 
 # Number of runs for testing
-NUM_TEST_RUNS = 1000
-# NUM_TEST_RUNS = 100000
+NUM_TEST_RUNS = 100000
 
 # Bool variable to decide whether fading is to be considered
 CONSIDER_FADING = True

@@ -25,21 +25,22 @@ class rxPredNN(nn.Module):
         # self.input_size = NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2
         self.input_size = STATE_SPACE_SIZE
         self.hidden_size1 = 128
-        self.hidden_size2 = 64
+        # self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
 
         # Defining the fully connected layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
-        self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+        # self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        # self.dropout2 = nn.Dropout(0.3)
+        # self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+        self.fc3 = nn.Linear(self.hidden_size1, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = self.dropout1(x)
-        x = torch.relu(self.fc2(x))
-        x = self.dropout2(x)
+        # x = torch.relu(self.fc2(x))
+        # x = self.dropout2(x)
         x = self.fc3(x)
 
         return x

@@ -369,6 +369,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
     print("Testing")
     num_successful_transmissions = 0
+    num_jammed_or_faded_transmissions = 0
+    num_missed_transmissions = 0
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
     num_rx_channel_selected = np.zeros(NUM_CHANNELS)
     num_jammer_channel_selected = np.zeros((len(jammers), NUM_CHANNELS))
@@ -476,6 +478,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
             jammer_next_states[i] = jammer_channel_noises[i].clone()
             jammer_next_observations[i] = jammers[i].get_observation(jammer_next_states[i], jammer_channels[i])
 
+        success = False
+        jammed_or_fading = False
         # Calculate the reward based on the action taken
         # ACK is sent from the receiver
         if received_signal_rx(tx_transmit_channel, rx_receive_channels, tx_agent.get_transmit_power(direction = "receiver"), rx_channel_noise):
@@ -486,14 +490,26 @@ def test_ppo(tx_agent, rx_agent, jammers):
             # ACK is received at the transmitter
             if received_signal_tx(tx_transmit_channel, rx_receive_channels, rx_agent.get_transmit_power(direction = "transmitter"), tx_channel_noise): # power should be changed to rx_agent later
                 tx_reward = REWARD_SUCCESSFUL
+                success = True
             else:
                 tx_reward = REWARD_INTERFERENCE
         else:
             # rx_reward = REWARD_INTERFERENCE
             tx_reward = REWARD_INTERFERENCE
-        # If the tx_reward is positive, then both the communication link was successful both ways
-        if tx_reward >= 0:
+
+            if tx_transmit_channel in rx_receive_channels:
+                jamming_or_fading = True
+            else:
+                num_missed_transmissions += 1
+
+        if success:
             num_successful_transmissions += 1
+        if jamming_or_fading:
+            num_jammed_or_faded_transmissions += 1
+
+        # # If the tx_reward is positive, then both the communication link was successful both ways
+        # if tx_reward >= 0:
+        #     num_successful_transmissions += 1
 
         for i in range(len(jammers)):
             if jammers[i].behavior == "smart":
@@ -517,7 +533,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
     for i in range(len(jammers)):
         probability_jammer_channel_selected.append(num_jammer_channel_selected[i] / np.sum(num_jammer_channel_selected[i]))
 
-    return num_successful_transmissions, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected
+    return num_successful_transmissions, num_jammed_or_faded_transmissions, num_missed_transmissions, \
+        probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected
 
 #################################################################################
 ### main()
@@ -526,10 +543,13 @@ def test_ppo(tx_agent, rx_agent, jammers):
 if __name__ == '__main__':
 
     success_rates = []
+    jammed_or_fading_rates = []
+    missed_rates = []
     
     num_runs = 5
 
-    relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/test_3/receive_multiple/smart_ppo"
+    # relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/test_3/receive_multiple/smart_ppo"
+    relative_path = f"Comparison/non-fh_vs_fh/non-fh/2_additional_receive_5_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -582,7 +602,8 @@ if __name__ == '__main__':
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
 
-        num_successful_transmissions, prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_ppo(tx_agent, rx_agent, list_of_other_users)
+        num_successful_transmissions, num_jammed_or_fading_transmissions, num_missed_transmissions, \
+            prob_tx_channel, prob_rx_channel, prob_jammer_channel = test_ppo(tx_agent, rx_agent, list_of_other_users)
 
         print("Finished testing:")
         print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
@@ -590,28 +611,42 @@ if __name__ == '__main__':
         if jammer_type == "smart":
             print("Jamming rate: ", (smart.num_jammed/NUM_TEST_RUNS)*100, "%")
 
+        print("Finished testing:")
+        print("Successful transmission rate: ", (num_successful_transmissions/NUM_TEST_RUNS)*100, "%")
+        print("Jammed or Faded transmission rate: ", (num_jammed_or_fading_transmissions/NUM_TEST_RUNS)*100, "%")
+        print("Num missed: ", (num_missed_transmissions/NUM_TEST_RUNS)*100, "%")
+        success_rates.append((num_successful_transmissions/NUM_TEST_RUNS)*100)
+        jammed_or_fading_rates.append((num_jammed_or_fading_transmissions/NUM_TEST_RUNS)*100)
+        missed_rates.append((num_missed_transmissions/NUM_TEST_RUNS)*100)
+
         relative_path_run = f"{relative_path}/{run+1}"
         if not os.path.exists(relative_path_run):
             os.makedirs(relative_path_run)
+        if not os.path.exists(f"{relative_path_run}/plots"):
+            os.makedirs(f"{relative_path_run}/plots")
+        if not os.path.exists(f"{relative_path_run}/data"):
+            os.makedirs(f"{relative_path_run}/data")
 
         # Save data in textfiles
-        np.savetxt(f"{relative_path_run}/average_reward_tx.txt", tx_average_rewards)
-        np.savetxt(f"{relative_path_run}/actor_losses_tx.txt", tx_agent.actor_losses.cpu().detach().numpy())
-        np.savetxt(f"{relative_path_run}/critic_losses_tx.txt", tx_agent.critic_losses.cpu().detach().numpy())
-        np.savetxt(f"{relative_path_run}/average_reward_rx.txt", rx_average_rewards)
-        np.savetxt(f"{relative_path_run}/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
-        np.savetxt(f"{relative_path_run}/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
-        np.savetxt(f"{relative_path_run}/average_reward_jammer.txt", jammer_average_rewards)
-        np.savetxt(f"{relative_path_run}/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
+        np.savetxt(f"{relative_path_run}/data/average_reward_tx.txt", tx_average_rewards)
+        np.savetxt(f"{relative_path_run}/data/actor_losses_tx.txt", tx_agent.actor_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/data/critic_losses_tx.txt", tx_agent.critic_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/data/average_reward_rx.txt", rx_average_rewards)
+        np.savetxt(f"{relative_path_run}/data/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/data/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
+        np.savetxt(f"{relative_path_run}/data/average_reward_jammer.txt", jammer_average_rewards)
+        np.savetxt(f"{relative_path_run}/data/success_rates.txt", [(num_successful_transmissions/NUM_TEST_RUNS)*100])
+        np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [(num_jammed_or_fading_transmissions/NUM_TEST_RUNS)*100])
+        np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [(num_missed_transmissions/NUM_TEST_RUNS)*100])
 
-        save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run)
-        save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run)
+        save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
+        save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
-                            rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run)
+                            rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
         save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
-                                        list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run)
+                                        list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
         if jammer_behavior == "smart":
-            save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run)
+            save_jammer_results_plot(jammer_average_rewards, filepath = relative_path_run+"/plots")
 
     # if jammer_type == "smart":
     #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
