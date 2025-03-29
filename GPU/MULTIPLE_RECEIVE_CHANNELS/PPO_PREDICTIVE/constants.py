@@ -5,13 +5,14 @@ import numpy as np
 #################################################################################
 
 NUM_CHANNELS = 20 # Number of channels in the system
-NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_RECEIVE = 0 # Number of channels that Rx receives on simultaneously
+NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
+NUM_RECEIVE = 3 # Number of channels that Rx receives on simultaneously
 
 # Hyperparameters
-LEARNING_RATE = 0.0005
-GAMMA = 0.60
-LAMBDA = 0.40
+# LEARNING_RATE = 0.0005
+LEARNING_RATE = 0.0001
+GAMMA = 0.85
+LAMBDA = 0.80
 EPSILON_CLIP = 0.2
 EPSILON = 0.3
 EPSILON_MIN = 0
@@ -82,7 +83,7 @@ STATE_SPACE_SIZE = NUM_SENSE_CHANNELS + 1
 #################################################################################
 ### Defining inputs and outputs for the neural networks
 PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-USE_PREDICTION = False
+USE_PREDICTION = True
 if USE_PREDICTION:
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_CHANNELS
 else:

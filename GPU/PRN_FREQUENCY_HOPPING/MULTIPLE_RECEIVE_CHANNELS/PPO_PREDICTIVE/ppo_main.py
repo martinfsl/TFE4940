@@ -732,7 +732,7 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
     # relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
-    relative_path = f"Comparison/pts_vs_fh/fh/no-pred_0_additional_receive_0_additional_sensing"
+    relative_path = f"Comparison/pts_vs_fh/test_5/fh/2_additional_receive_5_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -767,15 +767,15 @@ if __name__ == '__main__':
         # jammer_type = "tracking"
         # jammer_behavior = "naive"
 
-        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        list_of_other_users.append(smart)
-        jammer_type = "smart_ppo"
-        jammer_behavior = "smart"
+        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        # list_of_other_users.append(smart)
+        # jammer_type = "smart_ppo"
+        # jammer_behavior = "smart"
 
-        # genie = Jammer(behavior = "genie", smart_type = "PPO_Genie", device = device)
-        # list_of_other_users.append(genie)
-        # jammer_type = "PPO_Genie"
-        # jammer_behavior = "genie"
+        genie = Jammer(behavior = "genie", smart_type = "PPO_Genie", device = device)
+        list_of_other_users.append(genie)
+        jammer_type = "PPO_Genie"
+        jammer_behavior = "genie"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
