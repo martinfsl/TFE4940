@@ -499,6 +499,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
                 success = True
             else:
                 tx_reward = REWARD_INTERFERENCE
+                jamming_or_fading = True
         else:
             # rx_reward = REWARD_INTERFERENCE
             tx_reward = REWARD_INTERFERENCE
@@ -555,7 +556,7 @@ if __name__ == '__main__':
     num_runs = 5
 
     # relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/test_3/receive_multiple/smart_ppo"
-    relative_path = f"Comparison/pts_vs_fh/test_5/pts/2_additional_receive_5_additional_sensing"
+    relative_path = f"Comparison/pts_vs_fh/test_7/pts/2_additional_receive_5_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -630,7 +631,7 @@ if __name__ == '__main__':
         jammed_or_fading_rates.append((num_jammed_or_fading_transmissions/NUM_TEST_RUNS)*100)
         missed_rates.append((num_missed_transmissions/NUM_TEST_RUNS)*100)
 
-        relative_path_run = f"{relative_path}/{run+1}"
+        relative_path_run = f"{relative_path}/{jammer_type}/{run+1}"
         if not os.path.exists(relative_path_run):
             os.makedirs(relative_path_run)
         if not os.path.exists(f"{relative_path_run}/plots"):

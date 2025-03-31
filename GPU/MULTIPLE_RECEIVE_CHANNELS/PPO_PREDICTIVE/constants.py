@@ -9,8 +9,8 @@ NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
 NUM_RECEIVE = 3 # Number of channels that Rx receives on simultaneously
 
 # Hyperparameters
-# LEARNING_RATE = 0.0005
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.0005
+# LEARNING_RATE = 0.0001
 GAMMA = 0.85
 LAMBDA = 0.80
 EPSILON_CLIP = 0.2
