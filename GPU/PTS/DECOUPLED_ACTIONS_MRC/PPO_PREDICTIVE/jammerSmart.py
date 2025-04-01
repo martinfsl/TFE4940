@@ -247,14 +247,15 @@ class jammerPPOActor(nn.Module):
 
         self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
         # self.input_size = NUM_CHANNELS + 1
-        self.hidden_size = 128
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
 
-        self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
         self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size, self.output_size)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -271,14 +272,15 @@ class jammerPPOCritic(nn.Module):
 
         self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
         # self.input_size = NUM_CHANNELS + 1
-        self.hidden_size = 128
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
         self.output_size = 1
 
-        self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
         self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size, self.output_size)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -295,10 +297,10 @@ class jammerPPOAgent:
                 k = K, m = M, c1 = C1, c2 = C2, device = "cpu"):
         self.gamma = gamma
         # self.learning_rate = 0.001
-        self.learning_rate = 0.0005
+        self.learning_rate = 0.0001
 
         # self.LAMBDA = lambda_param
-        self.LAMBDA = 0.40
+        self.LAMBDA = 0.80
         self.epsilon_clip = epsilon_clip
 
         self.k = k

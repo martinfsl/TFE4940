@@ -19,14 +19,15 @@ class jammerPPOActor(nn.Module):
 
         self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
         # self.input_size = NUM_CHANNELS + 1
-        self.hidden_size = 128
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
 
-        self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
         self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size, self.output_size)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -43,14 +44,15 @@ class jammerPPOCritic(nn.Module):
 
         self.input_size = NUM_JAMMER_SENSE_CHANNELS + 1
         # self.input_size = NUM_CHANNELS + 1
-        self.hidden_size = 128
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
         self.output_size = 1
 
-        self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
         self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size, self.output_size)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -70,14 +72,14 @@ class jammerPPOAgent:
         self.learning_rate = 0.0001
 
         # self.LAMBDA = lambda_param
-        self.LAMBDA = 0.40
+        self.LAMBDA = 0.80
         self.epsilon_clip = epsilon_clip
 
         self.k = k
         self.m = m
         self.c1 = 0.5
         # self.c2 = 0.01
-        self.c2 = 0.05
+        self.c2 = 0.1
 
         self.device = device
 
