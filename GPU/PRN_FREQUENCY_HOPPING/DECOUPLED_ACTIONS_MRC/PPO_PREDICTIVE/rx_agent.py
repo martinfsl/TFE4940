@@ -248,7 +248,7 @@ class rxPPOAgent:
 
     # def get_observation(self, state, actions, seeds):
     def get_observation(self, state, action, seeds):
-        observation_pattern = torch.zeros(RX_STATE_SPACE_SIZE-3, device=self.device)
+        observation_pattern = torch.zeros(RX_STATE_SPACE_SIZE-1-NUM_EXTRA_RECEIVE, device=self.device)
 
         for i in range(NUM_HOPS):
             # Same as before: create observation by concatenating state and action data.

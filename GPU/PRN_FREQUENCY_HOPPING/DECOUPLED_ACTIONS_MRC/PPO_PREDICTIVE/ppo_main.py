@@ -576,7 +576,9 @@ def test_ppo(tx_agent, rx_agent, jammers):
             rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         else:
             rx_observation = rx_observation_without_pred_action
-        rx_seed, _, _, rx_additional_seeds, _, _ = rx_agent.choose_action(rx_observation)
+        rx_seeds, _, _, _ = rx_agent.choose_action(rx_observation)
+        rx_seed = rx_seeds[0].unsqueeze(0)
+        rx_additional_seeds = rx_seeds[1:]
 
         tx_agent.fh.generate_sequence()
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
@@ -743,7 +745,7 @@ if __name__ == '__main__':
 
     # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
     # relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
-    relative_path = f"Comparison/pts_vs_fh/test_7/fh/no-pred_0_additional_receive_0_additional_sensing"
+    relative_path = f"Comparison/pts_vs_fh/decoupled_vs_regular/fh/decoupled/no-pred_0_additional_receive_0_additional_sensing"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

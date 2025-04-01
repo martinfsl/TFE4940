@@ -5,8 +5,8 @@ import numpy as np
 #################################################################################
 
 NUM_CHANNELS = 20 # Number of channels in the system
-NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
-NUM_RECEIVE = 3 # Number of channels that Rx receives on simultaneously
+NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
+NUM_RECEIVE = 1 # Number of channels that Rx receives on simultaneously
 
 # Hyperparameters
 LEARNING_RATE = 0.0005
@@ -83,7 +83,7 @@ RX_STATE_SPACE_SIZE = NUM_SENSE_CHANNELS + 1 + 2*(NUM_RECEIVE-1)
 ### Defining inputs and outputs for the neural networks
 TX_PREDICTION_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE
 RX_PREDICTION_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE
-USE_PREDICTION = True
+USE_PREDICTION = False
 if USE_PREDICTION:
     TX_PPO_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE + NUM_CHANNELS
     RX_PPO_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE + NUM_CHANNELS
