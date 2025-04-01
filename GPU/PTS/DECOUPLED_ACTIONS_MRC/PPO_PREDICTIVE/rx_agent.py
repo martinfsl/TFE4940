@@ -23,7 +23,7 @@ class rxPredNN(nn.Module):
 
         # self.input_size = NUM_SENSE_CHANNELS + 1
         # self.input_size = NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2
-        self.input_size = STATE_SPACE_SIZE
+        self.input_size = RX_STATE_SPACE_SIZE
         self.hidden_size1 = 128
         # self.hidden_size2 = 64
         self.output_size = NUM_CHANNELS
@@ -62,7 +62,7 @@ class rxPredNNAgent:
 
         # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1), device=self.device)
         # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2), device=self.device)
-        self.memory_state = torch.empty((0, STATE_SPACE_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, RX_STATE_SPACE_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = rxPredNN()
@@ -107,7 +107,7 @@ class rxPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOActor, self).__init__()
 
-        self.input_size = PPO_NETWORK_INPUT_SIZE
+        self.input_size = RX_PPO_NETWORK_INPUT_SIZE
         # self.input_size = NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
@@ -135,7 +135,7 @@ class rxPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(rxPPOCritic, self).__init__()
 
-        self.input_size = PPO_NETWORK_INPUT_SIZE
+        self.input_size = RX_PPO_NETWORK_INPUT_SIZE
         # self.input_size = NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1 + NUM_CHANNELS
         # self.input_size = NUM_SENSE_CHANNELS + 1
@@ -184,11 +184,11 @@ class rxPPOAgent:
         self.device = device
 
         # PPO on-policy storage
-        self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
-        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+(NUM_RECEIVE-1)*2+NUM_CHANNELS), device=self.device)
-        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
-        self.memory_action = torch.empty((0, 1), device=self.device)
-        self.memory_logprob = torch.empty((0, 1), device=self.device)
+        self.memory_state = torch.empty((0, RX_PPO_NETWORK_INPUT_SIZE), device=self.device)
+        self.memory_action = torch.empty((0, NUM_RECEIVE), device=self.device)
+        # self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_logprob = torch.empty((0, NUM_RECEIVE), device=self.device)
+        # self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
@@ -223,11 +223,11 @@ class rxPPOAgent:
             self.previous_actions = self.previous_actions[1:]
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
-        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+(NUM_RECEIVE-1)*2+NUM_CHANNELS), device=self.device)
-        # self.memory_state = torch.empty((0, NUM_SENSE_CHANNELS+1+NUM_CHANNELS), device=self.device)
-        self.memory_action = torch.empty((0, 1), device=self.device)
-        self.memory_logprob = torch.empty((0, 1), device=self.device)
+        self.memory_state = torch.empty((0, RX_PPO_NETWORK_INPUT_SIZE), device=self.device)
+        self.memory_action = torch.empty((0, NUM_RECEIVE), device=self.device)
+        # self.memory_action = torch.empty((0, 1), device=self.device)
+        self.memory_logprob = torch.empty((0, NUM_RECEIVE), device=self.device)
+        # self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
@@ -254,43 +254,45 @@ class rxPPOAgent:
 
         return torch.tensor(received_power, device=self.device)
 
-    # # Used when all previous actions are considered in the observation
-    # def get_observation(self, state, action):
-    #     if NUM_SENSE_CHANNELS < NUM_CHANNELS:
-    #         # Create a tensor of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
-    #         # The first elements are the state values centered around the action channel and the last element is the action channel
-    #         observation = torch.zeros(NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2, device=self.device)
-    #         half_sense_channels = NUM_SENSE_CHANNELS // 2
-
-    #         for i in range(-half_sense_channels, half_sense_channels + 1):
-    #             index = (action[0] + i) % len(state)
-    #             observation[i + half_sense_channels] = state[index]
-
-    #         observation[NUM_SENSE_CHANNELS] = action[0]
-            
-    #         for i in range(1, NUM_RECEIVE):
-    #             observation[NUM_SENSE_CHANNELS + 1 + 2*(i-1)] = state[action[i]]
-    #             observation[NUM_SENSE_CHANNELS + 1 + 2*(i-1) + 1] = action[i]
-
-    #     else:
-    #         observation = torch.cat((state, action), dim=0)
-
-    #     return observation
-    
-    # Used when only one action is considered in the observation
+    # Used when all previous actions are considered in the observation
+    # The first NUM_SENSE_CHANNELS elements are the state values centered around the most probable action channel
+    # The last elements are the state values at the additional receive channels
     def get_observation(self, state, action):
-        # Same as before: create observation by concatenating state and action data.
         if NUM_SENSE_CHANNELS < NUM_CHANNELS:
-            observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
+            # Create a tensor of zeros for the observation that is the length of NUM_SENSE_CHANNELS + 1
+            # The first elements are the state values centered around the action channel and the last element is the action channel
+            observation = torch.zeros(NUM_SENSE_CHANNELS + 1 + (NUM_RECEIVE-1)*2, device=self.device)
             half_sense_channels = NUM_SENSE_CHANNELS // 2
+
             for i in range(-half_sense_channels, half_sense_channels + 1):
-                index = (action + i) % len(state)
+                index = (action[0] + i) % len(state)
                 observation[i + half_sense_channels] = state[index]
-            observation[-1] = action
+
+            observation[NUM_SENSE_CHANNELS] = action[0]
+            
+            for i in range(1, NUM_RECEIVE):
+                observation[NUM_SENSE_CHANNELS + 1 + 2*(i-1)] = state[action[i]]
+                observation[NUM_SENSE_CHANNELS + 1 + 2*(i-1) + 1] = action[i]
+
         else:
             observation = torch.cat((state, action), dim=0)
-        
+
         return observation
+    
+    # # Used when only one action is considered in the observation
+    # def get_observation(self, state, action):
+    #     # Same as before: create observation by concatenating state and action data.
+    #     if NUM_SENSE_CHANNELS < NUM_CHANNELS:
+    #         observation = torch.zeros(NUM_SENSE_CHANNELS + 1, device=self.device)
+    #         half_sense_channels = NUM_SENSE_CHANNELS // 2
+    #         for i in range(-half_sense_channels, half_sense_channels + 1):
+    #             index = (action + i) % len(state)
+    #             observation[i + half_sense_channels] = state[index]
+    #         observation[-1] = action
+    #     else:
+    #         observation = torch.cat((state, action), dim=0)
+        
+    #     return observation
     
     def concat_predicted_action(self, observation):
         # Get the predicted action from the predictive network
@@ -319,9 +321,12 @@ class rxPPOAgent:
         action_logprob = torch.log(torch.gather(policy, 0, action))
         additional_receive_actions_logprobs = torch.log(torch.gather(policy, 0, additional_receive_actions))
 
+        action_logprobs = torch.cat((action_logprob, additional_receive_actions_logprobs))
+
         self.channels_selected = torch.cat((self.channels_selected, action))
 
-        return actions, action_logprob, values, additional_sense_actions, additional_receive_actions_logprobs
+        # return actions, action_logprob, values, additional_sense_actions, additional_receive_actions_logprobs
+        return actions, action_logprobs, values, additional_sense_actions
 
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
@@ -377,24 +382,39 @@ class rxPPOAgent:
             new_policy = nn.Softmax(dim=1)(new_logits)
             new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
 
-            ratio = torch.exp(new_logprobs - batch_logprob)
+            if NUM_RECEIVE == 1 or NUM_RECEIVE == 0:
+                ratio = torch.exp(new_logprobs - batch_logprob)
+                
+                surr1 = ratio*batch_advantage
+                surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
 
-            surr1 = ratio*batch_advantage
-            surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
+                actor_loss = -torch.min(surr1, surr2).mean()
+            else:
+                ratio1 = torch.exp(torch.sum(new_logprobs-batch_logprob, dim=1))
+                ratio2 = torch.sum(torch.exp(new_logprobs-batch_logprob), dim=1)
 
-            entropy = -(new_policy*torch.log(new_policy + 1e-8)).sum(dim=1).mean()
+                surr1_1 = ratio1*batch_advantage
+                surr2_1 = torch.clamp(ratio1, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
 
-            actor_loss = -torch.min(surr1, surr2).mean() - self.c2*entropy
+                surr1_2 = ratio2*batch_advantage
+                surr2_2 = torch.clamp(ratio2, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
+
+                actor_loss_1 = -torch.min(surr1_1, surr2_1).mean()
+                actor_loss_2 = -torch.min(surr1_2, surr2_2).mean()
+
+                actor_loss = W*actor_loss_1 + (1-W)*actor_loss_2
 
             batch_value = self.get_value(batch_state)
             critic_loss = nn.MSELoss()(batch_value, batch_return)
             
-            total_loss = actor_loss + self.c1*critic_loss
+            # Entropy loss
+            # The entropy loss is used to encourage exploration by penalizing the policy for being too certain
+            entropy = -(new_policy*torch.log(new_policy + 1e-8)).sum(dim=1).mean()
+
+            total_loss = actor_loss + self.c1*critic_loss - self.c2*entropy
 
             self.actor_optimizer.zero_grad()
             self.critic_optimizer.zero_grad()
-            # actor_loss.backward()
-            # critic_loss.backward()
             total_loss.backward()
             self.actor_optimizer.step()
             self.critic_optimizer.step()

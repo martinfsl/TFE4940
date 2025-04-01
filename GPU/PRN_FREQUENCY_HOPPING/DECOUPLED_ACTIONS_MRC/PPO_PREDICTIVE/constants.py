@@ -6,7 +6,7 @@ import numpy as np
 
 NUM_CHANNELS = 20 # Number of channels in the system
 NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
@@ -25,6 +25,7 @@ M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 C2 = 0.05 # Coefficient for the entropy loss
+W = 0.5 # Weight for the Compound Action Loss
 
 # Parameters
 BATCH_SIZE = 2
@@ -82,17 +83,19 @@ NUM_HOPS = 5
 NUM_SEEDS = 32
 
 # Determining the state space size
-STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
-
+TX_STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
+RX_STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1 + NUM_EXTRA_RECEIVE
 #################################################################################
-### Defining input and output sizes for the neural networks
-SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-USE_PREDICTION = False
+### Defining inputs and outputs for the neural networks
+TX_PREDICTION_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE
+RX_PREDICTION_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE
+USE_PREDICTION = True
 if USE_PREDICTION:
-    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_SEEDS
+    TX_PPO_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE + NUM_SEEDS
+    RX_PPO_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE + NUM_SEEDS
 else:
-    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+    TX_PPO_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE
+    RX_PPO_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE
 
 JAMMER_PPO_NETWORK_INPUT_SIZE = NUM_JAMMER_SENSE_CHANNELS + 1
 #################################################################################

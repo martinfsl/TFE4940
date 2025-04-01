@@ -114,8 +114,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
     ###################################
     # Initializing the first state consisting of just noise
-    tx_state = torch.empty(STATE_SPACE_SIZE, device=device)
-    rx_state = torch.empty(STATE_SPACE_SIZE, device=device)
+    tx_state = torch.empty(TX_STATE_SPACE_SIZE, device=device)
+    rx_state = torch.empty(RX_STATE_SPACE_SIZE, device=device)
     jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
     
     # Intializing the first channels
@@ -124,6 +124,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
     tx_seed = torch.tensor([0], device=device)
     rx_seed = torch.tensor([0], device=device)
+    rx_seeds = torch.tensor((NUM_EXTRA_RECEIVE+1)*[0], device=device)
     tx_hops = torch.tensor(NUM_HOPS*[0], device=device)
     rx_hops = torch.tensor(NUM_HOPS*[0], device=device)
     # tx_transmit_channel = torch.tensor(NUM_HOPS*[0], device=device)
@@ -153,6 +154,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
     ###################################
 
     for episode in tqdm(range(NUM_EPISODES)):
+        # print("--------------------------------")
+        # print("Episode - ", episode)
+
         # The agents chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
@@ -162,18 +166,22 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation)
         tx_agent.add_previous_seed(tx_seed)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
+        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seeds)
         if USE_PREDICTION:
             rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         else:
             rx_observation = rx_observation_without_pred_action
-        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, rx_prob_additional_actions, rx_sense_seeds = rx_agent.choose_action(rx_observation)
+        rx_seeds, rx_prob_actions, rx_value, rx_sense_seeds = rx_agent.choose_action(rx_observation)
+        rx_seed = rx_seeds[0].unsqueeze(0)
+        rx_additional_seeds = rx_seeds[1:]
+        rx_prob_action = rx_prob_actions[0].unsqueeze(0)
+        rx_prob_additional_actions = rx_prob_actions[1:]
         rx_agent.add_previous_seed(rx_seed)
 
-        # print("--------------------------------")
-        # print("Episode - ", episode)
         # print("tx_seed:", tx_seed)
         # print("tx_sense_seeds: ", tx_sense_seeds)
+
+        # print("rx_seeds: ", rx_seeds)
         # print("rx_seed:", rx_seed)
         # print("rx_additional_seeds: ", rx_additional_seeds)
         # print("rx_sense_seeds: ", rx_sense_seeds)
@@ -198,6 +206,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_additional_hops: ", rx_additional_hops)
         # print("rx_sense_hops: ", rx_sense_hops)
         # print()
+        # print("rx_prob_actions: ", rx_prob_actions)
         # print("rx_prob_action: ", rx_prob_action)
         # print("rx_prob_additional_actions: ", rx_prob_additional_actions)
         # print()
@@ -459,7 +468,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # Store the experience in the agent's memory
         tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
         # rx_agent.store_in_memory(rx_observation, rx_seed, rx_prob_action, torch.tensor([rx_reward], device=device), rx_value)
-        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value)
+        # rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value)
+        rx_agent.store_in_memory(rx_observation, rx_seeds, rx_prob_actions, torch.tensor([rx_reward], device=device), rx_value)
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
@@ -519,8 +529,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
     ###################################
     # Initializing the first state
-    tx_state = torch.empty(STATE_SPACE_SIZE, device=device)
-    rx_state = torch.empty(STATE_SPACE_SIZE, device=device)
+    tx_state = torch.empty(TX_STATE_SPACE_SIZE, device=device)
+    rx_state = torch.empty(RX_STATE_SPACE_SIZE, device=device)
     jammer_states = [torch.empty(NUM_CHANNELS, device=device) for _ in jammers]
 
     # Intializing the first channels

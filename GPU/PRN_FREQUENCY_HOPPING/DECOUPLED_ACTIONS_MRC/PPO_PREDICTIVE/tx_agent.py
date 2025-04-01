@@ -22,7 +22,7 @@ class txPredNN(nn.Module):
     def __init__(self):
         super(txPredNN, self).__init__()
 
-        self.input_size = PREDICTION_NETWORK_INPUT_SIZE
+        self.input_size = TX_PREDICTION_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         # self.hidden_size2 = 64
         self.output_size = NUM_SEEDS
@@ -60,7 +60,7 @@ class txPredNNAgent:
 
         self.device = device
 
-        self.memory_state = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, TX_PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
         self.pred_network = txPredNN()
@@ -102,7 +102,7 @@ class txPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOActor, self).__init__()
 
-        self.input_size = PPO_NETWORK_INPUT_SIZE
+        self.input_size = TX_PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = NUM_SEEDS
@@ -127,7 +127,7 @@ class txPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
         super(txPPOCritic, self).__init__()
 
-        self.input_size = PPO_NETWORK_INPUT_SIZE
+        self.input_size = TX_PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
         self.output_size = 1
@@ -171,7 +171,7 @@ class txPPOAgent:
         self.device = device
 
         # PPO on-policy storage (use lists to store one episode/trajectory)
-        self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, TX_PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
@@ -213,7 +213,7 @@ class txPPOAgent:
             self.previous_seeds = self.previous_seeds[1:]
 
     def clear_memory(self):
-        self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
+        self.memory_state = torch.empty((0, TX_PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
@@ -243,7 +243,7 @@ class txPPOAgent:
         return torch.tensor(received_power, device=self.device)
 
     def get_observation(self, state, action, seed):
-        observation_pattern = torch.zeros(STATE_SPACE_SIZE-1, device=self.device)
+        observation_pattern = torch.zeros(TX_STATE_SPACE_SIZE-1, device=self.device)
 
         for i in range(NUM_HOPS):
             # Same as before: create observation by concatenating state and action data.

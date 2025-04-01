@@ -24,14 +24,12 @@ M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 C2 = 0.05 # Coefficient for the entropy loss
+W = 0.5 # Weight for the Compound Action Loss
 
 # Parameters
 BATCH_SIZE = 2
 MAXIMUM_MEMORY_SIZE = 100
 MEMORY_SIZE_BEFORE_TRAINING = 2*BATCH_SIZE
-
-# Determining the state space size
-STATE_SPACE_SIZE = NUM_CHANNELS + 1
 
 # Rewards
 REWARD_SUCCESSFUL = 1
@@ -79,15 +77,19 @@ PENALTY_NONDIVERSE = 0 # Penalty for staying on the same channels for NUM_PREV_A
 REWARD_DIVERSE = 0 # Reward for choosing a channel that has not been used in the past NUM_PREV_ACTIONS episodes
 NUM_PREV_ACTIONS = 0 # Number of previous actions to consider for the penalty
 
-STATE_SPACE_SIZE = NUM_SENSE_CHANNELS + 1
+TX_STATE_SPACE_SIZE = NUM_SENSE_CHANNELS + 1
+RX_STATE_SPACE_SIZE = NUM_SENSE_CHANNELS + 1 + 2*(NUM_RECEIVE-1)
 #################################################################################
 ### Defining inputs and outputs for the neural networks
-PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+TX_PREDICTION_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE
+RX_PREDICTION_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE
 USE_PREDICTION = True
 if USE_PREDICTION:
-    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_CHANNELS
+    TX_PPO_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE + NUM_CHANNELS
+    RX_PPO_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE + NUM_CHANNELS
 else:
-    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+    TX_PPO_NETWORK_INPUT_SIZE = TX_STATE_SPACE_SIZE
+    RX_PPO_NETWORK_INPUT_SIZE = RX_STATE_SPACE_SIZE
 
 JAMMER_PPO_NETWORK_INPUT_SIZE = NUM_JAMMER_SENSE_CHANNELS + 1
 #################################################################################
