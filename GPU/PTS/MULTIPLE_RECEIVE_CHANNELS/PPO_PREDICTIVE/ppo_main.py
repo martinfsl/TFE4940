@@ -555,8 +555,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    # relative_path = f"Comparison/march_tests/PPO/receive_one_vs_multiple/test_3/receive_multiple/smart_ppo"
-    relative_path = f"Comparison/pts_vs_fh/decoupled_vs_regular/pts/regular/2_additional_receive_5_additional_sensing"
+    relative_path = f"A_Final_Tests/pts/bm_functionality/test_1/2_receive_5_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -680,8 +679,13 @@ if __name__ == '__main__':
     #     plot_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type)
 
     if num_runs > 1:
-        print("Success rates: ", success_rates)
         print("Average success rate: ", np.mean(success_rates), "%")
+        print("Average jammed / fading rate: ", np.mean(jammed_or_fading_rates), "%")
+        print("Average missed rate: ", np.mean(missed_rates), "%")
 
-    np.savetxt(f"{relative_path}/all_success_rates.txt", success_rates)
-    np.savetxt(f"{relative_path}/average_success_rate.txt", [np.mean(success_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/all_success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/all_jammed_or_fading_rates.txt", jammed_or_fading_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/all_missed_rates.txt", missed_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/average_success_rate.txt", [np.mean(success_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/average_jammed_or_fading_rates.txt", [np.mean(jammed_or_fading_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/average_missed_rates.txt", [np.mean(missed_rates)])
