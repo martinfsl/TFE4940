@@ -224,11 +224,14 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_agent.fh_seeds_used = torch.cat((rx_agent.fh_seeds_used, rx_seed), dim=0)
             rx_agent.channels_selected = torch.concat((rx_agent.channels_selected, rx_receive_channel), dim=0)
 
+            tx_reward_hop = 0
+            rx_reward_hop = 0
+
             rx_extra_receive_channels = torch.tensor([], device=device)
             for j in range(len(rx_additional_hops)):
                 rx_extra_receive_channels = torch.cat((rx_extra_receive_channels, rx_additional_hops[j][i].unsqueeze(0)), dim=0)
 
-            rx_receive_channels = torch.cat((rx_receive_channel, rx_extra_receive_channels), dim=0)
+            rx_receive_channels = torch.cat((rx_receive_channel, rx_extra_receive_channels))
 
             tx_sense_channels = torch.tensor([], device=device)
             rx_sense_channels = torch.tensor([], device=device)
@@ -294,24 +297,24 @@ def train_ppo(tx_agent, rx_agent, jammers):
             # Calculate the reward based on the patterns chosen
             # ACK is sent from the receiver
             if received_signal_rx(tx_transmit_channel.long(), rx_receive_channels.long(), rx_observed_power, rx_channel_noise[i]):
-                rx_reward += REWARD_SUCCESSFUL
+                rx_reward_hop = REWARD_SUCCESSFUL
 
                 rx_observed_tx = torch.concat((rx_observed_tx, tx_transmit_channel), dim=0)
 
                 # ACK is received at the transmitter
                 if received_signal_tx(tx_transmit_channel.long(), rx_receive_channels.long(), tx_observed_power, tx_channel_noise[i]):
-                    tx_reward += REWARD_SUCCESSFUL
+                    tx_reward_hop = REWARD_SUCCESSFUL
 
                     tx_observed_rx = torch.concat((tx_observed_rx, tx_transmit_channel), dim=0)
 
                 else:
                     # tx_reward += REWARD_INTERFERENCE
-                    tx_reward += REWARD_MISS
+                    tx_reward_hop = REWARD_MISS
 
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
             else:
-                rx_reward += REWARD_MISS
-                tx_reward += REWARD_MISS
+                rx_reward_hop = REWARD_MISS
+                tx_reward_hop = REWARD_MISS
                 # rx_reward += REWARD_INTERFERENCE
                 # tx_reward += REWARD_INTERFERENCE
 
@@ -384,6 +387,22 @@ def train_ppo(tx_agent, rx_agent, jammers):
             # print("rx_reward: ", rx_reward)
             # print("-----------")
 
+            tx_reward += tx_reward_hop
+            rx_reward += rx_reward_hop
+
+            if episode == 0 and i == 0:
+                tx_accumulated_rewards.append(tx_reward_hop)
+                tx_average_rewards.append(tx_reward_hop)
+
+                rx_accumulated_rewards.append(rx_reward_hop)
+                rx_average_rewards.append(rx_reward_hop)
+            else:
+                tx_accumulated_rewards.append(tx_accumulated_rewards[-1] + tx_reward_hop)
+                tx_average_rewards.append(tx_accumulated_rewards[-1]/len(tx_accumulated_rewards))
+
+                rx_accumulated_rewards.append(rx_accumulated_rewards[-1] + rx_reward_hop)
+                rx_average_rewards.append(rx_accumulated_rewards[-1]/len(rx_accumulated_rewards))
+
         ##################
 
         tx_reward = tx_reward/NUM_HOPS
@@ -423,19 +442,6 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
         rx_next_state = rx_channel_noise.clone()
-
-        if episode == 0:
-            tx_accumulated_rewards.append(tx_reward)
-            tx_average_rewards.append(tx_reward)
-
-            rx_accumulated_rewards.append(rx_reward)
-            rx_average_rewards.append(rx_reward)
-        else:
-            tx_accumulated_rewards.append(tx_accumulated_rewards[-1] + tx_reward)
-            tx_average_rewards.append(tx_accumulated_rewards[-1]/len(tx_accumulated_rewards))
-
-            rx_accumulated_rewards.append(rx_accumulated_rewards[-1] + rx_reward)
-            rx_average_rewards.append(rx_accumulated_rewards[-1]/len(rx_accumulated_rewards))
 
         # If Rx chose the same seed as Tx, but as an additional action, it needs to use the correctly selected seed in the training
         if rx_reward >= ((REWARD_SUCCESSFUL+REWARD_MISS)/2):
@@ -600,7 +606,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
             for j in range(len(rx_additional_hops)):
                 rx_extra_receive_channels = torch.cat((rx_extra_receive_channels, rx_additional_hops[j][i].unsqueeze(0)), dim=0)
 
-            rx_receive_channels = torch.cat((rx_receive_channel, rx_extra_receive_channels), dim=0)
+            rx_receive_channels = torch.cat((rx_receive_channel, rx_extra_receive_channels))
 
             if IS_SMART_OR_GENIE_JAMMER:
                 jammer_observations = torch.empty((len(jammers), NUM_JAMMER_SENSE_CHANNELS+1), device=device)
@@ -735,9 +741,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    # relative_path = f"Comparison/implementation_tests/no_pred/tx_and_rx_extra_sensing/no_sensing"
-    # relative_path = f"Comparison/implementation_tests/no_pred/rx_additional_receive/8_seeds/no_additional"
-    relative_path = f"Comparison/pts_vs_fh/decoupled_vs_regular/fh_temp"
+    relative_path = f"A_Final_Tests/original_belief_module/fh/bm_functionality/test_3/no-pred_2_receive_0_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -767,15 +771,15 @@ if __name__ == '__main__':
         # jammer_type = "sweeping"
         # jammer_behavior = "naive"
 
-        tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
-        list_of_other_users.append(tracking_1)
-        jammer_type = "tracking"
-        jammer_behavior = "naive"
+        # tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
+        # list_of_other_users.append(tracking_1)
+        # jammer_type = "tracking"
+        # jammer_behavior = "naive"
 
-        # smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        # list_of_other_users.append(smart)
-        # jammer_type = "smart_ppo"
-        # jammer_behavior = "smart"
+        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+        list_of_other_users.append(smart)
+        jammer_type = "smart_ppo"
+        jammer_behavior = "smart"
 
         # genie = Jammer(behavior = "genie", smart_type = "PPO_Genie", device = device)
         # list_of_other_users.append(genie)
@@ -805,13 +809,17 @@ if __name__ == '__main__':
         if jammer_behavior == "genie":
             jammer_seed_selection_testing = list_of_other_users[0].agent.fh_seeds_used.cpu().detach().numpy()
 
+        successful_transmission_rate = (num_successful_transmissions/NUM_TEST_RUNS)*100
+        jammed_or_fading_rate = (num_jammed_or_fading/NUM_TEST_RUNS)*100
+        missed_rate = (num_missed/NUM_TEST_RUNS)*100
+
         print("Finished testing:")
-        print("Successful transmission rate: ", (num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS))*100, "%")
-        print("Jammed or Faded transmission rate: ", (num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS))*100, "%")
-        print("Num missed: ", (num_missed/(NUM_TEST_RUNS*NUM_HOPS))*100, "%")
-        success_rates.append((num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS))*100)
-        jammed_or_fading_rates.append((num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS))*100)
-        missed_rates.append((num_missed/(NUM_TEST_RUNS*NUM_HOPS))*100)
+        print("Successful transmission rate: ", successful_transmission_rate, "%")
+        print("Jammed or Faded transmission rate: ", jammed_or_fading_rate, "%")
+        print("Num missed: ", missed_rate, "%")
+        success_rates.append(successful_transmission_rate)
+        jammed_or_fading_rates.append(jammed_or_fading_rate)
+        missed_rates.append(missed_rate)
 
         relative_path_run = f"{relative_path}/{jammer_type}/{run+1}"
         if not os.path.exists(relative_path_run):
@@ -831,9 +839,9 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/average_reward_jammer.txt", jammer_average_rewards)
-        np.savetxt(f"{relative_path_run}/data/success_rates.txt", [(num_successful_transmissions/(NUM_TEST_RUNS*NUM_HOPS))*100])
-        np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [(num_jammed_or_fading/(NUM_TEST_RUNS*NUM_HOPS))*100])
-        np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [(num_missed/(NUM_TEST_RUNS*NUM_HOPS))*100])
+        np.savetxt(f"{relative_path_run}/data/success_rates.txt", [successful_transmission_rate])
+        np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [jammed_or_fading_rate])
+        np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [missed_rate])
         
 
         # Saving the channel and pattern selections

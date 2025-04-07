@@ -555,7 +555,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/pts/bm_functionality/test_1/2_receive_5_sense"
+    relative_path = f"A_Final_Tests/pts/bm_functionality/test_1/no-pred_5_receive_0_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
