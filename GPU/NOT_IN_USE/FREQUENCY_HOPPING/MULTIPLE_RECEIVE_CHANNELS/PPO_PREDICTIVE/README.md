@@ -1,0 +1,11 @@
+# Independent Deep Double Q-learning Networks (IDDQN) for Cooperative Multi-Agent Reinforcement Learning With Extended Action Space
+
+This is a simple coordination task that extends on the GRU network and environment made in TFE4580 - "Anti-Jamming using Deep Q-learning".
+
+The program in this directory extends on this to test the idea of cooperative multi-agent reinforcement learning. The agents are trained using Independent Deep Double Q-learning Networks (IDDQN) and are tested both for 10 channels and 100 channels. To maintain a successful communication link, the Rx must select the same band as the Tx. The Rx agent gets a reward if it is able to decode the message sent by the Tx agent. The Tx gets a reward if it is able to detect the ACK sent by the Rx.
+
+Both the Tx and the Rx are only able to use observations that consist of NUM_SENSE_CHANNELS measurements, centered around the last chosen channel. The agents are trained using the same environment, but with different observations and actions. The Tx agent is trained to select the best channel to transmit on, while the Rx agent is trained to select the best channel to receive on. If a channel close to the first or last frequency band is selected, the agent will wrap around to the other side of the frequency band for the observations.
+
+As an extension to the regular IDDQN implementation, the action selection is extended to include choosing channels to sense as well. The Tx will still select the best channel to transmit on and the Rx will still select the best channel to receive on. However, they will choose an additonal NUM_EXTRA_ACTIONS channels to sense. This means that even if the Rx chooses the wrong channel to receive on and will not be able to decode the transmitted signal, it can still sense which channel the Tx is transmitting on and learn from this. The same goes for the Tx, if it chooses the wrong channel to transmit on, it can still sense which channel the Rx is receiving on and learn from this.
+
+This is a further extension to use the additional knowledge about the selected action to predict it in further time steps.
