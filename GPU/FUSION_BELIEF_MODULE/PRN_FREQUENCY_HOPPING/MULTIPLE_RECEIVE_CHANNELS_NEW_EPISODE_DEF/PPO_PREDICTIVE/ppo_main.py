@@ -158,7 +158,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # The agents chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            tx_pred_observation = torch.concat(tx_observation_without_pred_action, tx_observed_rx_seed)
+            tx_pred_observation = torch.concat((tx_observation_without_pred_action, tx_observed_rx_seed), dim=0)
             tx_observation, _ = tx_agent.concat_predicted_action(tx_observation_without_pred_action, tx_pred_observation)
         else:
             tx_observation = tx_observation_without_pred_action
@@ -167,7 +167,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            rx_pred_observation = torch.concat(rx_observation_without_pred_action, rx_observed_tx_seed)
+            rx_pred_observation = torch.concat((rx_observation_without_pred_action, rx_observed_tx_seed), dim=0)
             rx_observation, _ = rx_agent.concat_predicted_action(rx_observation_without_pred_action, rx_pred_observation)
         else:
             rx_observation = rx_observation_without_pred_action
@@ -573,7 +573,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
         # The agent chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            tx_pred_observation = torch.concat(tx_observation_without_pred_action, tx_observed_rx_seed)
+            tx_pred_observation = torch.concat((tx_observation_without_pred_action, tx_observed_rx_seed), dim=0)
             tx_observation, predicted_rx_action = tx_agent.concat_predicted_action(tx_observation_without_pred_action, tx_pred_observation)
         else:
             tx_observation = tx_observation_without_pred_action
@@ -581,7 +581,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            rx_pred_observation = torch.concat(rx_observation_without_pred_action, rx_observed_tx_seed)
+            rx_pred_observation = torch.concat((rx_observation_without_pred_action, rx_observed_tx_seed), dim=0)
             rx_observation, predicted_tx_action = rx_agent.concat_predicted_action(rx_observation_without_pred_action, rx_pred_observation)
         else:
             rx_observation = rx_observation_without_pred_action
