@@ -6,7 +6,7 @@ import numpy as np
 
 NUM_CHANNELS = 20 # Number of channels in the system
 NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_RECEIVE = 5 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
@@ -24,7 +24,7 @@ T = 100 # Number of steps between each update, i.e. length of the trajectory
 M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
-C2 = 0.01 # Coefficient for the entropy loss
+C2 = 0.05 # Coefficient for the entropy loss
 
 # Parameters
 BATCH_SIZE = 2
@@ -71,7 +71,8 @@ TRANSITION_2 = 0.03
 TRANSITION_3 = 0.02
 
 # Number of sensed channels
-NUM_SENSE_CHANNELS = 10 # Number of channels the Tx and Rx can sense, including the channel they are on
+# NUM_SENSE_CHANNELS = 10 # Number of channels the Tx and Rx can sense, including the channel they are on
+NUM_SENSE_CHANNELS = NUM_CHANNELS # Number of channels the Tx and Rx can sense, including the channel they are on
 NUM_JAMMER_SENSE_CHANNELS = NUM_CHANNELS # Number of channels the jammer can sense
 
 REWARD_SENSE = 0.5 # Additional reward for being able to sense the other agent's action even though it did receive the message
@@ -90,7 +91,7 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 ### Defining input and output sizes for the neural networks
 SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
 PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-USE_PREDICTION = False
+USE_PREDICTION = True
 if USE_PREDICTION:
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_SEEDS
 else:

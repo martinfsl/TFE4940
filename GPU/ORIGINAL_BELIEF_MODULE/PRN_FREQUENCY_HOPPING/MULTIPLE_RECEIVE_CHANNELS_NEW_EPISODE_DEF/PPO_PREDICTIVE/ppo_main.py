@@ -156,7 +156,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # The agents chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+            tx_observation, _ = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         else:
             tx_observation = tx_observation_without_pred_action
         tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation)
@@ -164,7 +164,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+            rx_observation, _ = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         else:
             rx_observation = rx_observation_without_pred_action
         rx_seed, rx_prob_action, rx_value, rx_additional_seeds, rx_prob_additional_actions, rx_sense_seeds = rx_agent.choose_action(rx_observation)
@@ -500,6 +500,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
     num_missed = 0
     num_tx_successful_hop_transmissions = 0
     num_rx_successful_hop_transmissions = 0
+    num_tx_corr_pred = 0
+    num_rx_corr_pred = 0
     num_tx_pattern_selected = np.zeros(NUM_SEEDS)
     num_rx_pattern_selected = np.zeros(NUM_SEEDS)
     num_tx_channel_selected = np.zeros(NUM_CHANNELS)
@@ -564,17 +566,24 @@ def test_ppo(tx_agent, rx_agent, jammers):
         # The agent chooses an action based on the current state
         tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            tx_observation = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
+            tx_observation, predicted_rx_action = tx_agent.concat_predicted_action(tx_observation_without_pred_action)
         else:
             tx_observation = tx_observation_without_pred_action
         tx_seed, _, _, _ = tx_agent.choose_action(tx_observation)
 
         rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            rx_observation = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
+            rx_observation, predicted_tx_action = rx_agent.concat_predicted_action(rx_observation_without_pred_action)
         else:
             rx_observation = rx_observation_without_pred_action
         rx_seed, _, _, rx_additional_seeds, _, _ = rx_agent.choose_action(rx_observation)
+
+        if USE_PREDICTION:
+            # Checking if the prediction was correct
+            if tx_seed == predicted_tx_action:
+                num_rx_corr_pred += 1
+            if rx_seed == predicted_rx_action:
+                num_tx_corr_pred += 1
 
         tx_agent.fh.generate_sequence()
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
@@ -727,7 +736,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
         probability_jammer_channel_selected.append(num_jammer_channel_selected[i] / np.sum(num_jammer_channel_selected[i]))
 
     return num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
-        num_rx_successful_hop_transmissions, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected
+        num_rx_successful_hop_transmissions, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected, \
+        num_tx_corr_pred, num_rx_corr_pred
 
 #################################################################################
 ### main()
@@ -738,10 +748,13 @@ if __name__ == '__main__':
     success_rates = []
     jammed_or_fading_rates = []
     missed_rates = []
+
+    tx_corr_pred_rates = []
+    rx_corr_pred_rates = []
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/original_belief_module/fh/bm_functionality/test_3/no-pred_2_receive_0_sense"
+    relative_path = f"A_Final_Tests/original_belief_module/fh/bm_functionality/test_5/5_receive_0_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -798,8 +811,8 @@ if __name__ == '__main__':
             jammer_seed_selection_training = list_of_other_users[0].agent.fh_seeds_used.cpu().detach().numpy()
 
         num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
-            num_rx_successful_hop_transmissions, prob_tx_channel, prob_rx_channel, \
-            prob_jammer_channel = test_ppo(tx_agent, rx_agent, list_of_other_users)
+            num_rx_successful_hop_transmissions, prob_tx_channel, prob_rx_channel, prob_jammer_channel, \
+            num_tx_corr_pred, num_rx_corr_pred = test_ppo(tx_agent, rx_agent, list_of_other_users)
 
         tx_channel_selection_testing = tx_agent.channels_selected.cpu().detach().numpy()
         rx_channel_selection_testing = rx_agent.channels_selected.cpu().detach().numpy()
@@ -813,13 +826,21 @@ if __name__ == '__main__':
         jammed_or_fading_rate = (num_jammed_or_fading/NUM_TEST_RUNS)*100
         missed_rate = (num_missed/NUM_TEST_RUNS)*100
 
+        tx_corr_pred_rate = (num_tx_corr_pred/NUM_TEST_RUNS)*100
+        rx_corr_pred_rate = (num_rx_corr_pred/NUM_TEST_RUNS)*100
+
         print("Finished testing:")
         print("Successful transmission rate: ", successful_transmission_rate, "%")
         print("Jammed or Faded transmission rate: ", jammed_or_fading_rate, "%")
-        print("Num missed: ", missed_rate, "%")
+        print("Num missed rate: ", missed_rate, "%")
+        if USE_PREDICTION:
+            print("Tx correct prediction rate: ", tx_corr_pred_rate)
+            print("Rx correct prediction rate: ", rx_corr_pred_rate)
         success_rates.append(successful_transmission_rate)
         jammed_or_fading_rates.append(jammed_or_fading_rate)
         missed_rates.append(missed_rate)
+        tx_corr_pred_rates.append(tx_corr_pred_rate)
+        rx_corr_pred_rates.append(rx_corr_pred_rate)
 
         relative_path_run = f"{relative_path}/{jammer_type}/{run+1}"
         if not os.path.exists(relative_path_run):
@@ -842,8 +863,10 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/success_rates.txt", [successful_transmission_rate])
         np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [jammed_or_fading_rate])
         np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [missed_rate])
+        if USE_PREDICTION:
+            np.savetxt(f"{relative_path_run}/data/tx_corr_pred_rates.txt", [tx_corr_pred_rate])
+            np.savetxt(f"{relative_path_run}/data/rx_corr_pred_rates.txt", [rx_corr_pred_rate])
         
-
         # Saving the channel and pattern selections
         np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_channel_selection_training.txt", tx_channel_selection_training)
         np.savetxt(f"{relative_path_run}/data/channel_pattern/rx_channel_selection_training.txt", rx_channel_selection_training)
@@ -887,6 +910,9 @@ if __name__ == '__main__':
         print("Average success rate: ", np.mean(success_rates), "%")
         print("Average jammed / fading rate: ", np.mean(jammed_or_fading_rates), "%")
         print("Average missed rate: ", np.mean(missed_rates), "%")
+        if USE_PREDICTION:
+            print("Average Tx correct prediction rate: ", np.mean(tx_corr_pred_rates))
+            print("Average Rx correct prediction rate: ", np.mean(rx_corr_pred_rates))
 
     np.savetxt(f"{relative_path}/{jammer_type}/all_success_rates.txt", success_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/all_jammed_or_fading_rates.txt", jammed_or_fading_rates)
@@ -894,3 +920,6 @@ if __name__ == '__main__':
     np.savetxt(f"{relative_path}/{jammer_type}/average_success_rate.txt", [np.mean(success_rates)])
     np.savetxt(f"{relative_path}/{jammer_type}/average_jammed_or_fading_rates.txt", [np.mean(jammed_or_fading_rates)])
     np.savetxt(f"{relative_path}/{jammer_type}/average_missed_rates.txt", [np.mean(missed_rates)])
+    if USE_PREDICTION:
+        np.savetxt(f"{relative_path}/{jammer_type}/average_tx_corr_pred_rates.txt", [np.mean(tx_corr_pred_rates)])
+        np.savetxt(f"{relative_path}/{jammer_type}/average_rx_corr_pred_rates.txt", [np.mean(rx_corr_pred_rates)])

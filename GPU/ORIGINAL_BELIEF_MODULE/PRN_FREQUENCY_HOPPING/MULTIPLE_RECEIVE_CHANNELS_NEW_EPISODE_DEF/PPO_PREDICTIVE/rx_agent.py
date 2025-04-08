@@ -24,22 +24,22 @@ class rxPredNN(nn.Module):
 
         self.input_size = PREDICTION_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
-        # self.hidden_size2 = 64
+        self.hidden_size2 = 64
         self.output_size = NUM_SEEDS
 
         # Defining the fully connected layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        # self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
-        # self.dropout2 = nn.Dropout(0.3)
-        # self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
-        self.fc3 = nn.Linear(self.hidden_size1, self.output_size)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.dropout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+        # self.fc3 = nn.Linear(self.hidden_size1, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = self.dropout1(x)
-        # x = torch.relu(self.fc2(x))
-        # x = self.dropout2(x)
+        x = torch.relu(self.fc2(x))
+        x = self.dropout2(x)
         x = self.fc3(x)
 
         return x
@@ -52,11 +52,14 @@ class rxPredNN(nn.Module):
 class rxPredNNAgent:
     def __init__(self, device = "cpu"):
         # self.learning_rate = 0.001
-        self.learning_rate = 0.01
+        # self.learning_rate = 0.01
+        self.learning_rate = 0.005
 
         # Parameters for the neural network
-        self.batch_size = 16
-        self.maximum_memory_size = 100
+        # self.batch_size = 16
+        # self.maximum_memory_size = 100
+        self.batch_size = 4
+        self.maximum_memory_size = 25
 
         self.device = device
 
@@ -259,7 +262,7 @@ class rxPPOAgent:
                     observation[j + half_sense_channels] = state[i][index.long()]
                 observation[-1] = action[i]
             else:
-                observation = torch.cat((state[i], action[i]), dim=0)
+                observation = torch.cat((state[i], action[i].unsqueeze(0)), dim=0)
         
             observation_pattern[i*(NUM_SENSE_CHANNELS+1):(i+1)*(NUM_SENSE_CHANNELS+1)] = observation
 
@@ -274,7 +277,9 @@ class rxPPOAgent:
         # Concatenate original observation and predicted action.
         observation = torch.concat((observation, pred_action))
 
-        return observation
+        predicted_action = torch.argmax(pred_action).unsqueeze(0)
+
+        return observation, predicted_action
 
     def get_value(self, observation):
         return self.critic_network(observation)
