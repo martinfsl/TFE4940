@@ -270,10 +270,10 @@ class rxPPOAgent:
 
         return observation_pattern
     
-    def concat_predicted_action(self, observation):
+    def concat_predicted_action(self, observation, pred_observation):
         # Get the predicted action from the predictive network
         with torch.no_grad():
-            pred_action = self.pred_agent.predict_action(observation)
+            pred_action = self.pred_agent.predict_action(torch.concat(observation, pred_observation))
         # Concatenate original observation and predicted action.
         observation = torch.concat((observation, pred_action))
 
