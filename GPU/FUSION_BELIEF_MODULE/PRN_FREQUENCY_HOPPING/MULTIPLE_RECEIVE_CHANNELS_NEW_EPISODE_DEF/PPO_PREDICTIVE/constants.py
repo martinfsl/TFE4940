@@ -38,13 +38,11 @@ REWARD_UNSUCCESSFUL = -1 # Penalty
 REWARD_MISS = -1 # Penalty
 
 # Number of episodes for training
-NUM_EPISODES = 500
-# NUM_EPISODES = 100000
+NUM_EPISODES = 100000
 # NUM_EPISODES = 40000
 
 # Number of runs for testing
-NUM_TEST_RUNS = 500
-# NUM_TEST_RUNS = 100000
+NUM_TEST_RUNS = 100000
 # NUM_TEST_RUNS = 40000
 
 # Bool variable to decide whether fading is to be considered

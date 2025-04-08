@@ -71,8 +71,8 @@ TRANSITION_3 = 0.02
 
 # Number of sensed channels
 # How many channels the Tx and Rx can sense at a time (including the channel they are on)
-NUM_SENSE_CHANNELS = 7 # This allows the Tx and Rx to sense all channels
-NUM_JAMMER_SENSE_CHANNELS = 7 # Number of channels the jammer can sense
+NUM_SENSE_CHANNELS = NUM_CHANNELS # This allows the Tx and Rx to sense all channels
+NUM_JAMMER_SENSE_CHANNELS = NUM_CHANNELS # Number of channels the jammer can sense
 
 REWARD_SENSE = 0 # Additional reward for being able to sense the other agent's action even though it did receive the message
 PENALTY_NONDIVERSE = 0 # Penalty for staying on the same channels for NUM_PREV_ACTIONS episodes
@@ -82,8 +82,8 @@ NUM_PREV_ACTIONS = 0 # Number of previous actions to consider for the penalty
 STATE_SPACE_SIZE = NUM_SENSE_CHANNELS + 1
 #################################################################################
 ### Defining inputs and outputs for the neural networks
-PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-USE_PREDICTION = False
+PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
+USE_PREDICTION = True
 if USE_PREDICTION:
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_CHANNELS
 else:
