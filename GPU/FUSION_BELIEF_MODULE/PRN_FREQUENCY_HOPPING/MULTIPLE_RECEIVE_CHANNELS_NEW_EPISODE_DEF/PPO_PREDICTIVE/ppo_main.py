@@ -803,7 +803,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/original_belief_module/fh/bm_functionality/test_5/5_receive_0_sense"
+    relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_1/5_receive_0_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
