@@ -26,9 +26,13 @@ class FH_Pattern:
 
     def get_sequence(self, seed_index):
         if self.L == 1:
-            seed_index = seed_index.unsqueeze(0).long()
-
-        return self.sequences[seed_index].squeeze(0)
+            # seed_index = seed_index.unsqueeze(0).long()
+            # return self.sequences[seed_index].squeeze(0).squeeze(0)
+            
+            # If L = 1, or NUM_HOPS = 1, the seed index is the same as the channel used for transmission
+            return seed_index
+        else:
+            return self.sequences[seed_index].squeeze(0)
     
     def get_seed(self, observed_channels):
         for i, seq in enumerate(self.sequences):

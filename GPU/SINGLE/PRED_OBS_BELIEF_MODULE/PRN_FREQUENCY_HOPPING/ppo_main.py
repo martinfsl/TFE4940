@@ -186,15 +186,15 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
         tx_sense_hops = torch.tensor([], device=device)
         for seed in tx_sense_seeds:
-            tx_sense_hops = torch.cat((tx_sense_hops, tx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
+            tx_sense_hops = torch.cat((tx_sense_hops, tx_agent.fh.get_sequence(seed.unsqueeze(0)).unsqueeze(0)), dim=0)
         rx_agent.fh.generate_sequence()
         rx_hops = rx_agent.fh.get_sequence(rx_seed)
         rx_additional_hops = torch.tensor([], device=device)
         for seed in rx_additional_seeds:
-            rx_additional_hops = torch.cat((rx_additional_hops, rx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
+            rx_additional_hops = torch.cat((rx_additional_hops, rx_agent.fh.get_sequence(seed.unsqueeze(0)).unsqueeze(0)), dim=0)
         rx_sense_hops = torch.tensor([], device=device)
         for seed in rx_sense_seeds:
-            rx_sense_hops = torch.cat((rx_sense_hops, rx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
+            rx_sense_hops = torch.cat((rx_sense_hops, rx_agent.fh.get_sequence(seed.unsqueeze(0)).unsqueeze(0)), dim=0)
 
         # print("tx_hops: ", tx_hops)
         # print("tx_sense_hops: ", tx_sense_hops)
@@ -419,30 +419,21 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("tx_observed_rx: ", tx_observed_rx)
         # print("rx_observed_tx: ", rx_observed_tx)
 
-        tx_observed_rx_seed = tx_agent.fh.get_seed(tx_observed_rx)
-        rx_observed_tx_seed = rx_agent.fh.get_seed(rx_observed_tx)
+        if NUM_HOPS > 1:
+            tx_observed_rx_seed = tx_agent.fh.get_seed(tx_observed_rx)
+            rx_observed_tx_seed = rx_agent.fh.get_seed(rx_observed_tx)
+        else:
+            tx_observed_rx_seed = tx_observed_rx
+            rx_observed_tx_seed = rx_observed_tx
 
         # print("tx_observed_rx_seed: ", tx_observed_rx_seed)
         # print("rx_observed_tx_seed: ", rx_observed_tx_seed)
 
         if USE_PREDICTION:
             if tx_observed_rx_seed != -1:
-                # print("tx stored in memory")
                 tx_agent.pred_agent.store_in_memory(tx_pred_observation, tx_observed_rx_seed)
             if rx_observed_tx_seed != -1:
-                # print("rx stored in memory")
                 rx_agent.pred_agent.store_in_memory(rx_pred_observation, rx_observed_tx_seed)
-
-        # # If tx_hops was used in the previous NUM_PREV_PATTERNS episodes, then penalize the agent
-        # if tx_seed in tx_agent.previous_seeds:
-        #     tx_reward += PENALTY_NONDIVERSE
-        # else:
-        #     tx_reward += REWARD_DIVERSE
-        # # If rx_hops was used in the previous NUM_PREV_PATTERNS episodes, then penalize the agent
-        # if rx_seed in rx_agent.previous_seeds:
-        #     rx_reward += PENALTY_NONDIVERSE
-        # else:
-        #     rx_reward += REWARD_DIVERSE
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
@@ -599,15 +590,15 @@ def test_ppo(tx_agent, rx_agent, jammers):
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
         tx_sense_hops = torch.tensor([], device=device)
         for seed in tx_sense_seeds:
-            tx_sense_hops = torch.cat((tx_sense_hops, tx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
+            tx_sense_hops = torch.cat((tx_sense_hops, tx_agent.fh.get_sequence(seed.unsqueeze(0)).unsqueeze(0)), dim=0)
         rx_agent.fh.generate_sequence()
         rx_hops = rx_agent.fh.get_sequence(rx_seed)
         rx_additional_hops = torch.tensor([], device=device)
         for seed in rx_additional_seeds:
-            rx_additional_hops = torch.cat((rx_additional_hops, rx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
+            rx_additional_hops = torch.cat((rx_additional_hops, rx_agent.fh.get_sequence(seed.unsqueeze(0)).unsqueeze(0)), dim=0)
         rx_sense_hops = torch.tensor([], device=device)
         for seed in rx_sense_seeds:
-            rx_sense_hops = torch.cat((rx_sense_hops, rx_agent.fh.get_sequence(seed).unsqueeze(0)), dim=0)
+            rx_sense_hops = torch.cat((rx_sense_hops, rx_agent.fh.get_sequence(seed.unsqueeze(0)).unsqueeze(0)), dim=0)
 
         # Arrays for storing Tx and Rx observation of each others selected channels
         tx_observed_rx = torch.tensor([], device=device)
@@ -765,8 +756,12 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
         ##################
 
-        tx_observed_rx_seed = tx_agent.fh.get_seed(tx_observed_rx)
-        rx_observed_tx_seed = rx_agent.fh.get_seed(rx_observed_tx)
+        if NUM_HOPS > 1:
+            tx_observed_rx_seed = tx_agent.fh.get_seed(tx_observed_rx)
+            rx_observed_tx_seed = rx_agent.fh.get_seed(rx_observed_tx)
+        else:
+            tx_observed_rx_seed = tx_observed_rx
+            rx_observed_tx_seed = rx_observed_tx
 
         num_tx_successful_hop_transmissions += tx_reward/NUM_HOPS
         num_rx_successful_hop_transmissions += rx_reward/NUM_HOPS
@@ -804,7 +799,8 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/pred_obs_belief_module/fh/bm_functionality/test_1/0_receive_0_sense"
+    # relative_path = f"A_Final_Tests/pred_obs_belief_module/fh/bm_functionality/test_1/0_receive_0_sense"
+    relative_path = f"temp_tests/pred_obs_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
