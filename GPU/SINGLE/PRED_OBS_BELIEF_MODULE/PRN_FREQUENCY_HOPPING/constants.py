@@ -82,7 +82,7 @@ REWARD_DIVERSE = 0 # Reward for choosing a pattern that has not been used in the
 NUM_PREV_PATTERNS = 2 # Number of previous patterns to consider for the penalty
 
 # Frequency-Hopping parameters
-NUM_HOPS = 1
+NUM_HOPS = 5
 NUM_SEEDS = 32
 
 # Determining the state space size
@@ -90,6 +90,8 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 
 #################################################################################
 ### Defining input and output sizes for the neural networks
+USE_PREDICTION = True
+
 if NUM_HOPS == 1:
     PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
     PREDICTION_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
@@ -97,7 +99,6 @@ else:
     PPO_NETWORK_OUTPUT_SIZE = NUM_SEEDS
     PREDICTION_NETWORK_OUTPUT_SIZE = NUM_SEEDS
 
-USE_PREDICTION = True
 SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
 # PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
 PREDICTION_NETWORK_INPUT_SIZE = P
