@@ -25,6 +25,7 @@ M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 C2 = 0.05 # Coefficient for the entropy loss
+P = 20 # Number of time steps that the prediction observation contains
 
 # Parameters
 BATCH_SIZE = 2
@@ -98,7 +99,8 @@ else:
 
 USE_PREDICTION = True
 SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
+# PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
+PREDICTION_NETWORK_INPUT_SIZE = P
 if USE_PREDICTION:
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
 else:
