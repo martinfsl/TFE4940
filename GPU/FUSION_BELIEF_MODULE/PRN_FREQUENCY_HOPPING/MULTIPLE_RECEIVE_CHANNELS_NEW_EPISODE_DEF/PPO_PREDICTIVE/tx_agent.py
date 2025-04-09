@@ -52,6 +52,13 @@ class txPPOAgent:
         self.ac_network = ActorCriticNetwork_().to(self.device)
         self.ac_network_optimizer = optim.Adam(self.ac_network.parameters(), lr=self.learning_rate)
 
+        # self.optimizer_shared = optim.Adam(
+        #     list(self.ac_network.obs_encoder.parameters()) + list(self.ac_network.fusion_layer.parameters()), 
+        #     lr=self.learning_rate)
+        # self.optimizer_actor = optim.Adam(self.ac_network.actor_head.parameters(), lr=self.learning_rate)
+        # self.optimizer_critic = optim.Adam(self.ac_network.critic_head.parameters(), lr=self.learning_rate)
+        # self.optimizer_belief = optim.Adam(self.ac_network.belief_encoder.parameters(), lr=self.learning_rate)
+
         # Logging actor and critic losses
         self.actor_losses = torch.tensor([], device=self.device)
         self.critic_losses = torch.tensor([], device=self.device)
@@ -248,6 +255,18 @@ class txPPOAgent:
             self.ac_network_optimizer.zero_grad()
             total_loss.backward()
             self.ac_network_optimizer.step()
+
+            # self.optimizer_shared.zero_grad()
+            # self.optimizer_actor.zero_grad()
+            # self.optimizer_critic.zero_grad()
+            # self.optimizer_belief.zero_grad()
+
+            # total_loss.backward()
+
+            # self.optimizer_shared.step()
+            # self.optimizer_actor.step()
+            # self.optimizer_critic.step()
+            # self.optimizer_belief.step()
 
         self.clear_memory()
 

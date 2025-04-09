@@ -66,6 +66,8 @@ class rxPredNNAgent:
         self.memory_state = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
+        self.losses = torch.tensor([], device=self.device)
+
         self.pred_network = rxPredNN()
         self.pred_network.to(self.device)
         self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
@@ -93,6 +95,8 @@ class rxPredNNAgent:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+
+            self.losses = torch.cat((self.losses, loss.unsqueeze(0)))
 
     # Function to predict the Tx's action at the Rx
     def predict_action(self, observation):

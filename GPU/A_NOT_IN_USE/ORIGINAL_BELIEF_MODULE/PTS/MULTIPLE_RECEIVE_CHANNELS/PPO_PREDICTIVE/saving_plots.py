@@ -159,32 +159,46 @@ def save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_ave
 ### Plotting the actor and critic losses
 #################################################################################
 
-def save_results_losses(tx_actor_losses, tx_critic_losses, rx_actor_losses, rx_critic_losses, filepath = None):
+def save_results_losses(tx_actor_losses, tx_critic_losses, tx_belief_losses, 
+                        rx_actor_losses, rx_critic_losses, rx_belief_losses,
+                        filepath = None):
     plt.figure(figsize=(12, 8))
 
-    plt.subplot(2, 2, 1)
+    plt.subplot(3, 2, 1)
     plt.plot(tx_actor_losses)
     plt.xlabel("Episode")
     plt.ylabel("Actor Loss")
     plt.title("Actor Loss over episodes during training for Tx")
 
-    plt.subplot(2, 2, 2)
+    plt.subplot(3, 2, 2)
     plt.plot(tx_critic_losses)
     plt.xlabel("Episode")
     plt.ylabel("Critic Loss")
     plt.title("Critic Loss over episodes during training for Tx")
 
-    plt.subplot(2, 2, 3)
+    plt.subplot(3, 2, 3)
+    plt.plot(tx_belief_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Belief Loss")
+    plt.title("Belief Loss over episodes during training for Tx")
+
+    plt.subplot(3, 2, 4)
     plt.plot(rx_actor_losses)
     plt.xlabel("Episode")
     plt.ylabel("Actor Loss")
     plt.title("Actor Loss over episodes during training for Rx")
 
-    plt.subplot(2, 2, 4)
+    plt.subplot(3, 2, 5)
     plt.plot(rx_critic_losses)
     plt.xlabel("Episode")
     plt.ylabel("Critic Loss")
     plt.title("Critic Loss over episodes during training for Rx")
+
+    plt.subplot(3, 2, 6)
+    plt.plot(rx_belief_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Belief Loss")
+    plt.title("Belief Loss over episodes during training for Rx")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"PPO algorithm")
@@ -204,18 +218,21 @@ def save_channel_selection_training(tx_channel_selection, rx_channel_selection, 
 
     plt.subplot(2, 2, 1)
     plt.plot(tx_channel_selection)
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Tx channel selection over episodes during training")
 
     plt.subplot(2, 2, 2)
     plt.plot(rx_channel_selection)
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Rx channel selection over episodes during training")
 
     plt.subplot(2, 2, 3)
     plt.plot(jammer_channel_selection)
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Jammer channel selection over episodes during training")
@@ -224,6 +241,7 @@ def save_channel_selection_training(tx_channel_selection, rx_channel_selection, 
     plt.plot(tx_channel_selection, label = "Tx")
     plt.plot(rx_channel_selection, label = "Rx")
     plt.plot(jammer_channel_selection, label = "Jammer")
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Channel selection over episodes during training")
@@ -247,18 +265,21 @@ def save_channel_selection_testing(tx_channel_selection, rx_channel_selection, j
 
     plt.subplot(2, 2, 1)
     plt.plot(tx_channel_selection)
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Tx channel selection over episodes during testing")
 
     plt.subplot(2, 2, 2)
     plt.plot(rx_channel_selection)
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Rx channel selection over episodes during testing")
 
     plt.subplot(2, 2, 3)
     plt.plot(jammer_channel_selection)
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Jammer channel selection over episodes during testing")
@@ -267,6 +288,7 @@ def save_channel_selection_testing(tx_channel_selection, rx_channel_selection, j
     plt.plot(tx_channel_selection, label = "Tx")
     plt.plot(rx_channel_selection, label = "Rx")
     plt.plot(jammer_channel_selection, label = "Jammer")
+    plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Episode")
     plt.ylabel("Channel")
     plt.title("Channel selection over episodes during testing")

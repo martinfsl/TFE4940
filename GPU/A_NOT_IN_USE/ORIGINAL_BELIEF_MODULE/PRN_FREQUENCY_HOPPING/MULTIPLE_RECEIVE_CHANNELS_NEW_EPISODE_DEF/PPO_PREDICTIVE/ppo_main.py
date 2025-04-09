@@ -885,7 +885,9 @@ if __name__ == '__main__':
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
-                            rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
+                            tx_agent.pred_agent.losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), 
+                            rx_agent.critic_losses.cpu().detach().numpy(), rx_agent.pred_agent.losses.cpu().detach().numpy(),
+                            filepath = relative_path_run+"/plots")
         # save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
         #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
         save_channel_selection(tx_channel_selection_training, rx_channel_selection_training, jammer_channel_selection_training,

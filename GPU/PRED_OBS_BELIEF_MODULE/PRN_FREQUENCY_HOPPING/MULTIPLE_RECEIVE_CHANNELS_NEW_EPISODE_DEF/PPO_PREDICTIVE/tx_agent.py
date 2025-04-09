@@ -66,6 +66,8 @@ class txPredNNAgent:
         self.memory_state = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
+        self.losses = torch.tensor([], device=self.device)
+
         self.pred_network = txPredNN()
         self.pred_network.to(self.device)
         self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
@@ -91,6 +93,8 @@ class txPredNNAgent:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+
+            self.losses = torch.cat((self.losses, loss.unsqueeze(0)))
 
     def predict_action(self, observation):
         with torch.no_grad():

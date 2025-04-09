@@ -11,16 +11,16 @@ from constants import *
 from fh_pattern import FH_Pattern
 
 #################################################################################
-### Defining classes for the model predicting Tx's action at the Rx
+### Defining classes for the model predicting Rx's action at the Tx
 #################################################################################
 
-# Create a class for the neural network that predicts the Tx's action at the Rx
-# The input to the neural network is the current observation at the Rx and the output is the predicted Tx's action
+# Create a class for the neural network that predicts the Rx's action at the Tx
+# The input to the neural network is the current observation at the Tx and the output is the predicted Rx's action
 # The neural network is made up off 2 fully connected layers with ReLU activation functions
-# The neural network has a dropout rate of 30% to prevent overfitting
-class rxPredNN(nn.Module):
+# The neural network has a dropout rate of 30%
+class txPredNN(nn.Module):
     def __init__(self):
-        super(rxPredNN, self).__init__()
+        super(txPredNN, self).__init__()
 
         self.input_size = PREDICTION_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
@@ -44,12 +44,12 @@ class rxPredNN(nn.Module):
 
         return x
     
-# Create a class for the agent that uses the neural network to predict the Tx's action at the Rx
+# Create a class for the agent that uses the neural network to predict the Rx's action at the Tx
 # The agent has a memory to store experiences
 # The agent uses the Adam optimizer to train the neural network
 # The agent uses the cross entropy loss function to train the neural network
-# The output of the neural network is the predicted Tx's action using a softmax function
-class rxPredNNAgent:
+# The output of the neural network is the predicted Rx's action using a softmax function
+class txPredNNAgent:
     def __init__(self, device = "cpu"):
         # self.learning_rate = 0.001
         # self.learning_rate = 0.01
@@ -66,11 +66,12 @@ class rxPredNNAgent:
         self.memory_state = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
 
-        self.pred_network = rxPredNN()
+        self.losses = torch.tensor([], device=self.device)
+
+        self.pred_network = txPredNN()
         self.pred_network.to(self.device)
         self.optimizer = optim.Adam(self.pred_network.parameters(), lr=self.learning_rate)
 
-    # Function to store experiences in the memory
     def store_in_memory(self, state, action):
         if self.memory_state.size(0) >= self.maximum_memory_size:
             self.memory_state = self.memory_state[1:]
@@ -87,14 +88,14 @@ class rxPredNNAgent:
             batch_action = self.memory_action[indices]
 
             pred = self.pred_network(batch_state)
-
             loss = nn.CrossEntropyLoss()(pred, batch_action.long().squeeze())
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-    # Function to predict the Tx's action at the Rx
+            self.losses = torch.cat((self.losses, loss.unsqueeze(0)))
+
     def predict_action(self, observation):
         with torch.no_grad():
             pred = self.pred_network(observation)
@@ -104,9 +105,9 @@ class rxPredNNAgent:
 ### Defining classes RNNQN and RNNQN-agent
 #################################################################################
 
-class rxPPOActor(nn.Module):
+class txPPOActor(nn.Module):
     def __init__(self, device = "cpu"):
-        super(rxPPOActor, self).__init__()
+        super(txPPOActor, self).__init__()
 
         self.input_size = PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
@@ -129,9 +130,9 @@ class rxPPOActor(nn.Module):
 
         return x
     
-class rxPPOCritic(nn.Module):
+class txPPOCritic(nn.Module):
     def __init__(self, device = "cpu"):
-        super(rxPPOCritic, self).__init__()
+        super(txPPOCritic, self).__init__()
 
         self.input_size = PPO_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
@@ -154,8 +155,8 @@ class rxPPOCritic(nn.Module):
 
         return x
 
-class rxPPOAgent:
-    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, 
+class txPPOAgent:
+    def __init__(self, gamma=GAMMA, learning_rate = LEARNING_RATE, 
                 lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, 
                 k = K, m = M, c1 = C1, c2 = C2,
                 device = "cpu"):
@@ -170,15 +171,13 @@ class rxPPOAgent:
         self.c1 = c1
         self.c2 = c2
 
-        # Power
-        self.power = RX_USER_TRANSMIT_POWER
-        self.h_rt_variance = H_TR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to receiver
-        self.h_rj_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to jammer
+        self.power = TX_USER_TRANSMIT_POWER
+        self.h_tr_variance = H_TR_VARIANCE
+        self.h_tj_variance = H_JT_VARIANCE
 
-        # For CUDA
         self.device = device
 
-        # PPO on-policy storage
+        # PPO on-policy storage (use lists to store one episode/trajectory)
         self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
@@ -188,25 +187,26 @@ class rxPPOAgent:
         self.previous_seeds = torch.empty((0, 1), device=self.device)
 
         # Policy network (Actor network)
-        self.actor_network = rxPPOActor()
+        self.actor_network = txPPOActor()
         self.actor_network.to(self.device)
         self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
 
         self.actor_network_old = copy.deepcopy(self.actor_network).to(self.device)
+        self.actor_network_old_load = copy.deepcopy(self.actor_network).to(self.device)
 
         # Value network (Critic network)
-        self.critic_network = rxPPOCritic()
+        self.critic_network = txPPOCritic()
         self.critic_network.to(self.device)
         self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
 
-        # Predictive network remains unchanged
-        self.pred_agent = rxPredNNAgent(device=self.device)
+        # Predictive network remains unchanged.
+        self.pred_agent = txPredNNAgent(device=self.device)
 
         # Logging actor and critic losses
         self.actor_losses = torch.tensor([], device=self.device)
         self.critic_losses = torch.tensor([], device=self.device)
 
-        # Logging the channels selected
+        # Logging the channel selections
         self.channels_selected = torch.tensor([], device=self.device)
 
         # FH pattern
@@ -235,13 +235,13 @@ class rxPPOAgent:
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
-            if direction == "transmitter":
-                h_real = torch.normal(mean=0.0, std=self.h_rt_variance, size=(1,), device=self.device)
-                h_imag = torch.normal(mean=0.0, std=self.h_rt_variance, size=(1,), device=self.device)
+            if direction == "receiver":
+                h_real = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
                 h = torch.abs(torch.complex(h_real, h_imag))
             elif direction == "jammer":
-                h_real = torch.normal(mean=0.0, std=self.h_rj_variance, size=(1,), device=self.device)
-                h_imag = torch.normal(mean=0.0, std=self.h_rj_variance, size=(1,), device=self.device)
+                h_real = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
                 h = torch.abs(torch.complex(h_real, h_imag))
             received_power = (h*self.power)[0]
         else:
@@ -265,7 +265,7 @@ class rxPPOAgent:
                 observation = torch.cat((state[i], action[i].unsqueeze(0)), dim=0)
         
             observation_pattern[i*(NUM_SENSE_CHANNELS+1):(i+1)*(NUM_SENSE_CHANNELS+1)] = observation
-
+            
         observation_pattern = torch.concat((observation_pattern, seed))
 
         return observation_pattern
@@ -278,7 +278,6 @@ class rxPPOAgent:
         observation = torch.concat((observation, pred_action))
 
         predicted_action = torch.argmax(pred_action).unsqueeze(0)
-
         return observation, predicted_action
 
     def get_value(self, observation):
@@ -294,12 +293,10 @@ class rxPPOAgent:
         action_logprob = torch.log(torch.gather(policy, 0, action.unsqueeze(0)))
         # self.fh_seeds_used = torch.cat((self.fh_seeds_used, action.unsqueeze(0)))
 
-        additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_RECEIVE+1]
-        additional_actions_logprob = torch.log(torch.gather(policy, 0, additional_actions))
-        additional_sense = torch.argsort(policy, descending=True)[NUM_EXTRA_RECEIVE+1:NUM_EXTRA_RECEIVE+NUM_EXTRA_ACTIONS+1]
+        additional_sense = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
 
-        return action.unsqueeze(0), action_logprob, values, additional_actions, additional_actions_logprob, additional_sense
-
+        return action.unsqueeze(0), action_logprob, values, additional_sense
+    
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
         returns = torch.empty((0, 1), device=self.device)
@@ -329,7 +326,7 @@ class rxPPOAgent:
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-10)
 
         return advantages
-    
+
     def update(self):
         returns = self.compute_returns()
         advantages = self.compute_advantages(returns, self.memory_value)
@@ -337,7 +334,7 @@ class rxPPOAgent:
         values = self.get_value(self.memory_state)
 
         old_logits = self.actor_network_old(self.memory_state).detach()
-        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
+        # old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
 
         data_size = self.memory_state.size(0)
 

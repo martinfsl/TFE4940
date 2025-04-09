@@ -570,7 +570,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
         if USE_PREDICTION:
             rx_pred_observation = torch.concat((rx_observation, rx_observed_tx_seed), dim=0)
         else:
-            rx_observation = torch.tensor([], device=device)
+            rx_pred_observation = torch.tensor([], device=device)
         rx_seed, _, _, rx_additional_seeds, _, rx_sense_seeds = rx_agent.choose_action(rx_observation, rx_pred_observation)
 
         # if USE_PREDICTION:
@@ -789,7 +789,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_1/5_receive_0_sense"
+    relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_1/no-pred_0_receive_0_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -920,7 +920,9 @@ if __name__ == '__main__':
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
-                            rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
+                            tx_agent.belief_losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), 
+                            rx_agent.critic_losses.cpu().detach().numpy(), rx_agent.belief_losses.cpu().detach().numpy(),
+                            filepath = relative_path_run+"/plots")
         # save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
         #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
         save_channel_selection(tx_channel_selection_training, rx_channel_selection_training, jammer_channel_selection_training,
