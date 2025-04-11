@@ -5,8 +5,8 @@ import numpy as np
 #################################################################################
 
 NUM_CHANNELS = 20 # Number of channels in the system
-NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 5 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
+NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
@@ -25,6 +25,7 @@ M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 C2 = 0.05 # Coefficient for the entropy loss
+C3 = 0.5 # Coefficient for the Belief Module loss
 P = 20 # Number of time steps that the prediction observation contains
 
 # Parameters
@@ -91,21 +92,27 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 #################################################################################
 ### Defining input and output sizes for the neural networks
 USE_PREDICTION = True
-
-if NUM_HOPS == 1:
-    PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
-    PREDICTION_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
-else:
-    PPO_NETWORK_OUTPUT_SIZE = NUM_SEEDS
-    PREDICTION_NETWORK_OUTPUT_SIZE = NUM_SEEDS
-
-SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-# PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
-PREDICTION_NETWORK_INPUT_SIZE = P
 if USE_PREDICTION:
-    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
+    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+    # PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
+    PREDICTION_NETWORK_INPUT_SIZE = P
+
+    if NUM_HOPS == 1:
+        PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
+        PREDICTION_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
+    else:
+        PPO_NETWORK_OUTPUT_SIZE = NUM_SEEDS
+        PREDICTION_NETWORK_OUTPUT_SIZE = NUM_SEEDS
 else:
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+    PREDICTION_NETWORK_INPUT_SIZE = 0
+
+    if NUM_HOPS == 1:
+        PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
+        PREDICTION_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
+    else:
+        PPO_NETWORK_OUTPUT_SIZE = NUM_SEEDS
+        PREDICTION_NETWORK_OUTPUT_SIZE = 0
 
 JAMMER_PPO_NETWORK_INPUT_SIZE = NUM_JAMMER_SENSE_CHANNELS + 1
 #################################################################################

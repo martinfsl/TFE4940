@@ -156,24 +156,23 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
     for episode in tqdm(range(int(NUM_EPISODES/NUM_HOPS))):
         # The agents chooses an action based on the current state
-        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
+        tx_observation = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            # tx_pred_observation = torch.concat((tx_observation_without_pred_action, tx_observed_rx_seed), dim=0)
+            # tx_pred_observation = torch.concat((tx_observation, tx_observed_rx_seed), dim=0)
             tx_pred_observation = tx_agent.get_pred_observation()
-            tx_observation, _ = tx_agent.concat_predicted_action(tx_observation_without_pred_action, tx_pred_observation)
         else:
-            tx_observation = tx_observation_without_pred_action
-        tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation)
+            tx_pred_observation = torch.tensor([], device=device)
+        tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation, tx_pred_observation)
         tx_agent.add_previous_seed(tx_seed)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
+        rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            # rx_pred_observation = torch.concat((rx_observation_without_pred_action, rx_observed_tx_seed), dim=0)
+            # rx_pred_observation = torch.concat((rx_observation, rx_observed_tx_seed), dim=0)
             rx_pred_observation = rx_agent.get_pred_observation()
-            rx_observation, _ = rx_agent.concat_predicted_action(rx_observation_without_pred_action, rx_pred_observation)
         else:
-            rx_observation = rx_observation_without_pred_action
-        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, rx_prob_additional_actions, rx_sense_seeds = rx_agent.choose_action(rx_observation)
+            rx_pred_observation = torch.tensor([], device=device)
+        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, \
+            rx_prob_additional_actions, rx_sense_seeds = rx_agent.choose_action(rx_observation, rx_pred_observation)
         rx_agent.add_previous_seed(rx_seed)
 
         # print("--------------------------------")
@@ -428,17 +427,21 @@ def train_ppo(tx_agent, rx_agent, jammers):
             tx_observed_rx_seed = tx_observed_rx
             rx_observed_tx_seed = rx_observed_tx
 
-        # print("tx_observed_rx_seed: ", tx_observed_rx_seed)
-        # print("rx_observed_tx_seed: ", rx_observed_tx_seed)
-
         tx_agent.add_action_observation(tx_observed_rx_seed)
         rx_agent.add_action_observation(rx_observed_tx_seed)
 
-        if USE_PREDICTION:
-            if tx_observed_rx_seed != -1:
-                tx_agent.pred_agent.store_in_memory(tx_pred_observation, tx_observed_rx_seed)
-            if rx_observed_tx_seed != -1:
-                rx_agent.pred_agent.store_in_memory(rx_pred_observation, rx_observed_tx_seed)
+        tx_belief_mask = torch.tensor([0], device=device)
+        if tx_observed_rx_seed != -1:
+            tx_belief_mask = torch.tensor([1], device=device)
+        rx_belief_mask = torch.tensor([0], device=device)
+        if rx_observed_tx_seed != -1:
+            rx_belief_mask = torch.tensor([1], device=device)
+
+        # print("tx_observed_rx_seed: ", tx_observed_rx_seed)
+        # print("rx_observed_tx_seed: ", rx_observed_tx_seed)
+
+        # print("tx_belief_mask: ", tx_belief_mask)
+        # print("rx_belief_mask: ", rx_belief_mask)
 
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
@@ -466,18 +469,15 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_prob_action_correct: ", rx_prob_action_correct)
 
         # Store the experience in the agent's memory
-        tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
-        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value)
+        tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value, 
+                                 tx_pred_observation, tx_observed_rx_seed, tx_belief_mask)
+        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value,
+                                 rx_pred_observation, rx_observed_tx_seed, rx_belief_mask)
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
             tx_agent.update()
             rx_agent.update()
-
-        # Updating for each episode
-        if USE_PREDICTION:
-            tx_agent.pred_agent.train()
-            rx_agent.pred_agent.train()
 
         tx_state = tx_next_state.clone()
         rx_state = rx_next_state.clone()
@@ -568,30 +568,28 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
     for run in tqdm(range(int(NUM_TEST_RUNS/NUM_HOPS))):
         # The agent chooses an action based on the current state
-        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
+        tx_observation = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            # tx_pred_observation = torch.concat((tx_observation_without_pred_action, tx_observed_rx_seed), dim=0)
+            # tx_pred_observation = torch.concat((tx_observation, tx_observed_rx_seed), dim=0)
             tx_pred_observation = tx_agent.get_pred_observation()
-            tx_observation, predicted_rx_action = tx_agent.concat_predicted_action(tx_observation_without_pred_action, tx_pred_observation)
         else:
-            tx_observation = tx_observation_without_pred_action
-        tx_seed, _, _, tx_sense_seeds = tx_agent.choose_action(tx_observation)
+            tx_pred_observation = torch.tensor([], device=device)
+        tx_seed, _, _, tx_sense_seeds = tx_agent.choose_action(tx_observation, tx_pred_observation)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
+        rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            # rx_pred_observation = torch.concat((rx_observation_without_pred_action, rx_observed_tx_seed), dim=0)
+            # rx_pred_observation = torch.concat((rx_observation, rx_observed_tx_seed), dim=0)
             rx_pred_observation = rx_agent.get_pred_observation()
-            rx_observation, predicted_tx_action = rx_agent.concat_predicted_action(rx_observation_without_pred_action, rx_pred_observation)
         else:
-            rx_observation = rx_observation_without_pred_action
-        rx_seed, _, _, rx_additional_seeds, _, rx_sense_seeds = rx_agent.choose_action(rx_observation)
+            rx_pred_observation = torch.tensor([], device=device)
+        rx_seed, _, _, rx_additional_seeds, _, rx_sense_seeds = rx_agent.choose_action(rx_observation, rx_pred_observation)
 
-        if USE_PREDICTION:
-            # Checking if the prediction was correct
-            if tx_seed == predicted_tx_action:
-                num_rx_corr_pred += 1
-            if rx_seed == predicted_rx_action:
-                num_tx_corr_pred += 1
+        # if USE_PREDICTION:
+        #     # Checking if the prediction was correct
+        #     if tx_seed == predicted_tx_action:
+        #         num_rx_corr_pred += 1
+        #     if rx_seed == predicted_rx_action:
+        #         num_tx_corr_pred += 1
 
         tx_agent.fh.generate_sequence()
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
@@ -809,8 +807,8 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/pred_obs_belief_module/fh/bm_functionality/test_2/5_receive_5_sense"
-    # relative_path = f"temp_tests/pred_obs_belief_module/fh"
+    relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_2/2_receive_0_sense"
+    # relative_path = f"temp_tests/fusion_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -882,8 +880,8 @@ if __name__ == '__main__':
         jammed_or_fading_rate = (num_jammed_or_fading/NUM_TEST_RUNS)*100
         missed_rate = (num_missed/NUM_TEST_RUNS)*100
 
-        tx_corr_pred_rate = (num_tx_corr_pred/(NUM_TEST_RUNS/NUM_HOPS))*100
-        rx_corr_pred_rate = (num_rx_corr_pred/(NUM_TEST_RUNS/NUM_HOPS))*100
+        tx_corr_pred_rate = (num_tx_corr_pred/NUM_TEST_RUNS)*100
+        rx_corr_pred_rate = (num_rx_corr_pred/NUM_TEST_RUNS)*100
 
         print("Finished testing:")
         print("Successful transmission rate: ", successful_transmission_rate, "%")
@@ -940,9 +938,9 @@ if __name__ == '__main__':
 
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
-        save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(),
-                            tx_agent.pred_agent.losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), 
-                            rx_agent.critic_losses.cpu().detach().numpy(), rx_agent.pred_agent.losses.cpu().detach().numpy(),
+        save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
+                            tx_agent.belief_losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), 
+                            rx_agent.critic_losses.cpu().detach().numpy(), rx_agent.belief_losses.cpu().detach().numpy(),
                             filepath = relative_path_run+"/plots")
         # save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
         #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
