@@ -158,7 +158,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # The agents chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            tx_pred_observation = torch.concat((tx_observation, tx_observed_rx_seed), dim=0)
+            # tx_pred_observation = torch.concat((tx_observation, tx_observed_rx_seed), dim=0)
+            tx_pred_observation = tx_agent.get_pred_observation()
         else:
             tx_pred_observation = torch.tensor([], device=device)
         tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation, tx_pred_observation)
@@ -166,7 +167,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
         rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            rx_pred_observation = torch.concat((rx_observation, rx_observed_tx_seed), dim=0)
+            # rx_pred_observation = torch.concat((rx_observation, rx_observed_tx_seed), dim=0)
+            rx_pred_observation = rx_agent.get_pred_observation()
         else:
             rx_pred_observation = torch.tensor([], device=device)
         rx_seed, rx_prob_action, rx_value, rx_additional_seeds, \
@@ -425,6 +427,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
             tx_observed_rx_seed = tx_observed_rx
             rx_observed_tx_seed = rx_observed_tx
 
+        tx_agent.add_action_observation(tx_observed_rx_seed)
+        rx_agent.add_action_observation(rx_observed_tx_seed)
+
         tx_belief_mask = torch.tensor([0], device=device)
         if tx_observed_rx_seed != -1:
             tx_belief_mask = torch.tensor([1], device=device)
@@ -565,14 +570,16 @@ def test_ppo(tx_agent, rx_agent, jammers):
         # The agent chooses an action based on the current state
         tx_observation = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            tx_pred_observation = torch.concat((tx_observation, tx_observed_rx_seed), dim=0)
+            # tx_pred_observation = torch.concat((tx_observation, tx_observed_rx_seed), dim=0)
+            tx_pred_observation = tx_agent.get_pred_observation()
         else:
             tx_pred_observation = torch.tensor([], device=device)
         tx_seed, _, _, tx_sense_seeds = tx_agent.choose_action(tx_observation, tx_pred_observation)
 
         rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            rx_pred_observation = torch.concat((rx_observation, rx_observed_tx_seed), dim=0)
+            # rx_pred_observation = torch.concat((rx_observation, rx_observed_tx_seed), dim=0)
+            rx_pred_observation = rx_agent.get_pred_observation()
         else:
             rx_pred_observation = torch.tensor([], device=device)
         rx_seed, _, _, rx_additional_seeds, _, rx_sense_seeds = rx_agent.choose_action(rx_observation, rx_pred_observation)
@@ -761,6 +768,9 @@ def test_ppo(tx_agent, rx_agent, jammers):
             tx_observed_rx_seed = tx_observed_rx
             rx_observed_tx_seed = rx_observed_tx
 
+        tx_agent.add_action_observation(tx_observed_rx_seed)
+        rx_agent.add_action_observation(rx_observed_tx_seed)
+
         num_tx_successful_hop_transmissions += tx_reward/NUM_HOPS
         num_rx_successful_hop_transmissions += rx_reward/NUM_HOPS
 
@@ -797,8 +807,8 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    # relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_1/no-pred_0_receive_0_sense"
-    relative_path = f"temp_tests/fusion_belief_module/fh"
+    relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_2/2_receive_0_sense"
+    # relative_path = f"temp_tests/fusion_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

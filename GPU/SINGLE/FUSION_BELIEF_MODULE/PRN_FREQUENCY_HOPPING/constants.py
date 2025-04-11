@@ -6,7 +6,7 @@ import numpy as np
 
 NUM_CHANNELS = 20 # Number of channels in the system
 NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
@@ -25,8 +25,8 @@ M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 C2 = 0.05 # Coefficient for the entropy loss
-# C3 = 0.5 # Coefficient for the Belief Module loss
-C3 = 0.25 # Coefficient for the Belief Module loss
+C3 = 0.5 # Coefficient for the Belief Module loss
+P = 20 # Number of time steps that the prediction observation contains
 
 # Parameters
 BATCH_SIZE = 2
@@ -40,13 +40,11 @@ REWARD_UNSUCCESSFUL = -1 # Penalty
 REWARD_MISS = -1 # Penalty
 
 # Number of episodes for training
-NUM_EPISODES = 1000
-# NUM_EPISODES = 100000
+NUM_EPISODES = 100000
 # NUM_EPISODES = 40000
 
 # Number of runs for testing
-NUM_TEST_RUNS = 1000
-# NUM_TEST_RUNS = 100000
+NUM_TEST_RUNS = 100000
 # NUM_TEST_RUNS = 40000
 
 # Bool variable to decide whether fading is to be considered
@@ -85,7 +83,7 @@ REWARD_DIVERSE = 0 # Reward for choosing a pattern that has not been used in the
 NUM_PREV_PATTERNS = 2 # Number of previous patterns to consider for the penalty
 
 # Frequency-Hopping parameters
-NUM_HOPS = 1
+NUM_HOPS = 5
 NUM_SEEDS = 32
 
 # Determining the state space size
@@ -93,11 +91,11 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 
 #################################################################################
 ### Defining input and output sizes for the neural networks
-USE_PREDICTION = False
+USE_PREDICTION = True
 if USE_PREDICTION:
-    # PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + NUM_SEEDS
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-    PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
+    # PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
+    PREDICTION_NETWORK_INPUT_SIZE = P
 
     if NUM_HOPS == 1:
         PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS

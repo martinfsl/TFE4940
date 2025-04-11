@@ -15,7 +15,7 @@ from agentNetworks import *
 class txPPOAgent:
     def __init__(self, gamma=GAMMA, learning_rate = LEARNING_RATE, 
                 lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, 
-                k = K, m = M, c1 = C1, c2 = C2, c3 = C3,
+                k = K, m = M, c1 = C1, c2 = C2, c3 = C3, p = P,
                 device = "cpu"):
         self.gamma = gamma
         self.learning_rate = learning_rate
@@ -28,6 +28,7 @@ class txPPOAgent:
         self.c1 = c1
         self.c2 = c2
         self.c3 = c3
+        self.p = p
 
         self.power = TX_USER_TRANSMIT_POWER
         self.h_tr_variance = H_TR_VARIANCE
@@ -45,6 +46,8 @@ class txPPOAgent:
         self.memory_belief_input = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_rx_action = torch.empty((0, 1), device=self.device)
         self.memory_belief_mask = torch.empty((0, 1), device=self.device)
+
+        self.memory_action_observation = torch.tensor(self.p*[-1], device=self.device)
 
         self.previous_seeds = torch.empty((0, 1), device=self.device)
 
@@ -70,6 +73,13 @@ class txPPOAgent:
         # FH pattern
         self.fh = FH_Pattern(device = self.device)
         self.fh_seeds_used = torch.tensor([], device=self.device)
+
+    def get_pred_observation(self):
+        return self.memory_action_observation.float()
+    
+    def add_action_observation(self, observed_action):
+        # Move all elements to the left and add the new action at the end
+        self.memory_action_observation = torch.cat((self.memory_action_observation[1:], observed_action), dim=0)
 
     def add_previous_seed(self, seed):
         self.previous_seeds = torch.cat((self.previous_seeds, seed.unsqueeze(0)), dim=0)

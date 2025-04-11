@@ -882,8 +882,8 @@ if __name__ == '__main__':
         jammed_or_fading_rate = (num_jammed_or_fading/NUM_TEST_RUNS)*100
         missed_rate = (num_missed/NUM_TEST_RUNS)*100
 
-        tx_corr_pred_rate = (num_tx_corr_pred/NUM_TEST_RUNS)*100
-        rx_corr_pred_rate = (num_rx_corr_pred/NUM_TEST_RUNS)*100
+        tx_corr_pred_rate = (num_tx_corr_pred/(NUM_TEST_RUNS/NUM_HOPS))*100
+        rx_corr_pred_rate = (num_rx_corr_pred/(NUM_HOPS/NUM_TEST_RUNS))*100
 
         print("Finished testing:")
         print("Successful transmission rate: ", successful_transmission_rate, "%")
