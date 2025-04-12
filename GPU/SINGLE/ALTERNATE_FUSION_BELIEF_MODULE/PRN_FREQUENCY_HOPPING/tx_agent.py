@@ -44,16 +44,19 @@ class txPPOAgent:
         self.memory_value = torch.empty((0, 1), device=self.device)
 
         self.memory_belief_input = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
-        self.memory_rx_action = torch.empty((0, 1), device=self.device)
-        self.memory_belief_mask = torch.empty((0, 1), device=self.device)
 
         self.memory_action_observation = torch.tensor(self.p*[-1], device=self.device)
 
         self.previous_seeds = torch.empty((0, 1), device=self.device)
 
         # Actor-Critic network with belief module
-        self.ac_network = ActorCriticNetwork_().to(self.device)
-        self.ac_network_optimizer = optim.Adam(self.ac_network.parameters(), lr=self.learning_rate)
+        self.actor_network = ActorNetwork().to(self.device)
+        self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
+        self.critic_network = CriticNetwork().to(self.device)
+        self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
+        # self.belief_network = BeliefModule().to(self.device)
+        self.belief_network_agent = BeliefModuleAgent().to(self.device)
+        self.belief_optimizer = optim.Adam(self.belief_network_agent.parameters(), lr=self.learning_rate)
 
         # self.optimizer_shared = optim.Adam(
         #     list(self.ac_network.obs_encoder.parameters()) + list(self.ac_network.fusion_layer.parameters()), 
@@ -75,7 +78,10 @@ class txPPOAgent:
         self.fh_seeds_used = torch.tensor([], device=self.device)
 
     def get_pred_observation(self):
-        return self.memory_action_observation.float()
+        if USE_PREDICTION:
+            return self.memory_action_observation.float()
+        else:
+            return torch.tensor([], device=self.device)
     
     def add_action_observation(self, observed_action):
         # Move all elements to the left and add the new action at the end
@@ -95,10 +101,8 @@ class txPPOAgent:
         self.memory_value = torch.empty((0, 1), device=self.device)
 
         self.memory_belief_input = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
-        self.memory_rx_action = torch.empty((0, 1), device=self.device)
-        self.memory_belief_mask = torch.empty((0, 1), device=self.device)
 
-    def store_in_memory(self, state, action, logprob, reward, value, belief_input, observed_rx_action, belief_mask):
+    def store_in_memory(self, state, action, logprob, reward, value, belief_input):
         self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
         self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
         self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0)), dim=0)
@@ -106,8 +110,6 @@ class txPPOAgent:
         self.memory_value = torch.cat((self.memory_value, value.unsqueeze(0)), dim=0)
 
         self.memory_belief_input = torch.cat((self.memory_belief_input, belief_input.unsqueeze(0)), dim=0)
-        self.memory_rx_action = torch.cat((self.memory_rx_action, observed_rx_action.unsqueeze(0)), dim=0)
-        self.memory_belief_mask = torch.cat((self.memory_belief_mask, belief_mask.unsqueeze(0)), dim=0)
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
@@ -145,30 +147,19 @@ class txPPOAgent:
         observation_pattern = torch.concat((observation_pattern, seed))
 
         return observation_pattern
-    
-    def concat_predicted_action(self, observation, pred_observation):
-        # Get the predicted action from the predictive network
-        with torch.no_grad():
-            pred_action = self.pred_agent.predict_action(pred_observation)
-        # Concatenate original observation and predicted action.
-        observation = torch.concat((observation, pred_action))
-
-        predicted_action = torch.argmax(pred_action).unsqueeze(0)
-        return observation, predicted_action
 
     def get_value(self, observation):
         # return self.critic_network(observation)
-
-        batch_size = observation.size(0)
-        _, state_value = self.ac_network(observation, torch.zeros((batch_size, PREDICTION_NETWORK_INPUT_SIZE), device=self.device), dimension=1)
-        return state_value
+        return self.critic_network(observation, self.get_pred_observation())
     
     # Only returning the most probable action
     def choose_action(self, observation, pred_observation):
         with torch.no_grad():
-            action_probs, state_value = self.ac_network(observation, pred_observation)
+            encoded_belief = self.belief_network_agent.belief_network(pred_observation)
+            predicted_action = torch.argmax(encoded_belief).unsqueeze(0)
+            action_probs = self.actor_network(observation, encoded_belief)
             policy = nn.Softmax(dim=0)(action_probs)
-            values = state_value
+            value = self.critic_network(observation, encoded_belief)
 
         action = torch.argmax(policy)
         action_logprob = torch.log(torch.gather(policy, 0, action.unsqueeze(0)))
@@ -176,7 +167,7 @@ class txPPOAgent:
 
         additional_sense = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
 
-        return action.unsqueeze(0), action_logprob, values, additional_sense
+        return action.unsqueeze(0), action_logprob, value, additional_sense, predicted_action
     
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
@@ -212,8 +203,6 @@ class txPPOAgent:
         returns = self.compute_returns()
         advantages = self.compute_advantages(returns, self.memory_value)
 
-        values = self.get_value(self.memory_state)
-
         data_size = self.memory_state.size(0)
 
         for epoch in range(self.k):
@@ -224,12 +213,12 @@ class txPPOAgent:
             batch_logprob = self.memory_logprob[batch_indices]
             batch_return = returns[batch_indices].detach()
             batch_advantage = advantages[batch_indices].detach()
+            batch_value = self.memory_value[batch_indices].detach()
 
             batch_belief_input = self.memory_belief_input[batch_indices]
-            batch_rx_action = self.memory_rx_action[batch_indices]
-            batch_belief_mask = self.memory_belief_mask[batch_indices]
+            batch_encoded_belief = self.belief_network_agent.belief_network(batch_belief_input)
 
-            new_logits, batch_value = self.ac_network(batch_state, batch_belief_input, dimension=1)
+            new_logits = self.actor_network(batch_state, batch_encoded_belief, dimension=1)
             new_policy = nn.Softmax(dim=1)(new_logits)
             new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
 
@@ -245,41 +234,16 @@ class txPPOAgent:
 
             # Entropy loss
             entropy = (new_policy*torch.log(new_policy + 1e-8)).sum(dim=1).mean()
-            
-            if USE_PREDICTION:
-                # Belief loss
-                usable_indices = batch_belief_mask.squeeze() == 1
-                if usable_indices.sum() > 0:
-                    usable_logits = self.ac_network.belief_encoder(batch_belief_input[usable_indices])
-                    usable_targets = batch_rx_action[usable_indices].squeeze().long()
-                    if usable_logits.shape[0] == 1:
-                        usable_targets = usable_targets.unsqueeze(0)
-                    belief_loss = nn.CrossEntropyLoss()(usable_logits, usable_targets)
-                else:
-                    belief_loss = torch.tensor(0.0, device=self.device)
-            else:
-                belief_loss = torch.tensor(0.0, device=self.device)
 
-            total_loss = actor_loss + self.c1*critic_loss + self.c2*entropy + self.c3*belief_loss
+            total_loss = actor_loss + self.c1*critic_loss + self.c2*entropy
 
-            self.ac_network_optimizer.zero_grad()
+            self.actor_optimizer.zero_grad()
+            self.critic_optimizer.zero_grad()
             total_loss.backward()
-            self.ac_network_optimizer.step()
-
-            # self.optimizer_shared.zero_grad()
-            # self.optimizer_actor.zero_grad()
-            # self.optimizer_critic.zero_grad()
-            # self.optimizer_belief.zero_grad()
-
-            # total_loss.backward()
-
-            # self.optimizer_shared.step()
-            # self.optimizer_actor.step()
-            # self.optimizer_critic.step()
-            # self.optimizer_belief.step()
+            self.actor_optimizer.step()
+            self.critic_optimizer.step()
 
         self.clear_memory()
 
         self.actor_losses = torch.cat((self.actor_losses, actor_loss.unsqueeze(0)))
         self.critic_losses = torch.cat((self.critic_losses, critic_loss.unsqueeze(0)))
-        self.belief_losses = torch.cat((self.belief_losses, belief_loss.unsqueeze(0)))

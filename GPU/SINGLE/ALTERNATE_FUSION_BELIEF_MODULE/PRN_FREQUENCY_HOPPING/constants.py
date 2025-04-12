@@ -91,6 +91,7 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 
 #################################################################################
 ### Defining input and output sizes for the neural networks
+USE_GATED_FUSION = False
 USE_PREDICTION = True
 if USE_PREDICTION:
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE

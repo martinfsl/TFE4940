@@ -162,7 +162,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
             tx_pred_observation = tx_agent.get_pred_observation()
         else:
             tx_pred_observation = torch.tensor([], device=device)
-        tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation, tx_pred_observation)
+        tx_seed, tx_prob_action, tx_value, tx_sense_seeds, tx_pred_rx_action = tx_agent.choose_action(tx_observation, tx_pred_observation)
         tx_agent.add_previous_seed(tx_seed)
 
         rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
@@ -172,7 +172,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         else:
             rx_pred_observation = torch.tensor([], device=device)
         rx_seed, rx_prob_action, rx_value, rx_additional_seeds, \
-            rx_prob_additional_actions, rx_sense_seeds = rx_agent.choose_action(rx_observation, rx_pred_observation)
+            rx_prob_additional_actions, rx_sense_seeds, rx_pred_tx_action = rx_agent.choose_action(rx_observation, rx_pred_observation)
         rx_agent.add_previous_seed(rx_seed)
 
         # print("--------------------------------")
@@ -182,6 +182,11 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_seed:", rx_seed)
         # print("rx_additional_seeds: ", rx_additional_seeds)
         # print("rx_sense_seeds: ", rx_sense_seeds)
+
+        # print()
+        # print("tx_pred_rx_action: ", tx_pred_rx_action)
+        # print("rx_pred_tx_action: ", rx_pred_tx_action)
+        # print()
 
         tx_agent.fh.generate_sequence()
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
@@ -430,12 +435,11 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_agent.add_action_observation(tx_observed_rx_seed)
         rx_agent.add_action_observation(rx_observed_tx_seed)
 
-        tx_belief_mask = torch.tensor([0], device=device)
-        if tx_observed_rx_seed != -1:
-            tx_belief_mask = torch.tensor([1], device=device)
-        rx_belief_mask = torch.tensor([0], device=device)
-        if rx_observed_tx_seed != -1:
-            rx_belief_mask = torch.tensor([1], device=device)
+        if USE_PREDICTION:
+            if tx_observed_rx_seed != -1:
+                tx_agent.belief_network_agent.store_in_memory(tx_pred_observation, tx_observed_rx_seed)
+            if rx_observed_tx_seed != -1:
+                rx_agent.belief_network_agent.store_in_memory(rx_pred_observation, rx_observed_tx_seed)
 
         # print("tx_observed_rx_seed: ", tx_observed_rx_seed)
         # print("rx_observed_tx_seed: ", rx_observed_tx_seed)
@@ -469,15 +473,17 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_prob_action_correct: ", rx_prob_action_correct)
 
         # Store the experience in the agent's memory
-        tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value, 
-                                 tx_pred_observation, tx_observed_rx_seed, tx_belief_mask)
-        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value,
-                                 rx_pred_observation, rx_observed_tx_seed, rx_belief_mask)
+        tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value, tx_pred_observation)
+        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value, rx_pred_observation)
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
             tx_agent.update()
             rx_agent.update()
+
+        if USE_PREDICTION:
+            tx_agent.belief_network_agent.train()
+            rx_agent.belief_network_agent.train()
 
         tx_state = tx_next_state.clone()
         rx_state = rx_next_state.clone()
@@ -574,7 +580,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
             tx_pred_observation = tx_agent.get_pred_observation()
         else:
             tx_pred_observation = torch.tensor([], device=device)
-        tx_seed, _, _, tx_sense_seeds = tx_agent.choose_action(tx_observation, tx_pred_observation)
+        tx_seed, _, _, tx_sense_seeds, tx_pred_rx_action = tx_agent.choose_action(tx_observation, tx_pred_observation)
 
         rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
@@ -582,7 +588,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
             rx_pred_observation = rx_agent.get_pred_observation()
         else:
             rx_pred_observation = torch.tensor([], device=device)
-        rx_seed, _, _, rx_additional_seeds, _, rx_sense_seeds = rx_agent.choose_action(rx_observation, rx_pred_observation)
+        rx_seed, _, _, rx_additional_seeds, _, rx_sense_seeds, rx_pred_tx_action = rx_agent.choose_action(rx_observation, rx_pred_observation)
 
         # if USE_PREDICTION:
         #     # Checking if the prediction was correct
@@ -590,6 +596,12 @@ def test_ppo(tx_agent, rx_agent, jammers):
         #         num_rx_corr_pred += 1
         #     if rx_seed == predicted_rx_action:
         #         num_tx_corr_pred += 1
+
+        if USE_PREDICTION:
+            if tx_seed == rx_pred_tx_action:
+                num_rx_corr_pred += 1
+            if rx_seed == tx_pred_rx_action:
+                num_tx_corr_pred += 1
 
         tx_agent.fh.generate_sequence()
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
@@ -807,8 +819,8 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_2/2_receive_0_sense"
-    # relative_path = f"temp_tests/fusion_belief_module/fh"
+    # relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_2/2_receive_0_sense"
+    relative_path = f"temp_tests/alternate_fusion_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -880,8 +892,8 @@ if __name__ == '__main__':
         jammed_or_fading_rate = (num_jammed_or_fading/NUM_TEST_RUNS)*100
         missed_rate = (num_missed/NUM_TEST_RUNS)*100
 
-        tx_corr_pred_rate = (num_tx_corr_pred/NUM_TEST_RUNS)*100
-        rx_corr_pred_rate = (num_rx_corr_pred/NUM_TEST_RUNS)*100
+        tx_corr_pred_rate = (num_tx_corr_pred/(NUM_TEST_RUNS/NUM_HOPS))*100
+        rx_corr_pred_rate = (num_rx_corr_pred/(NUM_TEST_RUNS/NUM_HOPS))*100
 
         print("Finished testing:")
         print("Successful transmission rate: ", successful_transmission_rate, "%")

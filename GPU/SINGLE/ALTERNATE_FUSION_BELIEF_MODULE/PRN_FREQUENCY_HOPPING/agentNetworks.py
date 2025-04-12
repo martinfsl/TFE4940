@@ -35,10 +35,10 @@ class BeliefModule(nn.Module):
     def __init__(self):
         super(BeliefModule, self).__init__()
 
-        self.input_size = PPO_NETWORK_INPUT_SIZE
+        self.input_size = PREDICTION_NETWORK_INPUT_SIZE
         self.hidden_size1 = 128
         self.hidden_size2 = 64
-        self.output_size = PPO_NETWORK_OUTPUT_SIZE
+        self.output_size = PREDICTION_NETWORK_OUTPUT_SIZE
 
         # Define the layers
         self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
@@ -56,12 +56,66 @@ class BeliefModule(nn.Module):
 
         return x
     
-class ActorCriticNetwork_(nn.Module):
+class BeliefModuleAgent(nn.Module):
+    def __init__(self, device = "cpu"):
+        super(BeliefModuleAgent, self).__init__()
+
+        self.learning_rate = 0.005
+
+        self.batch_size = 4
+        self.maximum_memory_size = 25
+
+        self.device = device
+
+        self.memory_state = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
+        self.memory_action = torch.empty((0, 1), device=self.device)
+
+        self.losses = torch.tensor([], device=self.device)
+
+        self.belief_network = BeliefModule()
+        self.belief_network.to(self.device)
+        self.optimizer = optim.Adam(self.belief_network.parameters(), lr=self.learning_rate)
+    
+    def store_in_memory(self, state, action):
+        if self.memory_state.size(0) >= self.maximum_memory_size:
+            self.memory_state = self.memory_state[1:]
+            self.memory_action = self.memory_action[1:]
+
+        self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
+        self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
+    
+    def train(self):
+        if self.memory_state.size(0) >= self.batch_size:
+            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
+
+            batch_state = self.memory_state[indices]
+            batch_action = self.memory_action[indices]
+
+            # Forward pass
+            predictions = self.belief_network(batch_state)
+
+            # Calculate loss
+            loss = nn.CrossEntropyLoss()(predictions, batch_action.long().squeeze())
+
+            # Backward pass and optimization
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            # Store the loss
+            self.losses = torch.cat((self.losses, loss.unsqueeze(0)))
+
+    def predict_action(self, observation):
+        with torch.no_grad():
+            pred = self.belief_network(observation)
+         
+        return nn.Softmax(dim=0)(pred)
+
+class ActorNetwork(nn.Module):
     def __init__(self):
-        super(ActorCriticNetwork_, self).__init__()
+        super(ActorNetwork, self).__init__()
 
         self.obs_encoder = ObservationEncoder()
-        self.belief_encoder = BeliefModule()
 
         self.hidden_size = 128
 
@@ -71,23 +125,47 @@ class ActorCriticNetwork_(nn.Module):
             self.fusion_layer = nn.Linear(PPO_NETWORK_OUTPUT_SIZE, self.hidden_size)
 
         self.actor_head = nn.Linear(self.hidden_size, PPO_NETWORK_OUTPUT_SIZE)
-        self.critic_head = nn.Linear(self.hidden_size, 1)
         self.dropout = nn.Dropout(0.3)
         
-    def forward(self, obs, belief, dimension = 0):
+    def forward(self, obs, encoded_belief, dimension=0):
         # Encode the observation and belief
         obs_encoded = self.obs_encoder(obs)
 
-        if USE_PREDICTION:
-            belief_encoded = self.belief_encoder(belief)
-        else:
-            belief_encoded = belief
-
-        fused = torch.cat([obs_encoded, belief_encoded], dim=dimension)
+        fused = torch.cat([obs_encoded, encoded_belief], dim=dimension)
         fused = torch.relu(self.fusion_layer(fused))
 
-        action_probs = self.actor_head(fused)
-        state_value = self.critic_head(fused)
+        fused = self.dropout(fused)
 
-        return action_probs, state_value
+        output = self.actor_head(fused)
+
+        return output
+    
+class CriticNetwork(nn.Module):
+    def __init__(self):
+        super(CriticNetwork, self).__init__()
+
+        self.obs_encoder = ObservationEncoder()
+
+        self.hidden_size = 128
+
+        if USE_PREDICTION:
+            self.fusion_layer = nn.Linear(PREDICTION_NETWORK_OUTPUT_SIZE + PPO_NETWORK_OUTPUT_SIZE, self.hidden_size)
+        else:
+            self.fusion_layer = nn.Linear(PPO_NETWORK_OUTPUT_SIZE, self.hidden_size)
+
+        self.critic_head = nn.Linear(self.hidden_size, 1)
+        self.dropout = nn.Dropout(0.3)
+        
+    def forward(self, obs, encoded_belief):
+        # Encode the observation and belief
+        obs_encoded = self.obs_encoder(obs)
+
+        fused = torch.cat([obs_encoded, encoded_belief])
+        fused = torch.relu(self.fusion_layer(fused))
+
+        fused = self.dropout(fused)
+
+        output = self.critic_head(fused)
+
+        return output
 ##################################################################

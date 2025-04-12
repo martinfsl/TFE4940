@@ -39,10 +39,12 @@ REWARD_UNSUCCESSFUL = -1 # Penalty
 REWARD_MISS = -1 # Penalty
 
 # Number of episodes for training
+# NUM_EPISODES = 1000
 NUM_EPISODES = 100000
 # NUM_EPISODES = 40000
 
 # Number of runs for testing
+# NUM_TEST_RUNS = 1000
 NUM_TEST_RUNS = 100000
 # NUM_TEST_RUNS = 40000
 
@@ -90,7 +92,7 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 
 #################################################################################
 ### Defining input and output sizes for the neural networks
-USE_PREDICTION = True
+USE_PREDICTION = False
 
 if NUM_HOPS == 1:
     PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
