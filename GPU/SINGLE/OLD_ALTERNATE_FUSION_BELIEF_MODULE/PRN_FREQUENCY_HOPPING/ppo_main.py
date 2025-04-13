@@ -819,8 +819,8 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    # relative_path = f"A_Final_Tests/fusion_belief_module/fh/bm_functionality/test_2/2_receive_0_sense"
-    relative_path = f"temp_tests/alternate_fusion_belief_module/fh"
+    relative_path = f"A_Final_Tests/alternate_fusion_belief_module/fh/bm_functionality/test_2/no-pred_0_receive_0_sense"
+    # relative_path = f"temp_tests/alternate_fusion_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -951,8 +951,8 @@ if __name__ == '__main__':
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(), 
-                            tx_agent.belief_losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), 
-                            rx_agent.critic_losses.cpu().detach().numpy(), rx_agent.belief_losses.cpu().detach().numpy(),
+                            tx_agent.belief_network_agent.losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), 
+                            rx_agent.critic_losses.cpu().detach().numpy(), rx_agent.belief_network_agent.losses.cpu().detach().numpy(),
                             filepath = relative_path_run+"/plots")
         # save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
         #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")

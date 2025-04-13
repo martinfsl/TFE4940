@@ -6,7 +6,7 @@ import numpy as np
 
 NUM_CHANNELS = 20 # Number of channels in the system
 NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.001
@@ -25,7 +25,6 @@ M = 20 # Size of mini-batch during training
 K = 15 # Number of epochs
 C1 = 0.5 # Coefficient for the value loss
 C2 = 0.05 # Coefficient for the entropy loss
-C3 = 0.5 # Coefficient for the Belief Module loss
 P = 20 # Number of time steps that the prediction observation contains
 
 # Parameters
@@ -40,10 +39,12 @@ REWARD_UNSUCCESSFUL = -1 # Penalty
 REWARD_MISS = -1 # Penalty
 
 # Number of episodes for training
+# NUM_EPISODES = 1000
 NUM_EPISODES = 100000
 # NUM_EPISODES = 40000
 
 # Number of runs for testing
+# NUM_TEST_RUNS = 1000
 NUM_TEST_RUNS = 100000
 # NUM_TEST_RUNS = 40000
 
@@ -73,8 +74,8 @@ TRANSITION_2 = 0.03
 TRANSITION_3 = 0.02
 
 # Number of sensed channels
-# NUM_SENSE_CHANNELS = 10 # Number of channels the Tx and Rx can sense, including the channel they are on
-NUM_SENSE_CHANNELS = NUM_CHANNELS # Number of channels the Tx and Rx can sense, including the channel they are on
+NUM_SENSE_CHANNELS = 10 # Number of channels the Tx and Rx can sense, including the channel they are on
+# NUM_SENSE_CHANNELS = NUM_CHANNELS # Number of channels the Tx and Rx can sense, including the channel they are on
 NUM_JAMMER_SENSE_CHANNELS = NUM_CHANNELS # Number of channels the jammer can sense
 
 REWARD_SENSE = 0.5 # Additional reward for being able to sense the other agent's action even though it did receive the message
@@ -91,29 +92,22 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 
 #################################################################################
 ### Defining input and output sizes for the neural networks
-USE_GATED_FUSION = False
 USE_PREDICTION = True
-if USE_PREDICTION:
-    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-    # PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
-    PREDICTION_NETWORK_INPUT_SIZE = P
 
-    if NUM_HOPS == 1:
-        PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
-        PREDICTION_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
-    else:
-        PPO_NETWORK_OUTPUT_SIZE = NUM_SEEDS
-        PREDICTION_NETWORK_OUTPUT_SIZE = NUM_SEEDS
+if NUM_HOPS == 1:
+    PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
+    PREDICTION_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
+else:
+    PPO_NETWORK_OUTPUT_SIZE = NUM_SEEDS
+    PREDICTION_NETWORK_OUTPUT_SIZE = NUM_SEEDS
+
+SENSING_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
+# PREDICTION_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + 1
+PREDICTION_NETWORK_INPUT_SIZE = P
+if USE_PREDICTION:
+    PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
 else:
     PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
-    PREDICTION_NETWORK_INPUT_SIZE = 0
-
-    if NUM_HOPS == 1:
-        PPO_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
-        PREDICTION_NETWORK_OUTPUT_SIZE = NUM_CHANNELS
-    else:
-        PPO_NETWORK_OUTPUT_SIZE = NUM_SEEDS
-        PREDICTION_NETWORK_OUTPUT_SIZE = 0
 
 JAMMER_PPO_NETWORK_INPUT_SIZE = NUM_JAMMER_SENSE_CHANNELS + 1
 #################################################################################

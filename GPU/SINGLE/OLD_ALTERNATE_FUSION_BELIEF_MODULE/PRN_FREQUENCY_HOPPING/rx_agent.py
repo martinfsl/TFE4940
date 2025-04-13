@@ -12,8 +12,8 @@ from fh_pattern import FH_Pattern
 
 from agentNetworks import *
 
-class txPPOAgent:
-    def __init__(self, gamma=GAMMA, learning_rate = LEARNING_RATE, 
+class rxPPOAgent:
+    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, 
                 lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, 
                 k = K, m = M, c1 = C1, c2 = C2, c3 = C3, p = P,
                 device = "cpu"):
@@ -30,13 +30,15 @@ class txPPOAgent:
         self.c3 = c3
         self.p = p
 
-        self.power = TX_USER_TRANSMIT_POWER
-        self.h_tr_variance = H_TR_VARIANCE
-        self.h_tj_variance = H_JT_VARIANCE
+        # Power
+        self.power = RX_USER_TRANSMIT_POWER
+        self.h_rt_variance = H_TR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to receiver
+        self.h_rj_variance = H_JR_VARIANCE # Variance of the Rayleigh distribution for the Rayleigh fading from transmitter to jammer
 
+        # For CUDA
         self.device = device
 
-        # PPO on-policy storage (use lists to store one episode/trajectory)
+        # PPO on-policy storage
         self.memory_state = torch.empty((0, PPO_NETWORK_INPUT_SIZE), device=self.device)
         self.memory_action = torch.empty((0, 1), device=self.device)
         self.memory_logprob = torch.empty((0, 1), device=self.device)
@@ -54,7 +56,6 @@ class txPPOAgent:
         self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
         self.critic_network = CriticNetwork().to(self.device)
         self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
-        # self.belief_network = BeliefModule().to(self.device)
         self.belief_network_agent = BeliefModuleAgent().to(self.device)
         self.belief_optimizer = optim.Adam(self.belief_network_agent.parameters(), lr=self.learning_rate)
 
@@ -70,7 +71,7 @@ class txPPOAgent:
         self.critic_losses = torch.tensor([], device=self.device)
         self.belief_losses = torch.tensor([], device=self.device)
 
-        # Logging the channel selections
+        # Logging the channels selected
         self.channels_selected = torch.tensor([], device=self.device)
 
         # FH pattern
@@ -113,13 +114,13 @@ class txPPOAgent:
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
-            if direction == "receiver":
-                h_real = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
-                h_imag = torch.normal(mean=0.0, std=self.h_tr_variance, size=(1,), device=self.device)
+            if direction == "transmitter":
+                h_real = torch.normal(mean=0.0, std=self.h_rt_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_rt_variance, size=(1,), device=self.device)
                 h = torch.abs(torch.complex(h_real, h_imag))
             elif direction == "jammer":
-                h_real = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
-                h_imag = torch.normal(mean=0.0, std=self.h_tj_variance, size=(1,), device=self.device)
+                h_real = torch.normal(mean=0.0, std=self.h_rj_variance, size=(1,), device=self.device)
+                h_imag = torch.normal(mean=0.0, std=self.h_rj_variance, size=(1,), device=self.device)
                 h = torch.abs(torch.complex(h_real, h_imag))
             received_power = (h*self.power)[0]
         else:
@@ -143,20 +144,37 @@ class txPPOAgent:
                 observation = torch.cat((state[i], action[i].unsqueeze(0)), dim=0)
         
             observation_pattern[i*(NUM_SENSE_CHANNELS+1):(i+1)*(NUM_SENSE_CHANNELS+1)] = observation
-            
+
         observation_pattern = torch.concat((observation_pattern, seed))
 
         return observation_pattern
+    
+    def concat_predicted_action(self, observation, pred_observation):
+        # Get the predicted action from the predictive network
+        with torch.no_grad():
+            pred_action = self.pred_agent.predict_action(pred_observation)
+        # Concatenate original observation and predicted action.
+        observation = torch.concat((observation, pred_action))
+
+        predicted_action = torch.argmax(pred_action).unsqueeze(0)
+
+        return observation, predicted_action
 
     def get_value(self, observation):
         # return self.critic_network(observation)
-        return self.critic_network(observation, self.get_pred_observation())
-    
+
+        batch_size = observation.size(0)
+        state_value = self.critic_network(observation, self.get_pred_observation())
+        return state_value
+
     # Only returning the most probable action
     def choose_action(self, observation, pred_observation):
         with torch.no_grad():
             encoded_belief = self.belief_network_agent.belief_network(pred_observation)
-            predicted_action = torch.argmax(encoded_belief).unsqueeze(0)
+            if USE_PREDICTION:
+                predicted_action = torch.argmax(encoded_belief).unsqueeze(0)
+            else:
+                predicted_action = torch.tensor([], device=self.device)
             action_probs = self.actor_network(observation, encoded_belief)
             policy = nn.Softmax(dim=0)(action_probs)
             value = self.critic_network(observation, encoded_belief)
@@ -165,10 +183,12 @@ class txPPOAgent:
         action_logprob = torch.log(torch.gather(policy, 0, action.unsqueeze(0)))
         # self.fh_seeds_used = torch.cat((self.fh_seeds_used, action.unsqueeze(0)))
 
-        additional_sense = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
+        additional_actions = torch.argsort(policy, descending=True)[1:NUM_EXTRA_RECEIVE+1]
+        additional_actions_logprob = torch.log(torch.gather(policy, 0, additional_actions))
+        additional_sense = torch.argsort(policy, descending=True)[NUM_EXTRA_RECEIVE+1:NUM_EXTRA_RECEIVE+NUM_EXTRA_ACTIONS+1]
 
-        return action.unsqueeze(0), action_logprob, value, additional_sense, predicted_action
-    
+        return action.unsqueeze(0), action_logprob, value, additional_actions, additional_actions_logprob, additional_sense, predicted_action
+
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
         returns = torch.empty((0, 1), device=self.device)
@@ -198,7 +218,7 @@ class txPPOAgent:
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-10)
 
         return advantages
-
+    
     def update(self):
         returns = self.compute_returns()
         advantages = self.compute_advantages(returns, self.memory_value)

@@ -64,6 +64,7 @@ class BeliefModuleAgent(nn.Module):
 
         self.batch_size = 4
         self.maximum_memory_size = 25
+        self.epochs = 5
 
         self.device = device
 
@@ -86,23 +87,24 @@ class BeliefModuleAgent(nn.Module):
     
     def train(self):
         if self.memory_state.size(0) >= self.batch_size:
-            indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
+            for _ in range(self.epochs):
+                indices = random.sample(range(self.memory_state.size(0)), self.batch_size)
 
-            batch_state = self.memory_state[indices]
-            batch_action = self.memory_action[indices]
+                batch_state = self.memory_state[indices]
+                batch_action = self.memory_action[indices]
 
-            # Forward pass
-            predictions = self.belief_network(batch_state)
+                # Forward pass
+                predictions = self.belief_network(batch_state)
 
-            # Calculate loss
-            loss = nn.CrossEntropyLoss()(predictions, batch_action.long().squeeze())
+                # Calculate loss
+                loss = nn.CrossEntropyLoss()(predictions, batch_action.long().squeeze())
 
-            # Backward pass and optimization
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+                # Backward pass and optimization
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
 
-            # Store the loss
+                # Store the loss
             self.losses = torch.cat((self.losses, loss.unsqueeze(0)))
 
     def predict_action(self, observation):

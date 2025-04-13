@@ -15,7 +15,7 @@ from agentNetworks import *
 class rxPPOAgent:
     def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE, 
                 lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP, 
-                k = K, m = M, c1 = C1, c2 = C2, c3 = C3, p = P,
+                k = K, m = M, c1 = C1, c2 = C2, p = P,
                 device = "cpu"):
         self.gamma = gamma
         self.learning_rate = learning_rate
@@ -27,7 +27,6 @@ class rxPPOAgent:
         self.m = m
         self.c1 = c1
         self.c2 = c2
-        self.c3 = c3
         self.p = p
 
         # Power
@@ -45,31 +44,28 @@ class rxPPOAgent:
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
-        self.memory_belief_input = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
-
         self.memory_action_observation = torch.tensor(self.p*[-1], device=self.device)
 
         self.previous_seeds = torch.empty((0, 1), device=self.device)
 
-        # Actor-Critic network with belief module
-        self.actor_network = ActorNetwork().to(self.device)
+        # Policy network (Actor network)
+        self.actor_network = ActorNetwork()
+        self.actor_network.to(self.device)
         self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=self.learning_rate)
-        self.critic_network = CriticNetwork().to(self.device)
-        self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
-        self.belief_network_agent = BeliefModuleAgent().to(self.device)
-        self.belief_optimizer = optim.Adam(self.belief_network_agent.parameters(), lr=self.learning_rate)
 
-        # self.optimizer_shared = optim.Adam(
-        #     list(self.ac_network.obs_encoder.parameters()) + list(self.ac_network.fusion_layer.parameters()), 
-        #     lr=self.learning_rate)
-        # self.optimizer_actor = optim.Adam(self.ac_network.actor_head.parameters(), lr=self.learning_rate)
-        # self.optimizer_critic = optim.Adam(self.ac_network.critic_head.parameters(), lr=self.learning_rate)
-        # self.optimizer_belief = optim.Adam(self.ac_network.belief_encoder.parameters(), lr=self.learning_rate)
+        self.actor_network_old = copy.deepcopy(self.actor_network).to(self.device)
+
+        # Value network (Critic network)
+        self.critic_network = CriticNetwork()
+        self.critic_network.to(self.device)
+        self.critic_optimizer = optim.Adam(self.critic_network.parameters(), lr=self.learning_rate)
+
+        # Predictive network remains unchanged
+        self.pred_agent = PredictionNNAgent(device=self.device)
 
         # Logging actor and critic losses
         self.actor_losses = torch.tensor([], device=self.device)
         self.critic_losses = torch.tensor([], device=self.device)
-        self.belief_losses = torch.tensor([], device=self.device)
 
         # Logging the channels selected
         self.channels_selected = torch.tensor([], device=self.device)
@@ -79,11 +75,8 @@ class rxPPOAgent:
         self.fh_seeds_used = torch.tensor([], device=self.device)
 
     def get_pred_observation(self):
-        if USE_PREDICTION:
-            return self.memory_action_observation.float()
-        else:
-            return torch.tensor([], device=self.device)
-    
+        return self.memory_action_observation.float()
+
     def add_action_observation(self, observed_action):
         # Move all elements to the left and add the new action at the end
         self.memory_action_observation = torch.cat((self.memory_action_observation[1:], observed_action), dim=0)
@@ -101,16 +94,12 @@ class rxPPOAgent:
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
 
-        self.memory_belief_input = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
-
-    def store_in_memory(self, state, action, logprob, reward, value, belief_input):
+    def store_in_memory(self, state, action, logprob, reward, value):
         self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
         self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
         self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0)), dim=0)
         self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
         self.memory_value = torch.cat((self.memory_value, value.unsqueeze(0)), dim=0)
-
-        self.memory_belief_input = torch.cat((self.memory_belief_input, belief_input.unsqueeze(0)), dim=0)
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
@@ -161,20 +150,13 @@ class rxPPOAgent:
         return observation, predicted_action
 
     def get_value(self, observation):
-        # return self.critic_network(observation)
-
-        batch_size = observation.size(0)
-        state_value = self.critic_network(observation, self.get_pred_observation())
-        return state_value
+        return self.critic_network(observation)
 
     # Only returning the most probable action
-    def choose_action(self, observation, pred_observation):
+    def choose_action(self, observation):
         with torch.no_grad():
-            encoded_belief = self.belief_network_agent.belief_network(pred_observation)
-            predicted_action = torch.argmax(encoded_belief).unsqueeze(0)
-            action_probs = self.actor_network(observation, encoded_belief)
-            policy = nn.Softmax(dim=0)(action_probs)
-            value = self.critic_network(observation, encoded_belief)
+            policy = nn.Softmax(dim=0)(self.actor_network(observation))
+            values = self.get_value(observation)
 
         action = torch.argmax(policy)
         action_logprob = torch.log(torch.gather(policy, 0, action.unsqueeze(0)))
@@ -184,7 +166,7 @@ class rxPPOAgent:
         additional_actions_logprob = torch.log(torch.gather(policy, 0, additional_actions))
         additional_sense = torch.argsort(policy, descending=True)[NUM_EXTRA_RECEIVE+1:NUM_EXTRA_RECEIVE+NUM_EXTRA_ACTIONS+1]
 
-        return action.unsqueeze(0), action_logprob, value, additional_actions, additional_actions_logprob, additional_sense, predicted_action
+        return action.unsqueeze(0), action_logprob, values, additional_actions, additional_actions_logprob, additional_sense
 
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
@@ -220,6 +202,11 @@ class rxPPOAgent:
         returns = self.compute_returns()
         advantages = self.compute_advantages(returns, self.memory_value)
 
+        values = self.get_value(self.memory_state)
+
+        old_logits = self.actor_network_old(self.memory_state).detach()
+        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
+
         data_size = self.memory_state.size(0)
 
         for epoch in range(self.k):
@@ -230,35 +217,34 @@ class rxPPOAgent:
             batch_logprob = self.memory_logprob[batch_indices]
             batch_return = returns[batch_indices].detach()
             batch_advantage = advantages[batch_indices].detach()
-            batch_value = self.memory_value[batch_indices].detach()
 
-            batch_belief_input = self.memory_belief_input[batch_indices]
-            batch_encoded_belief = self.belief_network_agent.belief_network(batch_belief_input)
-
-            new_logits = self.actor_network(batch_state, batch_encoded_belief, dimension=1)
+            new_logits = self.actor_network(batch_state)
             new_policy = nn.Softmax(dim=1)(new_logits)
             new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
 
-            # Actor loss
             ratio = torch.exp(new_logprobs - batch_logprob)
+
             surr1 = ratio*batch_advantage
             surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
-            actor_loss = -torch.min(surr1, surr2).mean()
 
-            # Critic loss
-            # batch_value = self.get_value(batch_state)
+            entropy = -(new_policy*torch.log(new_policy + 1e-8)).sum(dim=1).mean()
+
+            actor_loss = -torch.min(surr1, surr2).mean() - self.c2*entropy
+
+            batch_value = self.get_value(batch_state)
             critic_loss = nn.MSELoss()(batch_value, batch_return)
-
-            # Entropy loss
-            entropy = (new_policy*torch.log(new_policy + 1e-8)).sum(dim=1).mean()
-
-            total_loss = actor_loss + self.c1*critic_loss + self.c2*entropy
+            
+            total_loss = actor_loss + self.c1*critic_loss
 
             self.actor_optimizer.zero_grad()
             self.critic_optimizer.zero_grad()
+            # actor_loss.backward()
+            # critic_loss.backward()
             total_loss.backward()
             self.actor_optimizer.step()
             self.critic_optimizer.step()
+            
+        self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
 
         self.clear_memory()
 
