@@ -55,7 +55,7 @@ class PredictionNNAgent:
         # Parameters for the neural network
         self.batch_size = 10
         self.maximum_memory_size = 100
-        self.epochs = 1
+        self.epochs = 10
 
         self.device = device
 

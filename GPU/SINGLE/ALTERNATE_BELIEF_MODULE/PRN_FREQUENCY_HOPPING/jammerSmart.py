@@ -64,22 +64,24 @@ class jammerPPOCritic(nn.Module):
         return x
     
 class jammerPPOAgent:
-    def __init__(self, gamma = GAMMA, learning_rate = LEARNING_RATE,
-                lambda_param = LAMBDA, epsilon_clip = EPSILON_CLIP,
-                k = K, m = M, c1 = C1, c2 = C2, device = "cpu"):
+    def __init__(self, gamma = JAMMER_GAMMA, learning_rate = JAMMER_LEARNING_RATE,
+                lambda_param = JAMMER_LAMBDA, epsilon_clip = EPSILON_CLIP,
+                k = K, m = M, c1 = JAMMER_C1, c2 = JAMMER_C2, device = "cpu"):
         self.gamma = gamma
         # self.learning_rate = 0.001
-        self.learning_rate = 0.0001
+        # self.learning_rate = 0.0001
+        self.learning_rate = learning_rate
 
-        # self.LAMBDA = lambda_param
-        self.LAMBDA = 0.80
+        self.LAMBDA = lambda_param
+        # self.LAMBDA = 0.80
         self.epsilon_clip = epsilon_clip
 
         self.k = k
         self.m = m
-        self.c1 = 0.5
-        # self.c2 = 0.01
-        self.c2 = 0.1
+        # self.c1 = 0.5
+        # self.c2 = 0.1
+        self.c1 = c1
+        self.c2 = c2
 
         self.device = device
 

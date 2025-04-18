@@ -43,6 +43,7 @@ class rxPPOAgent:
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
+        self.memory_pred_observation = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
 
         self.memory_action_observation = torch.tensor(self.p*[-1], device=self.device)
 
@@ -93,13 +94,15 @@ class rxPPOAgent:
         self.memory_logprob = torch.empty((0, 1), device=self.device)
         self.memory_reward = torch.empty((0, 1), device=self.device)
         self.memory_value = torch.empty((0, 1), device=self.device)
+        self.memory_pred_observation = torch.empty((0, PREDICTION_NETWORK_INPUT_SIZE), device=self.device)
 
-    def store_in_memory(self, state, action, logprob, reward, value):
+    def store_in_memory(self, state, action, logprob, reward, value, pred_observation):
         self.memory_state = torch.cat((self.memory_state, state.unsqueeze(0)), dim=0)
         self.memory_action = torch.cat((self.memory_action, action.unsqueeze(0)), dim=0)
         self.memory_logprob = torch.cat((self.memory_logprob, logprob.unsqueeze(0)), dim=0)
         self.memory_reward = torch.cat((self.memory_reward, reward.unsqueeze(0)), dim=0)
         self.memory_value = torch.cat((self.memory_value, value.unsqueeze(0)), dim=0)
+        self.memory_pred_observation = torch.cat((self.memory_pred_observation, pred_observation.unsqueeze(0)), dim=0)
 
     def get_transmit_power(self, direction):
         if CONSIDER_FADING:
@@ -149,14 +152,28 @@ class rxPPOAgent:
 
         return observation, predicted_action
 
-    def get_value(self, observation):
-        return self.critic_network(observation)
+    def get_value(self, observation, pred_observation, dimension=0):
+        with torch.no_grad():
+            if USE_PREDICTION:
+                encoded_belief = self.pred_agent.pred_network(pred_observation)
+            else:
+                encoded_belief = torch.tensor([], device=self.device)
+
+        return self.critic_network(observation, encoded_belief, dimension=dimension)
 
     # Only returning the most probable action
-    def choose_action(self, observation):
+    def choose_action(self, observation, pred_observation):
         with torch.no_grad():
-            policy = nn.Softmax(dim=0)(self.actor_network(observation))
-            values = self.get_value(observation)
+            if USE_PREDICTION:
+                # Get the encoded belief from the predictive network
+                encoded_belief = self.pred_agent.pred_network(pred_observation)
+                predicted_action = torch.argmax(encoded_belief).unsqueeze(0)
+            else:
+                encoded_belief = torch.tensor([], device=self.device)
+                predicted_action = torch.tensor([-1], device=self.device)
+
+            policy = nn.Softmax(dim=0)(self.actor_network(observation, encoded_belief))
+            values = self.get_value(observation, pred_observation)
 
         action = torch.argmax(policy)
         action_logprob = torch.log(torch.gather(policy, 0, action.unsqueeze(0)))
@@ -166,7 +183,7 @@ class rxPPOAgent:
         additional_actions_logprob = torch.log(torch.gather(policy, 0, additional_actions))
         additional_sense = torch.argsort(policy, descending=True)[NUM_EXTRA_RECEIVE+1:NUM_EXTRA_RECEIVE+NUM_EXTRA_ACTIONS+1]
 
-        return action.unsqueeze(0), action_logprob, values, additional_actions, additional_actions_logprob, additional_sense
+        return action.unsqueeze(0), action_logprob, values, additional_actions, additional_actions_logprob, additional_sense, predicted_action
 
     # Compute the returns for each time step in the trajectory
     def compute_returns(self):
@@ -202,11 +219,6 @@ class rxPPOAgent:
         returns = self.compute_returns()
         advantages = self.compute_advantages(returns, self.memory_value)
 
-        values = self.get_value(self.memory_state)
-
-        old_logits = self.actor_network_old(self.memory_state).detach()
-        old_logprobs = torch.log(torch.gather(nn.Softmax(dim=1)(old_logits), 1, self.memory_action.long()))
-
         data_size = self.memory_state.size(0)
 
         for epoch in range(self.k):
@@ -215,10 +227,12 @@ class rxPPOAgent:
             batch_state = self.memory_state[batch_indices]
             batch_action = self.memory_action[batch_indices]
             batch_logprob = self.memory_logprob[batch_indices]
+            batch_pred_observation = self.memory_pred_observation[batch_indices]
+            batch_encoded_belief = self.pred_agent.pred_network(batch_pred_observation)
             batch_return = returns[batch_indices].detach()
             batch_advantage = advantages[batch_indices].detach()
 
-            new_logits = self.actor_network(batch_state)
+            new_logits = self.actor_network(batch_state, batch_encoded_belief, dimension=1)
             new_policy = nn.Softmax(dim=1)(new_logits)
             new_logprobs = torch.log(torch.gather(new_policy, 1, batch_action.long()))
 
@@ -231,7 +245,7 @@ class rxPPOAgent:
 
             actor_loss = -torch.min(surr1, surr2).mean() - self.c2*entropy
 
-            batch_value = self.get_value(batch_state)
+            batch_value = self.get_value(batch_state, batch_pred_observation, dimension=1)
             critic_loss = nn.MSELoss()(batch_value, batch_return)
             
             total_loss = actor_loss + self.c1*critic_loss

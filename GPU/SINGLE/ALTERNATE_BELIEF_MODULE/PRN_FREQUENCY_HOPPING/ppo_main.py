@@ -102,6 +102,12 @@ def train_ppo(tx_agent, rx_agent, jammers):
     jammer_accumulated_rewards = []
     jammer_average_rewards = []
 
+    num_successful_transmissions = 0
+    num_jammed_or_fading = 0
+    num_missed = 0
+    num_tx_corr_pred = 0
+    num_rx_corr_pred = 0
+
     # Initialize the start channel for the sweep
     for jammer in jammers:
         if jammer.behavior == "sweep":
@@ -156,25 +162,28 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
     for episode in tqdm(range(int(NUM_EPISODES/NUM_HOPS))):
         # The agents chooses an action based on the current state
-        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
+        tx_observation = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            # tx_pred_observation = torch.concat((tx_observation_without_pred_action, tx_observed_rx_seed), dim=0)
             tx_pred_observation = tx_agent.get_pred_observation()
-            tx_observation, _ = tx_agent.concat_predicted_action(tx_observation_without_pred_action, tx_pred_observation)
         else:
-            tx_observation = tx_observation_without_pred_action
-        tx_seed, tx_prob_action, tx_value, tx_sense_seeds = tx_agent.choose_action(tx_observation)
+            tx_pred_observation = torch.tensor([], device=device)
+        tx_seed, tx_prob_action, tx_value, tx_sense_seeds, tx_pred_rx_action = tx_agent.choose_action(tx_observation, tx_pred_observation)
         tx_agent.add_previous_seed(tx_seed)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
+        rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            # rx_pred_observation = torch.concat((rx_observation_without_pred_action, rx_observed_tx_seed), dim=0)
             rx_pred_observation = rx_agent.get_pred_observation()
-            rx_observation, _ = rx_agent.concat_predicted_action(rx_observation_without_pred_action, rx_pred_observation)
         else:
-            rx_observation = rx_observation_without_pred_action
-        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, rx_prob_additional_actions, rx_sense_seeds = rx_agent.choose_action(rx_observation)
+            rx_pred_observation = torch.tensor([], device=device)
+        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, \
+            rx_prob_additional_actions, rx_sense_seeds, rx_pred_tx_action = rx_agent.choose_action(rx_observation, rx_pred_observation)
         rx_agent.add_previous_seed(rx_seed)
+
+        if USE_PREDICTION:
+            if tx_seed == rx_pred_tx_action:
+                num_rx_corr_pred += 1
+            if (rx_seed == tx_pred_rx_action) or (tx_pred_rx_action in rx_additional_seeds):
+                num_tx_corr_pred += 1
 
         # print("--------------------------------")
         # print("Episode - ", episode)
@@ -274,7 +283,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
                     jammer_seed, jammer_logprobs[j], jammer_values[j] = jammers[j].choose_action(jammer_observation, tx_transmit_channel)
                     jammer_seeds[j] = jammer_seed
                     jammers[j].agent.fh.generate_sequence()
-                    jammer_channel = jammers[j].agent.fh.get_sequence(jammer_seed)
+                    jammer_channel = jammers[j].agent.fh.get_sequence(jammer_seed.unsqueeze(0).long())
                     jammers[j].channels_selected = torch.cat((jammers[j].channels_selected, jammer_channel))
                     jammer_channels[j] = jammer_channel.long()
                 else:
@@ -302,6 +311,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
             tx_observed_power = rx_agent.get_transmit_power(direction = "transmitter")
             # Calculate the reward based on the patterns chosen
             # ACK is sent from the receiver
+            success = False
+            jamming_or_fading = False
             if received_signal_rx(tx_transmit_channel.long(), rx_receive_channels.long(), rx_observed_power, rx_channel_noise[i]):
                 rx_reward_hop = REWARD_SUCCESSFUL
 
@@ -310,12 +321,13 @@ def train_ppo(tx_agent, rx_agent, jammers):
                 # ACK is received at the transmitter
                 if received_signal_tx(tx_transmit_channel.long(), rx_receive_channels.long(), tx_observed_power, tx_channel_noise[i]):
                     tx_reward_hop = REWARD_SUCCESSFUL
+                    success = True
 
                     tx_observed_rx = torch.concat((tx_observed_rx, tx_transmit_channel), dim=0)
-
                 else:
                     # tx_reward += REWARD_INTERFERENCE
                     tx_reward_hop = REWARD_MISS
+                    jamming_or_fading = True
 
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
             else:
@@ -339,6 +351,16 @@ def train_ppo(tx_agent, rx_agent, jammers):
                     tx_observed_rx = torch.concat((tx_observed_rx, tx_sensing), dim=0)
                 else:
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
+
+                if tx_transmit_channel in rx_receive_channels:
+                    jamming_or_fading = True
+                else:
+                    num_missed += 1
+
+            if success:
+                num_successful_transmissions += 1
+            if jamming_or_fading:
+                num_jammed_or_fading += 1
 
             for j in range(len(jammers)):
                 if jammers[j].behavior == "smart" or jammers[j].behavior == "genie":
@@ -445,7 +467,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         rx_next_state = rx_channel_noise.clone()
 
         # If Rx chose the same seed as Tx, but as an additional action, it needs to use the correctly selected seed in the training
-        if rx_reward >= ((REWARD_SUCCESSFUL+REWARD_MISS)/2):
+        if rx_reward >= ((REWARD_SUCCESSFUL+REWARD_MISS)/2) and rx_observed_tx_seed != -1:
             rx_seed_correct = rx_observed_tx_seed
 
             rx_prob_action_correct = rx_prob_action
@@ -466,8 +488,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_prob_action_correct: ", rx_prob_action_correct)
 
         # Store the experience in the agent's memory
-        tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value)
-        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value)
+        tx_agent.store_in_memory(tx_observation, tx_seed, tx_prob_action, torch.tensor([tx_reward], device=device), tx_value, tx_pred_observation)
+        rx_agent.store_in_memory(rx_observation, rx_seed_correct, rx_prob_action_correct, torch.tensor([rx_reward], device=device), rx_value, rx_pred_observation)
 
         # Only changing the policy after a certain number of episodes, trajectory length T
         if (episode+1) % (T+1) == T:
@@ -486,7 +508,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
 
     print("Training complete")
 
-    return tx_average_rewards, rx_average_rewards, jammer_average_rewards
+    return tx_average_rewards, rx_average_rewards, jammer_average_rewards, \
+        num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_corr_pred, num_rx_corr_pred
 
 #################################################################################
 ### Test the DQN, extended state space
@@ -566,31 +589,30 @@ def test_ppo(tx_agent, rx_agent, jammers):
         jammer_states[i] = jammer_channel_noises[i].clone()
     ###################################
 
-    for run in tqdm(range(int(NUM_TEST_RUNS/NUM_HOPS))):
-        # The agent chooses an action based on the current state
-        tx_observation_without_pred_action = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
+    for episode in tqdm(range(int(NUM_EPISODES/NUM_HOPS))):
+        # The agents chooses an action based on the current state
+        tx_observation = tx_agent.get_observation(tx_state, tx_hops, tx_seed)
         if USE_PREDICTION:
-            # tx_pred_observation = torch.concat((tx_observation_without_pred_action, tx_observed_rx_seed), dim=0)
             tx_pred_observation = tx_agent.get_pred_observation()
-            tx_observation, predicted_rx_action = tx_agent.concat_predicted_action(tx_observation_without_pred_action, tx_pred_observation)
         else:
-            tx_observation = tx_observation_without_pred_action
-        tx_seed, _, _, tx_sense_seeds = tx_agent.choose_action(tx_observation)
+            tx_pred_observation = torch.tensor([], device=device)
+        tx_seed, tx_prob_action, tx_value, tx_sense_seeds, tx_pred_rx_action = tx_agent.choose_action(tx_observation, tx_pred_observation)
+        tx_agent.add_previous_seed(tx_seed)
 
-        rx_observation_without_pred_action = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
+        rx_observation = rx_agent.get_observation(rx_state, rx_hops, rx_seed)
         if USE_PREDICTION:
-            # rx_pred_observation = torch.concat((rx_observation_without_pred_action, rx_observed_tx_seed), dim=0)
             rx_pred_observation = rx_agent.get_pred_observation()
-            rx_observation, predicted_tx_action = rx_agent.concat_predicted_action(rx_observation_without_pred_action, rx_pred_observation)
         else:
-            rx_observation = rx_observation_without_pred_action
-        rx_seed, _, _, rx_additional_seeds, _, rx_sense_seeds = rx_agent.choose_action(rx_observation)
+            rx_pred_observation = torch.tensor([], device=device)
+        rx_seed, rx_prob_action, rx_value, rx_additional_seeds, \
+            rx_prob_additional_actions, rx_sense_seeds, rx_pred_tx_action = rx_agent.choose_action(rx_observation, rx_pred_observation)
+        rx_agent.add_previous_seed(rx_seed)
 
         if USE_PREDICTION:
             # Checking if the prediction was correct
-            if tx_seed == predicted_tx_action:
+            if tx_seed == rx_pred_tx_action:
                 num_rx_corr_pred += 1
-            if rx_seed == predicted_rx_action:
+            if (rx_seed == tx_pred_rx_action) or (tx_pred_rx_action in rx_additional_seeds):
                 num_tx_corr_pred += 1
 
         tx_agent.fh.generate_sequence()
@@ -661,7 +683,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
                     jammer_observations[j] = jammer_observation
                     jammer_seed, _, _ = jammers[j].choose_action(jammer_observation, tx_transmit_channel)
                     jammers[j].agent.fh.generate_sequence()
-                    jammer_channel = jammers[j].agent.fh.get_sequence(jammer_seed)
+                    jammer_channel = jammers[j].agent.fh.get_sequence(jammer_seed.unsqueeze(0).long())
                     jammers[j].channels_selected = torch.cat((jammers[j].channels_selected, jammer_channel))
                     jammer_channels[j] = jammer_channel.long()
                 else:
@@ -733,7 +755,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
                 else:
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
 
-                if tx_transmit_channel == rx_receive_channel:
+                if tx_transmit_channel in rx_receive_channels:
                     jamming_or_fading = True
                 else:
                     num_missed += 1
@@ -776,6 +798,16 @@ def test_ppo(tx_agent, rx_agent, jammers):
         num_tx_successful_hop_transmissions += tx_reward/NUM_HOPS
         num_rx_successful_hop_transmissions += rx_reward/NUM_HOPS
 
+        if ((rx_reward/NUM_HOPS) >= ((REWARD_SUCCESSFUL+REWARD_MISS)/2)) and rx_observed_tx_seed != -1:
+            rx_seed_correct = rx_observed_tx_seed
+        else:
+            rx_seed_correct = rx_seed
+
+        # The hops used for the observation should be based on the correct seed
+        rx_hops = rx_agent.fh.get_sequence(rx_seed_correct)
+        # The seed used for the observation should correspond to this
+        rx_seed = rx_seed_correct
+
         # Add the new observed power spectrum to the next state
         tx_next_state = tx_channel_noise.clone()
         rx_next_state = rx_channel_noise.clone()
@@ -800,6 +832,13 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
 if __name__ == '__main__':
 
+    success_training_rates = []
+    jammed_or_fading_training_rates = []
+    missed_training_rates = []
+
+    tx_corr_pred_training_rates = []
+    rx_corr_pred_training_rates = []
+
     success_rates = []
     jammed_or_fading_rates = []
     missed_rates = []
@@ -809,8 +848,8 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/pred_obs_belief_module/fh/bm_functionality/test_4/0_receive_0_sense"
-    # relative_path = f"temp_tests/pred_obs_belief_module/fh"
+    relative_path = f"A_Final_Tests/alternate_2_belief_module/fh/bm_functionality/test_6/1_receive_0_sense"
+    # relative_path = f"temp_tests/alternate_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -855,7 +894,9 @@ if __name__ == '__main__':
         # jammer_type = "PPO_Genie"
         # jammer_behavior = "genie"
 
-        tx_average_rewards, rx_average_rewards, jammer_average_rewards = train_ppo(tx_agent, rx_agent, list_of_other_users)
+        tx_average_rewards, rx_average_rewards, jammer_average_rewards, num_successsful_training, \
+            num_jammed_or_fading_training, num_missed_training, \
+            num_tx_corr_pred_training, num_rx_corr_pred_training = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
 
         tx_channel_selection_training = tx_agent.channels_selected.cpu().detach().numpy()
@@ -865,6 +906,25 @@ if __name__ == '__main__':
         jammer_channel_selection_training = list_of_other_users[0].channels_selected.cpu().detach().numpy()
         if jammer_behavior == "genie":
             jammer_seed_selection_training = list_of_other_users[0].agent.fh_seeds_used.cpu().detach().numpy()
+
+        successful_transmission_training_rate = (num_successsful_training/NUM_TEST_RUNS)*100
+        jammed_or_fading_training_rate = (num_jammed_or_fading_training/NUM_TEST_RUNS)*100
+        missed_training_rate = (num_missed_training/NUM_TEST_RUNS)*100
+        tx_corr_pred_training_rate = (num_tx_corr_pred_training/(NUM_TEST_RUNS/NUM_HOPS))*100
+        rx_corr_pred_training_rate = (num_rx_corr_pred_training/(NUM_TEST_RUNS/NUM_HOPS))*100
+
+        print("Finished training:")
+        print("Successful transmission rate: ", successful_transmission_training_rate, "%")
+        print("Jammed or Faded transmission rate: ", jammed_or_fading_training_rate, "%")
+        print("Num missed rate: ", missed_training_rate, "%")
+        if USE_PREDICTION:
+            print("Tx correct prediction rate: ", tx_corr_pred_training_rate)
+            print("Rx correct prediction rate: ", rx_corr_pred_training_rate)
+        success_training_rates.append(successful_transmission_training_rate)
+        jammed_or_fading_training_rates.append(jammed_or_fading_training_rate)
+        missed_training_rates.append(missed_training_rate)
+        tx_corr_pred_training_rates.append(tx_corr_pred_training_rate)
+        rx_corr_pred_training_rates.append(rx_corr_pred_training_rate)
 
         num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
             num_rx_successful_hop_transmissions, prob_tx_channel, prob_rx_channel, prob_jammer_channel, \
@@ -907,6 +967,10 @@ if __name__ == '__main__':
             os.makedirs(f"{relative_path_run}/data")
         if not os.path.exists(f"{relative_path_run}/data/channel_pattern"):
             os.makedirs(f"{relative_path_run}/data/channel_pattern")
+        if not os.path.exists(f"{relative_path_run}/training_data"):
+            os.makedirs(f"{relative_path_run}/training_data")
+        if not os.path.exists(f"{relative_path_run}/testing_data"):
+            os.makedirs(f"{relative_path_run}/testing_data")
 
         # Save data in textfiles
         np.savetxt(f"{relative_path_run}/data/average_reward_tx.txt", tx_average_rewards)
@@ -916,12 +980,18 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/actor_losses_rx.txt", rx_agent.actor_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/average_reward_jammer.txt", jammer_average_rewards)
-        np.savetxt(f"{relative_path_run}/data/success_rates.txt", [successful_transmission_rate])
-        np.savetxt(f"{relative_path_run}/data/jammed_or_fading_rates.txt", [jammed_or_fading_rate])
-        np.savetxt(f"{relative_path_run}/data/missed_rates.txt", [missed_rate])
+        np.savetxt(f"{relative_path_run}/training_data/success_training_rates.txt", [successful_transmission_training_rate])
+        np.savetxt(f"{relative_path_run}/training_data/jammed_or_fading_training_rates.txt", [jammed_or_fading_training_rate])
+        np.savetxt(f"{relative_path_run}/training_data/missed_training_rates.txt", [missed_training_rate])
         if USE_PREDICTION:
-            np.savetxt(f"{relative_path_run}/data/tx_corr_pred_rates.txt", [tx_corr_pred_rate])
-            np.savetxt(f"{relative_path_run}/data/rx_corr_pred_rates.txt", [rx_corr_pred_rate])
+            np.savetxt(f"{relative_path_run}/training_data/tx_corr_pred_training_rates.txt", [tx_corr_pred_training_rate])
+            np.savetxt(f"{relative_path_run}/training_data/rx_corr_pred_training_rates.txt", [rx_corr_pred_training_rate])
+        np.savetxt(f"{relative_path_run}/testing_data/success_rates.txt", [successful_transmission_rate])
+        np.savetxt(f"{relative_path_run}/testing_data/jammed_or_fading_rates.txt", [jammed_or_fading_rate])
+        np.savetxt(f"{relative_path_run}/testing_data/missed_rates.txt", [missed_rate])
+        if USE_PREDICTION:
+            np.savetxt(f"{relative_path_run}/testing_data/tx_corr_pred_rates.txt", [tx_corr_pred_rate])
+            np.savetxt(f"{relative_path_run}/testing_data/rx_corr_pred_rates.txt", [rx_corr_pred_rate])
         
         # Saving the channel and pattern selections
         np.savetxt(f"{relative_path_run}/data/channel_pattern/tx_channel_selection_training.txt", tx_channel_selection_training)
@@ -965,6 +1035,15 @@ if __name__ == '__main__':
     #     plot_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type)
 
     if num_runs > 1:
+        print("Average training data:")
+        print("Average success rate: ", np.mean(success_training_rates), "%")
+        print("Average jammed / fading rate: ", np.mean(jammed_or_fading_training_rates), "%")
+        print("Average missed rate: ", np.mean(missed_training_rates), "%")
+        if USE_PREDICTION:
+            print("Average Tx correct prediction rate: ", np.mean(tx_corr_pred_training_rates))
+            print("Average Rx correct prediction rate: ", np.mean(rx_corr_pred_training_rates))
+        print()
+        print("Average testing data:")
         print("Average success rate: ", np.mean(success_rates), "%")
         print("Average jammed / fading rate: ", np.mean(jammed_or_fading_rates), "%")
         print("Average missed rate: ", np.mean(missed_rates), "%")
@@ -972,12 +1051,31 @@ if __name__ == '__main__':
             print("Average Tx correct prediction rate: ", np.mean(tx_corr_pred_rates))
             print("Average Rx correct prediction rate: ", np.mean(rx_corr_pred_rates))
 
-    np.savetxt(f"{relative_path}/{jammer_type}/all_success_rates.txt", success_rates)
-    np.savetxt(f"{relative_path}/{jammer_type}/all_jammed_or_fading_rates.txt", jammed_or_fading_rates)
-    np.savetxt(f"{relative_path}/{jammer_type}/all_missed_rates.txt", missed_rates)
-    np.savetxt(f"{relative_path}/{jammer_type}/average_success_rate.txt", [np.mean(success_rates)])
-    np.savetxt(f"{relative_path}/{jammer_type}/average_jammed_or_fading_rates.txt", [np.mean(jammed_or_fading_rates)])
-    np.savetxt(f"{relative_path}/{jammer_type}/average_missed_rates.txt", [np.mean(missed_rates)])
+    if not os.path.exists(f"{relative_path}/{jammer_type}/training_data"):
+        os.makedirs(f"{relative_path}/{jammer_type}/training_data")
+    if not os.path.exists(f"{relative_path}/{jammer_type}/testing_data"):
+        os.makedirs(f"{relative_path}/{jammer_type}/testing_data")
+
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_success_training_rates.txt", success_training_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_jammed_or_fading_training_rates.txt", jammed_or_fading_training_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_missed_training_rates.txt", missed_training_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_tx_corr_pred_training_rates.txt", tx_corr_pred_training_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_rx_corr_pred_training_rates.txt", rx_corr_pred_training_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_success_training_rate.txt", [np.mean(success_training_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_jammed_or_fading_training_rates.txt", [np.mean(jammed_or_fading_training_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_missed_training_rates.txt", [np.mean(missed_training_rates)])
     if USE_PREDICTION:
-        np.savetxt(f"{relative_path}/{jammer_type}/average_tx_corr_pred_rates.txt", [np.mean(tx_corr_pred_rates)])
-        np.savetxt(f"{relative_path}/{jammer_type}/average_rx_corr_pred_rates.txt", [np.mean(rx_corr_pred_rates)])
+        np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_tx_corr_pred_training_rates.txt", [np.mean(tx_corr_pred_training_rates)])
+        np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_rx_corr_pred_training_rates.txt", [np.mean(rx_corr_pred_training_rates)])
+
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_success_rates.txt", success_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_jammed_or_fading_rates.txt", jammed_or_fading_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_missed_rates.txt", missed_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_tx_corr_pred_rates.txt", tx_corr_pred_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_rx_corr_pred_rates.txt", rx_corr_pred_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_success_rate.txt", [np.mean(success_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_jammed_or_fading_rates.txt", [np.mean(jammed_or_fading_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_missed_rates.txt", [np.mean(missed_rates)])
+    if USE_PREDICTION:
+        np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_tx_corr_pred_rates.txt", [np.mean(tx_corr_pred_rates)])
+        np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_rx_corr_pred_rates.txt", [np.mean(rx_corr_pred_rates)])

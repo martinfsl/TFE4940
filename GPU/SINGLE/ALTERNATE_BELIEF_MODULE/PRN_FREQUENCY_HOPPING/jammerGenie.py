@@ -210,7 +210,7 @@ class GenieJammer:
         self.type = type
 
         self.agent = jammerPPOGenieAgent(device=device)
-        self.fh = FH_Pattern(L=1, device=device)
+        self.fh = FH_Pattern(L=1, genie = True, device=device)
         self.fh_seeds_used = torch.tensor([], device=device)
 
     def choose_action(self, observation):

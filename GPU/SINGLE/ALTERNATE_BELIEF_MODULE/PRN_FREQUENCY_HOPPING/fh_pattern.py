@@ -4,9 +4,10 @@ import random
 import torch
 
 class FH_Pattern:
-    def __init__(self, L = NUM_HOPS, device = "cpu"):
+    def __init__(self, L = NUM_HOPS, genie = False, device = "cpu"):
         self.L = L
         self.device = device
+        self.genie = genie
 
         # Initialize PRNG objects
         random.seed(100)
@@ -25,7 +26,7 @@ class FH_Pattern:
             self.sequences = torch.cat((self.sequences, torch.tensor(seq, device=self.device).unsqueeze(0)), dim=0)
 
     def get_sequence(self, seed_index):
-        if self.L == 1:
+        if self.L == 1 and self.genie == False:
             # seed_index = seed_index.unsqueeze(0).long()
             # return self.sequences[seed_index].squeeze(0).squeeze(0)
             

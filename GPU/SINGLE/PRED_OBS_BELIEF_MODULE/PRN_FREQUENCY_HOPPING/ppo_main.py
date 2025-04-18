@@ -590,7 +590,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
             # Checking if the prediction was correct
             if tx_seed == predicted_tx_action:
                 num_rx_corr_pred += 1
-            if rx_seed == predicted_rx_action:
+            if (rx_seed == predicted_rx_action) or (predicted_rx_action in rx_additional_seeds):
                 num_tx_corr_pred += 1
 
         tx_agent.fh.generate_sequence()
@@ -733,7 +733,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
                 else:
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
 
-                if tx_transmit_channel == rx_receive_channel:
+                if tx_transmit_channel in rx_receive_channels:
                     jamming_or_fading = True
                 else:
                     num_missed += 1
@@ -809,7 +809,7 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/pred_obs_belief_module/fh/bm_functionality/test_4/0_receive_0_sense"
+    relative_path = f"A_Final_Tests/pred_obs_belief_module/fh/bm_functionality/test_6/0_receive_0_sense"
     # relative_path = f"temp_tests/pred_obs_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
