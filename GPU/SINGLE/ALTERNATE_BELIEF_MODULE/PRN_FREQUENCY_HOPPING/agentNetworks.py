@@ -23,26 +23,26 @@ class PredictionNN(nn.Module):
         super(PredictionNN, self).__init__()
 
         self.input_size = PREDICTION_NETWORK_INPUT_SIZE
-        # self.hidden_size1 = 128
-        # self.hidden_size2 = 64
-        self.hidden_size = 64
+        self.hidden_size1 = 128
+        self.hidden_size2 = 64
+        # self.hidden_size = 64
         self.output_size = PREDICTION_NETWORK_OUTPUT_SIZE
 
         # Defining the fully connected layers
-        # self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
-        # self.dropout1 = nn.Dropout(0.3)
-        # self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
-        # self.dropout2 = nn.Dropout(0.3)
-        # self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
-        self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size1)
         self.dropout1 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(self.hidden_size, self.output_size)
+        self.fc2 = nn.Linear(self.hidden_size1, self.hidden_size2)
+        self.dropout2 = nn.Dropout(0.3)
+        self.fc3 = nn.Linear(self.hidden_size2, self.output_size)
+        # self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+        # self.dropout1 = nn.Dropout(0.3)
+        # self.fc3 = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = self.dropout1(x)
-        # x = torch.relu(self.fc2(x))
-        # x = self.dropout2(x)
+        x = torch.relu(self.fc2(x))
+        x = self.dropout2(x)
         x = self.fc3(x)
 
         return x
@@ -58,9 +58,9 @@ class PredictionNNAgent:
         # self.learning_rate = 0.005
 
         # Parameters for the neural network
-        self.batch_size = 10
-        self.maximum_memory_size = 100
-        self.epochs = 5
+        self.batch_size = BELIEF_MODULE_BATCH_SIZE
+        self.maximum_memory_size = BELIEF_MODULE_MEMORY_SIZE
+        self.epochs = BELIEF_MODULE_EPOCHS
 
         self.device = device
 

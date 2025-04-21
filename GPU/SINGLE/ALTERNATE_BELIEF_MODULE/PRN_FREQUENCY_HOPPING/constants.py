@@ -6,7 +6,7 @@ import numpy as np
 
 NUM_CHANNELS = 20 # Number of channels in the system
 NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 1 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 # LEARNING_RATE = 0.0005
@@ -15,13 +15,19 @@ LEARNING_RATE = 0.00005
 # LEARNING_RATE = 0.000005
 GAMMA = 0.85
 LAMBDA = 0.80
-EPSILON_CLIP = 0.2
+# EPSILON_CLIP = 0.2
+EPSILON_CLIP = 0.25
 T = 25 # Number of steps between each update, i.e. length of the trajectory
 M = 10 # Size of mini-batch during training
-K = 10 # Number of epochs
-C1 = 0.6 # Coefficient for the value loss
-# C2 = 0.05 # Coefficient for the entropy loss
-C2 = 0.15 # Coefficient for the entropy loss
+# K = 10 # Number of epochs
+K = 2 # Number of epochs
+# C1 = 0.5 # Coefficient for the value loss
+# C1 = 0.6 # Coefficient for the value loss
+C1 = 0.75 # Coefficient for the value loss
+# C1 = 0.9 # Coefficient for the value loss
+# C2 = 0.15 # Coefficient for the entropy loss
+# C2 = 0.2 # Coefficient for the entropy loss
+C2 = 0.3 # Coefficient for the entropy loss
 P = 30 # Number of time steps that the prediction observation contains
 
 # Smart jammer hyperparameters
@@ -30,13 +36,19 @@ P = 30 # Number of time steps that the prediction observation contains
 JAMMER_LEARNING_RATE = LEARNING_RATE
 JAMMER_GAMMA = 0.85
 JAMMER_LAMBDA = 0.80
-JAMMER_EPSILON_CLIP = 0.2
+# JAMMER_EPSILON_CLIP = 0.2
+JAMMER_EPSILON_CLIP = EPSILON_CLIP
 # JAMMER_C1 = 0.8 # Coefficient for the value loss
 # JAMMER_C2 = 0.05 # Coefficient for the entropy loss
 JAMMER_C1 = C1 # Coefficient for the value loss
 JAMMER_C2 = C2 # Coefficient for the entropy loss
 
-BELIEF_MODULE_LEARNING_RATE = 0.0005
+# BELIEF_MODULE_LEARNING_RATE = 0.0005
+# BELIEF_MODULE_LEARNING_RATE = 0.001
+BELIEF_MODULE_LEARNING_RATE = 0.005
+BELIEF_MODULE_BATCH_SIZE = 5
+BELIEF_MODULE_MEMORY_SIZE = 50
+BELIEF_MODULE_EPOCHS = 10
 
 # Rewards
 REWARD_SUCCESSFUL = 1 # Reward
@@ -90,7 +102,7 @@ REWARD_DIVERSE = 0 # Reward for choosing a pattern that has not been used in the
 NUM_PREV_PATTERNS = 2 # Number of previous patterns to consider for the penalty
 
 # Frequency-Hopping parameters
-NUM_HOPS = 1
+NUM_HOPS = 5
 NUM_SEEDS = 32
 
 # Determining the state space size
@@ -99,6 +111,7 @@ STATE_SPACE_SIZE = NUM_HOPS*(NUM_SENSE_CHANNELS + 1) + 1
 #################################################################################
 ### Defining input and output sizes for the neural networks
 USE_PREDICTION = True
+# USE_PREDICTION = False
 
 PPO_NETWORK_INPUT_SIZE = STATE_SPACE_SIZE
 if NUM_HOPS == 1:
