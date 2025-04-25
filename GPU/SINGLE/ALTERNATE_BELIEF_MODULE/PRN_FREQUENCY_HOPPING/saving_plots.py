@@ -159,46 +159,58 @@ def save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_ave
 ### Plotting the actor and critic losses
 #################################################################################
 
-def save_results_losses(tx_actor_losses, tx_critic_losses, tx_belief_losses, 
-                        rx_actor_losses, rx_critic_losses, rx_belief_losses,
+def save_results_losses(tx_actor_losses, tx_critic_losses, tx_belief_losses, tx_entropy_losses,
+                        rx_actor_losses, rx_critic_losses, rx_belief_losses, rx_entropy_losses,
                         filepath = None):
     plt.figure(figsize=(12, 8))
 
-    plt.subplot(3, 2, 1)
+    plt.subplot(4, 2, 1)
     plt.plot(tx_actor_losses)
     plt.xlabel("Episode")
     plt.ylabel("Actor Loss")
     plt.title("Actor Loss over episodes during training for Tx")
 
-    plt.subplot(3, 2, 2)
+    plt.subplot(4, 2, 2)
     plt.plot(tx_critic_losses)
     plt.xlabel("Episode")
     plt.ylabel("Critic Loss")
     plt.title("Critic Loss over episodes during training for Tx")
 
-    plt.subplot(3, 2, 3)
+    plt.subplot(4, 2, 3)
     plt.plot(tx_belief_losses)
     plt.xlabel("Episode")
     plt.ylabel("Belief Loss")
     plt.title("Belief Loss over episodes during training for Tx")
 
-    plt.subplot(3, 2, 4)
+    plt.subplot(4, 2, 4)
+    plt.plot(tx_entropy_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Entropy Loss")
+    plt.title("Entropy Loss over episodes during training for Tx")
+
+    plt.subplot(4, 2, 5)
     plt.plot(rx_actor_losses)
     plt.xlabel("Episode")
     plt.ylabel("Actor Loss")
     plt.title("Actor Loss over episodes during training for Rx")
 
-    plt.subplot(3, 2, 5)
+    plt.subplot(4, 2, 6)
     plt.plot(rx_critic_losses)
     plt.xlabel("Episode")
     plt.ylabel("Critic Loss")
     plt.title("Critic Loss over episodes during training for Rx")
 
-    plt.subplot(3, 2, 6)
+    plt.subplot(4, 2, 7)
     plt.plot(rx_belief_losses)
     plt.xlabel("Episode")
     plt.ylabel("Belief Loss")
     plt.title("Belief Loss over episodes during training for Rx")
+
+    plt.subplot(4, 2, 8)
+    plt.plot(rx_entropy_losses)
+    plt.xlabel("Episode")
+    plt.ylabel("Entropy Loss")
+    plt.title("Entropy Loss over episodes during training for Rx")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"PPO algorithm")
@@ -474,5 +486,66 @@ def save_seed_selection_jammer(tx_seed_training, rx_seed_training, jammer_seed_t
 
     if filepath is not None:
         plt.savefig(f"{filepath}/seed_selection.png")
+
+        plt.close()
+
+#################################################################################
+### Plotting predicted actions
+#################################################################################
+
+def save_predicted_actions(tx_predicted_rx_actions_training, rx_predicted_tx_actions_training,
+                           tx_predicted_rx_actions_testing, rx_predicted_tx_actions_testing, filepath = None):
+    plt.figure(figsize=(12, 8))
+    plt.subplot(3, 2, 1)
+    plt.plot(tx_predicted_rx_actions_training)
+    plt.xlabel("Episode")
+    plt.ylabel("Action")
+    plt.title("Tx predicted action during training")
+    plt.ylim([-1, NUM_SEEDS])
+
+    plt.subplot(3, 2, 2)
+    plt.plot(rx_predicted_tx_actions_training)
+    plt.xlabel("Episode")
+    plt.ylabel("Action")
+    plt.title("Rx predicted action during training")
+    plt.ylim([-1, NUM_SEEDS])
+    
+    plt.subplot(3, 2, 3)
+    plt.plot(tx_predicted_rx_actions_training, label = "Tx")
+    plt.plot(rx_predicted_tx_actions_training, label = "Rx")
+    plt.xlabel("Episode")
+    plt.ylabel("Action")
+    plt.title("Predicted action during training")
+    plt.ylim([-1, NUM_SEEDS])
+    plt.legend()
+
+    plt.subplot(3, 2, 4)
+    plt.plot(tx_predicted_rx_actions_testing)
+    plt.xlabel("Episode")
+    plt.ylabel("Action")
+    plt.title("Tx predicted action during testing")
+    plt.ylim([-1, NUM_SEEDS])
+
+    plt.subplot(3, 2, 5)
+    plt.plot(rx_predicted_tx_actions_testing)
+    plt.xlabel("Episode")
+    plt.ylabel("Action")
+    plt.title("Rx predicted action during testing")
+    plt.ylim([-1, NUM_SEEDS])
+    
+    plt.subplot(3, 2, 6)
+    plt.plot(tx_predicted_rx_actions_testing, label = "Tx")
+    plt.plot(rx_predicted_tx_actions_testing, label = "Rx")
+    plt.xlabel("Episode")
+    plt.ylabel("Action")
+    plt.title("Predicted action during testing")
+    plt.ylim([-1, NUM_SEEDS])
+    plt.legend()
+    
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.suptitle(f"Predicted actions")
+    # plt.show()
+    if filepath is not None:
+        plt.savefig(f"{filepath}/predicted_actions.png")
 
         plt.close()

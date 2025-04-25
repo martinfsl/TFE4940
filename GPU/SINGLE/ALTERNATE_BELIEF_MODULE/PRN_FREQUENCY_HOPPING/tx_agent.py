@@ -66,6 +66,7 @@ class txPPOAgent:
         # Logging actor and critic losses
         self.actor_losses = torch.tensor([], device=self.device)
         self.critic_losses = torch.tensor([], device=self.device)
+        self.entropy_losses = torch.tensor([], device=self.device)
 
         # Logging the channel selections
         self.channels_selected = torch.tensor([], device=self.device)
@@ -74,10 +75,17 @@ class txPPOAgent:
         self.fh = FH_Pattern(device = self.device)
         self.fh_seeds_used = torch.tensor([], device=self.device)
 
+        # Belief Module
+        self.predicted_actions = torch.tensor([], device=self.device)
+
     def get_pred_observation(self):
         return self.memory_action_observation.float()
 
     def add_action_observation(self, observed_action):
+        # Add +1 to the action observation to avoid zero being an action
+        if observed_action != -1:
+            observed_action = observed_action + 1
+
         # Move all elements to the left and add the new action at the end
         self.memory_action_observation = torch.cat((self.memory_action_observation[1:], observed_action), dim=0)
 
@@ -152,8 +160,11 @@ class txPPOAgent:
 
     def get_value(self, observation, pred_observation, dimension=0):
         with torch.no_grad():
-            if USE_PREDICTION:
+            if USE_PREDICTION and USE_STANDALONE_BELIEF_MODULE:
                 encoded_belief = self.pred_agent.pred_network(pred_observation)
+            elif USE_PREDICTION and not USE_STANDALONE_BELIEF_MODULE:
+                # Does not use a prediction network
+                encoded_belief = pred_observation
             else:
                 encoded_belief = torch.tensor([], device=self.device)
 
@@ -162,10 +173,14 @@ class txPPOAgent:
     # Only returning the most probable action
     def choose_action(self, observation, pred_observation):
         with torch.no_grad():
-            if USE_PREDICTION:
+            if USE_PREDICTION and USE_STANDALONE_BELIEF_MODULE:
                 # Get the encoded belief from the predictive network
                 encoded_belief = self.pred_agent.pred_network(pred_observation)
                 predicted_action = torch.argmax(encoded_belief).unsqueeze(0)
+            elif USE_PREDICTION and not USE_STANDALONE_BELIEF_MODULE:
+                # Does not use a prediction network
+                encoded_belief = pred_observation
+                predicted_action = torch.tensor([-1], device=self.device)
             else:
                 encoded_belief = torch.tensor([], device=self.device)
                 predicted_action = torch.tensor([-1], device=self.device)
@@ -178,6 +193,8 @@ class txPPOAgent:
         # self.fh_seeds_used = torch.cat((self.fh_seeds_used, action.unsqueeze(0)))
 
         additional_sense = torch.argsort(policy, descending=True)[1:NUM_EXTRA_ACTIONS+1]
+
+        self.predicted_actions = torch.cat((self.predicted_actions, predicted_action), dim=0)
 
         return action.unsqueeze(0), action_logprob, values, additional_sense, predicted_action
     
@@ -224,7 +241,10 @@ class txPPOAgent:
             batch_action = self.memory_action[batch_indices]
             batch_logprob = self.memory_logprob[batch_indices]
             batch_pred_observation = self.memory_pred_observation[batch_indices]
-            batch_encoded_belief = self.pred_agent.pred_network(batch_pred_observation)
+            if USE_STANDALONE_BELIEF_MODULE:
+                batch_encoded_belief = self.pred_agent.pred_network(batch_pred_observation)
+            else:
+                batch_encoded_belief = batch_pred_observation
             batch_return = returns[batch_indices].detach()
             batch_advantage = advantages[batch_indices].detach()
 
@@ -237,14 +257,14 @@ class txPPOAgent:
             surr1 = ratio*batch_advantage
             surr2 = torch.clamp(ratio, 1-self.epsilon_clip, 1+self.epsilon_clip)*batch_advantage
 
-            entropy = -(new_policy*torch.log(new_policy + 1e-8)).sum(dim=1).mean()
+            entropy_loss = -(new_policy*torch.log(new_policy + 1e-8)).sum(dim=1).mean()
 
-            actor_loss = -torch.min(surr1, surr2).mean() - self.c2*entropy
+            actor_loss = -torch.min(surr1, surr2).mean()
 
             batch_value = self.get_value(batch_state, batch_pred_observation, dimension=1)
             critic_loss = nn.MSELoss()(batch_value, batch_return)
             
-            total_loss = actor_loss + self.c1*critic_loss
+            total_loss = actor_loss + self.c1*critic_loss - self.c2*entropy_loss
 
             self.actor_optimizer.zero_grad()
             self.critic_optimizer.zero_grad()
@@ -253,10 +273,9 @@ class txPPOAgent:
             total_loss.backward()
             self.actor_optimizer.step()
             self.critic_optimizer.step()
-            
-        self.actor_network_old.load_state_dict(self.actor_network.state_dict()) # Update the weights of the old network to the current network after each update
 
         self.clear_memory()
 
         self.actor_losses = torch.cat((self.actor_losses, actor_loss.unsqueeze(0)))
         self.critic_losses = torch.cat((self.critic_losses, critic_loss.unsqueeze(0)))
+        self.entropy_losses = torch.cat((self.entropy_losses, entropy_loss.unsqueeze(0)))

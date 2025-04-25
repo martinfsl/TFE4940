@@ -28,7 +28,8 @@ from rx_agent import rxPPOAgent
 from jammer import Jammer
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"
 
 print(f"Is CUDA supported by this system? {torch.cuda.is_available()}")
 print(f"Number of GPUs: {torch.cuda.device_count()}")
@@ -179,7 +180,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_prob_additional_actions, rx_sense_seeds, rx_pred_tx_action = rx_agent.choose_action(rx_observation, rx_pred_observation)
         rx_agent.add_previous_seed(rx_seed)
 
-        if USE_PREDICTION:
+        if USE_PREDICTION and USE_STANDALONE_BELIEF_MODULE:
             if tx_seed == rx_pred_tx_action:
                 num_rx_corr_pred += 1
             if (rx_seed == tx_pred_rx_action) or (tx_pred_rx_action in rx_additional_seeds):
@@ -192,6 +193,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
         # print("rx_seed:", rx_seed)
         # print("rx_additional_seeds: ", rx_additional_seeds)
         # print("rx_sense_seeds: ", rx_sense_seeds)
+
+        # print("tx_pred_rx_action: ", tx_pred_rx_action)
+        # print("rx_pred_tx_action: ", rx_pred_tx_action)
 
         tx_agent.fh.generate_sequence()
         tx_hops = tx_agent.fh.get_sequence(tx_seed)
@@ -456,7 +460,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
         tx_agent.add_action_observation(tx_observed_rx_seed)
         rx_agent.add_action_observation(rx_observed_tx_seed)
 
-        if USE_PREDICTION:
+        if USE_PREDICTION and USE_STANDALONE_BELIEF_MODULE:
             if tx_observed_rx_seed != -1:
                 tx_agent.pred_agent.store_in_memory(tx_pred_observation, tx_observed_rx_seed)
             if rx_observed_tx_seed != -1:
@@ -497,7 +501,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
             rx_agent.update()
 
         # Updating for each episode
-        if USE_PREDICTION:
+        if USE_PREDICTION and USE_STANDALONE_BELIEF_MODULE:
             tx_agent.pred_agent.train()
             rx_agent.pred_agent.train()
 
@@ -541,6 +545,9 @@ def test_ppo(tx_agent, rx_agent, jammers):
         jammers[i].channels_selected = torch.tensor([], device=jammers[i].device)
         if jammers[i].behavior == "genie":
             jammers[i].fh_seeds_used = torch.tensor([], device=jammers[i].device)
+
+    tx_agent.predicted_actions = torch.tensor([], device=tx_agent.device)
+    rx_agent.predicted_actions = torch.tensor([], device=rx_agent.device)
 
     # Initialize the start channel for the sweep
     for jammer in jammers:
@@ -608,7 +615,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
             rx_prob_additional_actions, rx_sense_seeds, rx_pred_tx_action = rx_agent.choose_action(rx_observation, rx_pred_observation)
         rx_agent.add_previous_seed(rx_seed)
 
-        if USE_PREDICTION:
+        if USE_PREDICTION and USE_STANDALONE_BELIEF_MODULE:
             # Checking if the prediction was correct
             if tx_seed == rx_pred_tx_action:
                 num_rx_corr_pred += 1
@@ -848,7 +855,9 @@ if __name__ == '__main__':
     
     num_runs = 5
 
-    relative_path = f"A_Final_Tests/alternate_2_belief_module/fh/bm_functionality/test_19/0_receive_0_sense"
+    # relative_path = f"A_Architecture_Tests/gated_fusion_belief_module/test_1/0_receive_0_sense"
+    relative_path = f"A_Architecture_Tests/a1_belief_module/test_1_pts/0_receive_5_sense"
+    # relative_path = f"A_Architecture_Tests/a1_non_pred_nn_belief_module/test_1_pts/0_receive_0_sense"
     # relative_path = f"temp_tests/alternate_belief_module/fh"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
@@ -907,6 +916,9 @@ if __name__ == '__main__':
         if jammer_behavior == "genie":
             jammer_seed_selection_training = list_of_other_users[0].agent.fh_seeds_used.cpu().detach().numpy()
 
+        tx_predicted_rx_actions_training = tx_agent.predicted_actions.cpu().detach().numpy()
+        rx_predicted_tx_actions_training = rx_agent.predicted_actions.cpu().detach().numpy()
+
         successful_transmission_training_rate = (num_successsful_training/NUM_TEST_RUNS)*100
         jammed_or_fading_training_rate = (num_jammed_or_fading_training/NUM_TEST_RUNS)*100
         missed_training_rate = (num_missed_training/NUM_TEST_RUNS)*100
@@ -937,6 +949,9 @@ if __name__ == '__main__':
         jammer_channel_selection_testing = list_of_other_users[0].channels_selected.cpu().detach().numpy()
         if jammer_behavior == "genie":
             jammer_seed_selection_testing = list_of_other_users[0].agent.fh_seeds_used.cpu().detach().numpy()
+
+        tx_predicted_rx_actions_testing = tx_agent.predicted_actions.cpu().detach().numpy()
+        rx_predicted_tx_actions_testing = rx_agent.predicted_actions.cpu().detach().numpy()
 
         successful_transmission_rate = (num_successful_transmissions/NUM_TEST_RUNS)*100
         jammed_or_fading_rate = (num_jammed_or_fading/NUM_TEST_RUNS)*100
@@ -1011,8 +1026,9 @@ if __name__ == '__main__':
         save_results_plot(tx_average_rewards, rx_average_rewards, prob_tx_channel, prob_rx_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_probability_selection(prob_tx_channel, prob_rx_channel, prob_jammer_channel, jammer_type, filepath = relative_path_run+"/plots")
         save_results_losses(tx_agent.actor_losses.cpu().detach().numpy(), tx_agent.critic_losses.cpu().detach().numpy(),
-                            tx_agent.pred_agent.losses.cpu().detach().numpy(), rx_agent.actor_losses.cpu().detach().numpy(), 
-                            rx_agent.critic_losses.cpu().detach().numpy(), rx_agent.pred_agent.losses.cpu().detach().numpy(),
+                            tx_agent.pred_agent.losses.cpu().detach().numpy(), tx_agent.entropy_losses.cpu().detach().numpy(),
+                            rx_agent.actor_losses.cpu().detach().numpy(), rx_agent.critic_losses.cpu().detach().numpy(), 
+                            rx_agent.pred_agent.losses.cpu().detach().numpy(), rx_agent.entropy_losses.cpu().detach().numpy(),
                             filepath = relative_path_run+"/plots")
         # save_channel_selection_training(tx_agent.channels_selected.cpu().detach().numpy(), rx_agent.channels_selected.cpu().detach().numpy(), 
         #                                 list_of_other_users[0].channels_selected.cpu().detach().numpy(), filepath = relative_path_run+"/plots")
@@ -1025,6 +1041,8 @@ if __name__ == '__main__':
         if jammer_behavior == "genie":
             save_seed_selection_jammer(tx_seed_selection_training, rx_seed_selection_training, jammer_seed_selection_training,
                                        tx_seed_selection_testing, rx_seed_selection_testing, jammer_seed_selection_testing, filepath = relative_path_run+"/plots")
+        save_predicted_actions(tx_predicted_rx_actions_training, rx_predicted_tx_actions_training,
+                               tx_predicted_rx_actions_testing, rx_predicted_tx_actions_testing, filepath = relative_path_run+"/plots")
 
     # if jammer_type == "smart":
     #     plot_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_average_rewards, prob_tx_channel, prob_rx_channel, prob_jammer_channel)
