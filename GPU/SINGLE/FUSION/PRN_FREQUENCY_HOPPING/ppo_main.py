@@ -850,7 +850,8 @@ if __name__ == '__main__':
     # relative_path = f"A_Architecture_Tests/a1_belief_module/test_1_pts/0_receive_5_sense"
     # relative_path = f"A_Architecture_Tests/a1_non_pred_nn_belief_module/test_1_pts/0_receive_0_sense"
     # relative_path = f"temp_tests/alternate_belief_module/fh"
-    relative_path = f"A_Architecture_Tests/fusion/test_1/0_receive_0_sense"
+    # relative_path = f"A_Architecture_Tests/fusion/test_4/5_receive_0_sense"
+    relative_path = f"A_A_Tests_Maybe_Final/fusion/Scaling/NUM_CHANNELS/100_channels/0_receive_0_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 

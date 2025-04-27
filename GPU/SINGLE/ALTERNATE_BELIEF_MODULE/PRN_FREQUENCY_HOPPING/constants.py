@@ -17,7 +17,7 @@ T = 50 # Number of steps between each update, i.e. length of the trajectory
 M = 20 # Size of mini-batch during training
 K = 5 # Number of epochs
 C1 = 0.7 # Coefficient for the value loss
-C2 = 0.2 # Coefficient for the entropy loss
+C2 = 0.01 # Coefficient for the entropy loss
 P = 30 # Number of time steps that the prediction observation contains
 
 # Smart jammer hyperparameters

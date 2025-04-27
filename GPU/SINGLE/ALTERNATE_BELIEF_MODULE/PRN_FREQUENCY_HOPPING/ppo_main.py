@@ -856,7 +856,7 @@ if __name__ == '__main__':
     num_runs = 5
 
     # relative_path = f"A_Architecture_Tests/gated_fusion_belief_module/test_1/0_receive_0_sense"
-    relative_path = f"A_Architecture_Tests/a1_belief_module/test_1_pts/0_receive_5_sense"
+    relative_path = f"A_Architecture_Tests/a1_belief_module/test_5_pts/0_receive_0_sense"
     # relative_path = f"A_Architecture_Tests/a1_non_pred_nn_belief_module/test_1_pts/0_receive_0_sense"
     # relative_path = f"temp_tests/alternate_belief_module/fh"
     if not os.path.exists(relative_path):

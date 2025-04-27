@@ -119,7 +119,8 @@ class BeliefEncoder(nn.Module):
         self.belief_proj = nn.Linear(PREDICTION_NETWORK_INPUT_SIZE, PREDICTION_NETWORK_OUTPUT_SIZE)
 
     def forward(self, belief, dimension=0):
-        return torch.softmax(self.belief_proj(belief), dim=dimension)
+        # return torch.softmax(self.belief_proj(belief), dim=dimension)
+        return torch.relu(self.belief_proj(belief))
 
 class ActorNetwork(nn.Module):
     def __init__(self):
@@ -130,7 +131,7 @@ class ActorNetwork(nn.Module):
 
 
         self.fusion_size = PPO_NETWORK_INPUT_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
-        self.hidden_size = 32
+        self.hidden_size = 64
         self.output_size = PPO_NETWORK_OUTPUT_SIZE
 
         # Defining the fully connected layers
@@ -163,7 +164,7 @@ class CriticNetwork(nn.Module):
 
 
         self.fusion_size = PPO_NETWORK_INPUT_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
-        self.hidden_size = 32
+        self.hidden_size = 64
         self.output_size = 1
 
         # Defining the fully connected layers

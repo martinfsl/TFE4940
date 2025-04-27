@@ -5,7 +5,7 @@ import numpy as np
 #################################################################################
 
 NUM_CHANNELS = 20 # Number of channels in the system
-NUM_EXTRA_ACTIONS = 5 # Number of extra channels that the Tx and Rx can sense
+NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
 NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
@@ -14,12 +14,12 @@ GAMMA = 0.85
 LAMBDA = 0.80
 EPSILON_CLIP = 0.2
 T = 50 # Number of steps between each update, i.e. length of the trajectory
-M = 20 # Size of mini-batch during training
+M = 30 # Size of mini-batch during training
 K = 5 # Number of epochs
 C1 = 0.7 # Coefficient for the value loss
-C2 = 0.2 # Coefficient for the entropy loss
+C2 = 0.1 # Coefficient for the entropy loss
 C3 = 0.2 # Coefficient for the belief loss
-P = 30 # Number of time steps that the prediction observation contains
+P = 20 # Number of time steps that the prediction observation contains
 
 # Smart jammer hyperparameters
 JAMMER_LEARNING_RATE = LEARNING_RATE
