@@ -104,7 +104,8 @@ def train_ppo(tx_agent, rx_agent, jammers):
     jammer_average_rewards = []
 
     num_successful_transmissions = 0
-    num_jammed_or_fading = 0
+    num_jammed = 0
+    num_fading = 0
     num_missed = 0
     num_tx_corr_pred = 0
     num_rx_corr_pred = 0
@@ -316,7 +317,9 @@ def train_ppo(tx_agent, rx_agent, jammers):
             # Calculate the reward based on the patterns chosen
             # ACK is sent from the receiver
             success = False
-            jamming_or_fading = False
+            jamming = False
+            fading = False
+            missed = False
             if received_signal_rx(tx_transmit_channel.long(), rx_receive_channels.long(), rx_observed_power, rx_channel_noise[i]):
                 rx_reward_hop = REWARD_SUCCESSFUL
 
@@ -331,7 +334,11 @@ def train_ppo(tx_agent, rx_agent, jammers):
                 else:
                     # tx_reward += REWARD_INTERFERENCE
                     tx_reward_hop = REWARD_MISS
-                    jamming_or_fading = True
+                    
+                    if tx_transmit_channel in jammer_channels:
+                        jamming = True
+                    else:
+                        fading = True
 
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
             else:
@@ -357,14 +364,21 @@ def train_ppo(tx_agent, rx_agent, jammers):
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
 
                 if tx_transmit_channel in rx_receive_channels:
-                    jamming_or_fading = True
+                    if tx_transmit_channel in jammer_channels:
+                        jamming = True
+                    else:
+                        fading = True
                 else:
-                    num_missed += 1
+                    missed = True
 
             if success:
                 num_successful_transmissions += 1
-            if jamming_or_fading:
-                num_jammed_or_fading += 1
+            if jamming:
+                num_jammed += 1
+            if fading:
+                num_fading += 1
+            if missed:
+                num_missed += 1
 
             for j in range(len(jammers)):
                 if jammers[j].behavior == "smart" or jammers[j].behavior == "genie":
@@ -504,7 +518,7 @@ def train_ppo(tx_agent, rx_agent, jammers):
     print("Training complete")
 
     return tx_average_rewards, rx_average_rewards, jammer_average_rewards, \
-        num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_corr_pred, num_rx_corr_pred
+        num_successful_transmissions, num_jammed, num_fading, num_missed, num_tx_corr_pred, num_rx_corr_pred
 
 #################################################################################
 ### Test the DQN, extended state space
@@ -516,7 +530,8 @@ def test_ppo(tx_agent, rx_agent, jammers):
 
     print("Testing")
     num_successful_transmissions = 0
-    num_jammed_or_fading = 0
+    num_jammed = 0
+    num_fading = 0
     num_missed = 0
     num_tx_successful_hop_transmissions = 0
     num_rx_successful_hop_transmissions = 0
@@ -716,7 +731,9 @@ def test_ppo(tx_agent, rx_agent, jammers):
             # Calculate the reward based on the patterns chosen
             # ACK is sent from the receiver
             success = False
-            jamming_or_fading = False
+            jamming = False
+            fading = False
+            missed = False
             if received_signal_rx(tx_transmit_channel.long(), rx_receive_channels.long(), rx_observed_power, rx_channel_noise[i]):
                 rx_reward += REWARD_SUCCESSFUL
 
@@ -730,7 +747,11 @@ def test_ppo(tx_agent, rx_agent, jammers):
                     tx_observed_rx = torch.concat((tx_observed_rx, tx_transmit_channel), dim=0)
                 else:
                     tx_reward += REWARD_INTERFERENCE
-                    jamming_or_fading = True
+                    
+                    if tx_transmit_channel in jammer_channels:
+                        jamming = True
+                    else:
+                        fading = True
 
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
             else:
@@ -754,15 +775,21 @@ def test_ppo(tx_agent, rx_agent, jammers):
                     tx_observed_rx = torch.concat((tx_observed_rx, torch.tensor([-1], device=device)), dim=0)
 
                 if tx_transmit_channel in rx_receive_channels:
-                    jamming_or_fading = True
+                    if tx_transmit_channel in jammer_channels:
+                        jamming = True
+                    else:
+                        fading = True
                 else:
-                    num_missed += 1
+                    missed = True
 
             if success:
                 num_successful_transmissions += 1
-            if jamming_or_fading:
-                num_jammed_or_fading += 1
-
+            if jamming:
+                num_jammed += 1
+            if fading:
+                num_fading += 1
+            if missed:
+                num_missed += 1
 
             for j in range(len(jammers)):
                 if jammers[j].behavior == "smart" or jammers[j].behavior == "genie":
@@ -820,7 +847,7 @@ def test_ppo(tx_agent, rx_agent, jammers):
     for i in range(len(jammers)):
         probability_jammer_channel_selected.append(num_jammer_channel_selected[i] / np.sum(num_jammer_channel_selected[i]))
 
-    return num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
+    return num_successful_transmissions, num_jammed, num_fading, num_missed, num_tx_successful_hop_transmissions, \
         num_rx_successful_hop_transmissions, probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected, \
         num_tx_corr_pred, num_rx_corr_pred
 
@@ -831,14 +858,16 @@ def test_ppo(tx_agent, rx_agent, jammers):
 if __name__ == '__main__':
 
     success_training_rates = []
-    jammed_or_fading_training_rates = []
+    jammed_training_rates = []
+    fading_training_rates = []
     missed_training_rates = []
 
     tx_corr_pred_training_rates = []
     rx_corr_pred_training_rates = []
 
     success_rates = []
-    jammed_or_fading_rates = []
+    jammed_rates = []
+    fading_rates = []
     missed_rates = []
 
     tx_corr_pred_rates = []
@@ -846,12 +875,18 @@ if __name__ == '__main__':
     
     num_runs = 5
 
+    jammer_types_idx = {"random": 0, "probabilistic": 1, "sweeping": 2, "tracking": 3, "smart_ppo": 4, "PPO_Genie": 5}
+    jammer_types = ["random", "probabilistic", "sweeping", "tracking", "smart_ppo", "PPO_Genie"]
+    jammer_type = "smart_ppo"
+    # jammer_type = "tracking"
+
     # relative_path = f"A_Architecture_Tests/gated_fusion_belief_module/test_1/0_receive_0_sense"
     # relative_path = f"A_Architecture_Tests/a1_belief_module/test_1_pts/0_receive_5_sense"
     # relative_path = f"A_Architecture_Tests/a1_non_pred_nn_belief_module/test_1_pts/0_receive_0_sense"
     # relative_path = f"temp_tests/alternate_belief_module/fh"
     # relative_path = f"A_Architecture_Tests/fusion/test_4/5_receive_0_sense"
-    relative_path = f"A_A_Tests_Maybe_Final/fusion/Scaling/NUM_CHANNELS/100_channels/0_receive_0_sense"
+    # relative_path = f"A_A_Tests_Maybe_Final/fusion/Standard/test_pts/0_receive_0_sense"
+    relative_path = f"A_A_A_Final_Tests/fusion/Hop_length_100/test/{jammer_type}/0_receive_5_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -866,38 +901,38 @@ if __name__ == '__main__':
 
         list_of_other_users = []
 
-        # random_1 = Jammer(behavior = "random", device = device)
-        # list_of_other_users.append(random_1)
-        # jammer_type = "random"
-        # jammer_behavior = "naive"
+        if jammer_type == "random":
+            random_1 = Jammer(behavior = "random", device = device)
+            list_of_other_users.append(random_1)
+            jammer_behavior = "naive"
 
-        # prob_1 = Jammer(behavior = "probabilistic", weights = [5, 1, 1, 1, 3]*(NUM_CHANNELS//5), device = device)
-        # list_of_other_users.append(prob_1)
-        # jammer_type = "probabilistic [5, 1, 1, 1, 3]"
-        # jammer_behavior = "naive"
+        if jammer_type == "probabilistic":
+            prob_1 = Jammer(behavior = "probabilistic", weights = [5, 1, 1, 1, 3]*(NUM_CHANNELS//5), device = device)
+            list_of_other_users.append(prob_1)
+            jammer_behavior = "naive"
 
-        # sweep_1 = Jammer(behavior = "sweep", channel = 2, sweep_interval = 1, device = device)
-        # list_of_other_users.append(sweep_1)
-        # jammer_type = "sweeping"
-        # jammer_behavior = "naive"
+        if jammer_type == "sweeping":
+            sweep_1 = Jammer(behavior = "sweep", channel = 2, sweep_interval = 1, device = device)
+            list_of_other_users.append(sweep_1)
+            jammer_behavior = "naive"
 
-        # tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
-        # list_of_other_users.append(tracking_1)
-        # jammer_type = "tracking"
-        # jammer_behavior = "naive"
+        if jammer_type == "tracking":
+            tracking_1 = Jammer(behavior = "tracking", channel = 0, device = device)
+            list_of_other_users.append(tracking_1)
+            jammer_behavior = "naive"
 
-        smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
-        list_of_other_users.append(smart)
-        jammer_type = "smart_ppo"
-        jammer_behavior = "smart"
+        if jammer_type == "smart_ppo":
+            smart = Jammer(behavior = "smart", smart_type = "PPO", device = device)
+            list_of_other_users.append(smart)
+            jammer_behavior = "smart"
 
-        # genie = Jammer(behavior = "genie", smart_type = "PPO_Genie", device = device)
-        # list_of_other_users.append(genie)
-        # jammer_type = "PPO_Genie"
-        # jammer_behavior = "genie"
+        if jammer_type == "PPO_Genie":
+            genie = Jammer(behavior = "genie", smart_type = "PPO_Genie", device = device)
+            list_of_other_users.append(genie)
+            jammer_behavior = "genie"
 
         tx_average_rewards, rx_average_rewards, jammer_average_rewards, num_successsful_training, \
-            num_jammed_or_fading_training, num_missed_training, \
+            num_jammed_training, num_fading_training, num_missed_training, \
             num_tx_corr_pred_training, num_rx_corr_pred_training = train_ppo(tx_agent, rx_agent, list_of_other_users)
         print("Jammer average rewards size: ", len(jammer_average_rewards))
 
@@ -913,25 +948,28 @@ if __name__ == '__main__':
         rx_predicted_tx_actions_training = rx_agent.predicted_actions.cpu().detach().numpy()
 
         successful_transmission_training_rate = (num_successsful_training/NUM_TEST_RUNS)*100
-        jammed_or_fading_training_rate = (num_jammed_or_fading_training/NUM_TEST_RUNS)*100
+        jammed_training_rate = (num_jammed_training/NUM_TEST_RUNS)*100
+        fading_training_rate = (num_fading_training/NUM_TEST_RUNS)*100
         missed_training_rate = (num_missed_training/NUM_TEST_RUNS)*100
         tx_corr_pred_training_rate = (num_tx_corr_pred_training/(NUM_TEST_RUNS/NUM_HOPS))*100
         rx_corr_pred_training_rate = (num_rx_corr_pred_training/(NUM_TEST_RUNS/NUM_HOPS))*100
 
         print("Finished training:")
         print("Successful transmission rate: ", successful_transmission_training_rate, "%")
-        print("Jammed or Faded transmission rate: ", jammed_or_fading_training_rate, "%")
+        print("Jammed transmission rate: ", jammed_training_rate, "%")
+        print("Faded transmission rate: ", fading_training_rate, "%")
         print("Num missed rate: ", missed_training_rate, "%")
         if USE_PREDICTION:
             print("Tx correct prediction rate: ", tx_corr_pred_training_rate)
             print("Rx correct prediction rate: ", rx_corr_pred_training_rate)
         success_training_rates.append(successful_transmission_training_rate)
-        jammed_or_fading_training_rates.append(jammed_or_fading_training_rate)
+        jammed_training_rates.append(jammed_training_rate)
+        fading_training_rates.append(fading_training_rate)
         missed_training_rates.append(missed_training_rate)
         tx_corr_pred_training_rates.append(tx_corr_pred_training_rate)
         rx_corr_pred_training_rates.append(rx_corr_pred_training_rate)
 
-        num_successful_transmissions, num_jammed_or_fading, num_missed, num_tx_successful_hop_transmissions, \
+        num_successful_transmissions, num_jammed, num_fading, num_missed, num_tx_successful_hop_transmissions, \
             num_rx_successful_hop_transmissions, prob_tx_channel, prob_rx_channel, prob_jammer_channel, \
             num_tx_corr_pred, num_rx_corr_pred = test_ppo(tx_agent, rx_agent, list_of_other_users)
 
@@ -947,7 +985,8 @@ if __name__ == '__main__':
         rx_predicted_tx_actions_testing = rx_agent.predicted_actions.cpu().detach().numpy()
 
         successful_transmission_rate = (num_successful_transmissions/NUM_TEST_RUNS)*100
-        jammed_or_fading_rate = (num_jammed_or_fading/NUM_TEST_RUNS)*100
+        jammed_rate = (num_jammed/NUM_TEST_RUNS)*100
+        fading_rate = (num_fading/NUM_TEST_RUNS)*100
         missed_rate = (num_missed/NUM_TEST_RUNS)*100
 
         tx_corr_pred_rate = (num_tx_corr_pred/(NUM_TEST_RUNS/NUM_HOPS))*100
@@ -955,18 +994,20 @@ if __name__ == '__main__':
 
         print("Finished testing:")
         print("Successful transmission rate: ", successful_transmission_rate, "%")
-        print("Jammed or Faded transmission rate: ", jammed_or_fading_rate, "%")
+        print("Jammed transmission rate: ", jammed_rate, "%")
+        print("Faded transmission rate: ", fading_rate, "%")
         print("Num missed rate: ", missed_rate, "%")
         if USE_PREDICTION:
             print("Tx correct prediction rate: ", tx_corr_pred_rate)
             print("Rx correct prediction rate: ", rx_corr_pred_rate)
         success_rates.append(successful_transmission_rate)
-        jammed_or_fading_rates.append(jammed_or_fading_rate)
+        jammed_rates.append(jammed_rate)
+        fading_rates.append(fading_rate)
         missed_rates.append(missed_rate)
         tx_corr_pred_rates.append(tx_corr_pred_rate)
         rx_corr_pred_rates.append(rx_corr_pred_rate)
 
-        relative_path_run = f"{relative_path}/{jammer_type}/{run+1}"
+        relative_path_run = f"{relative_path}/{run+1}"
         if not os.path.exists(relative_path_run):
             os.makedirs(relative_path_run)
         if not os.path.exists(f"{relative_path_run}/plots"):
@@ -989,13 +1030,15 @@ if __name__ == '__main__':
         np.savetxt(f"{relative_path_run}/data/critic_losses_rx.txt", rx_agent.critic_losses.cpu().detach().numpy())
         np.savetxt(f"{relative_path_run}/data/average_reward_jammer.txt", jammer_average_rewards)
         np.savetxt(f"{relative_path_run}/training_data/success_training_rates.txt", [successful_transmission_training_rate])
-        np.savetxt(f"{relative_path_run}/training_data/jammed_or_fading_training_rates.txt", [jammed_or_fading_training_rate])
+        np.savetxt(f"{relative_path_run}/training_data/jammed_training_rates.txt", [jammed_training_rate])
+        np.savetxt(f"{relative_path_run}/training_data/fading_training_rates.txt", [fading_training_rate])
         np.savetxt(f"{relative_path_run}/training_data/missed_training_rates.txt", [missed_training_rate])
         if USE_PREDICTION:
             np.savetxt(f"{relative_path_run}/training_data/tx_corr_pred_training_rates.txt", [tx_corr_pred_training_rate])
             np.savetxt(f"{relative_path_run}/training_data/rx_corr_pred_training_rates.txt", [rx_corr_pred_training_rate])
         np.savetxt(f"{relative_path_run}/testing_data/success_rates.txt", [successful_transmission_rate])
-        np.savetxt(f"{relative_path_run}/testing_data/jammed_or_fading_rates.txt", [jammed_or_fading_rate])
+        np.savetxt(f"{relative_path_run}/testing_data/jammed_rates.txt", [jammed_rate])
+        np.savetxt(f"{relative_path_run}/testing_data/fading_rates.txt", [fading_rate])
         np.savetxt(f"{relative_path_run}/testing_data/missed_rates.txt", [missed_rate])
         if USE_PREDICTION:
             np.savetxt(f"{relative_path_run}/testing_data/tx_corr_pred_rates.txt", [tx_corr_pred_rate])
@@ -1048,7 +1091,8 @@ if __name__ == '__main__':
     if num_runs > 1:
         print("Average training data:")
         print("Average success rate: ", np.mean(success_training_rates), "%")
-        print("Average jammed / fading rate: ", np.mean(jammed_or_fading_training_rates), "%")
+        print("Average jammed rate: ", np.mean(jammed_training_rates), "%")
+        print("Average fading rate: ", np.mean(fading_training_rates), "%")
         print("Average missed rate: ", np.mean(missed_training_rates), "%")
         if USE_PREDICTION:
             print("Average Tx correct prediction rate: ", np.mean(tx_corr_pred_training_rates))
@@ -1056,7 +1100,8 @@ if __name__ == '__main__':
         print()
         print("Average testing data:")
         print("Average success rate: ", np.mean(success_rates), "%")
-        print("Average jammed / fading rate: ", np.mean(jammed_or_fading_rates), "%")
+        print("Average jammed rate: ", np.mean(jammed_rates), "%")
+        print("Average fading rate: ", np.mean(fading_rates), "%")
         print("Average missed rate: ", np.mean(missed_rates), "%")
         if USE_PREDICTION:
             print("Average Tx correct prediction rate: ", np.mean(tx_corr_pred_rates))
@@ -1068,24 +1113,27 @@ if __name__ == '__main__':
         os.makedirs(f"{relative_path}/{jammer_type}/testing_data")
 
     np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_success_training_rates.txt", success_training_rates)
-    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_jammed_or_fading_training_rates.txt", jammed_or_fading_training_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_jammed_training_rates.txt", jammed_training_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_fading_training_rates.txt", fading_training_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_missed_training_rates.txt", missed_training_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_tx_corr_pred_training_rates.txt", tx_corr_pred_training_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/training_data/all_rx_corr_pred_training_rates.txt", rx_corr_pred_training_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_success_training_rate.txt", [np.mean(success_training_rates)])
-    np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_jammed_or_fading_training_rates.txt", [np.mean(jammed_or_fading_training_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_jammed_training_rates.txt", [np.mean(jammed_training_rates)])
     np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_missed_training_rates.txt", [np.mean(missed_training_rates)])
     if USE_PREDICTION:
         np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_tx_corr_pred_training_rates.txt", [np.mean(tx_corr_pred_training_rates)])
         np.savetxt(f"{relative_path}/{jammer_type}/training_data/average_rx_corr_pred_training_rates.txt", [np.mean(rx_corr_pred_training_rates)])
 
     np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_success_rates.txt", success_rates)
-    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_jammed_or_fading_rates.txt", jammed_or_fading_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_jammed_rates.txt", jammed_rates)
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_fading_rates.txt", fading_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_missed_rates.txt", missed_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_tx_corr_pred_rates.txt", tx_corr_pred_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/testing_data/all_rx_corr_pred_rates.txt", rx_corr_pred_rates)
     np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_success_rate.txt", [np.mean(success_rates)])
-    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_jammed_or_fading_rates.txt", [np.mean(jammed_or_fading_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_jammed_rates.txt", [np.mean(jammed_rates)])
+    np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_fading_rates.txt", [np.mean(fading_rates)])
     np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_missed_rates.txt", [np.mean(missed_rates)])
     if USE_PREDICTION:
         np.savetxt(f"{relative_path}/{jammer_type}/testing_data/average_tx_corr_pred_rates.txt", [np.mean(tx_corr_pred_rates)])
