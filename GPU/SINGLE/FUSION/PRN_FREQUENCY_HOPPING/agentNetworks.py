@@ -130,7 +130,8 @@ class ActorNetwork(nn.Module):
         # self.gate = GatedFusion()
 
 
-        self.fusion_size = PPO_NETWORK_INPUT_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
+        # self.fusion_size = PPO_NETWORK_INPUT_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
+        self.fusion_size = 64 + PREDICTION_NETWORK_OUTPUT_SIZE
         self.hidden_size = 64
         self.output_size = PPO_NETWORK_OUTPUT_SIZE
 
@@ -145,7 +146,8 @@ class ActorNetwork(nn.Module):
     def forward(self, obs, encoded_belief, dimension=0):
         encoded_obs = self.obs_encoder(obs)
         if USE_PREDICTION:
-            fused = torch.cat([obs, encoded_belief], dim=dimension)
+            # fused = torch.cat([obs, encoded_belief], dim=dimension)
+            fused = torch.cat([encoded_obs, encoded_belief], dim=dimension)
             # fused = self.gate(encoded_obs, encoded_belief, dimension)
         else:
             fused = encoded_obs
@@ -163,7 +165,8 @@ class CriticNetwork(nn.Module):
         # self.gate = GatedFusion()
 
 
-        self.fusion_size = PPO_NETWORK_INPUT_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
+        # self.fusion_size = PPO_NETWORK_INPUT_SIZE + PREDICTION_NETWORK_OUTPUT_SIZE
+        self.fusion_size = 64 + PREDICTION_NETWORK_OUTPUT_SIZE
         self.hidden_size = 64
         self.output_size = 1
 
@@ -178,7 +181,8 @@ class CriticNetwork(nn.Module):
     def forward(self, obs, encoded_belief, dimension=0):
         encoded_obs = self.obs_encoder(obs)
         if USE_PREDICTION:
-            fused = torch.cat([obs, encoded_belief], dim=dimension)
+            # fused = torch.cat([obs, encoded_belief], dim=dimension)
+            fused = torch.cat([encoded_obs, encoded_belief], dim=dimension)
             # fused = self.gate(encoded_obs, encoded_belief, dimension)
         else:
             fused = encoded_obs

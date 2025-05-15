@@ -877,7 +877,8 @@ if __name__ == '__main__':
 
     jammer_types_idx = {"random": 0, "probabilistic": 1, "sweeping": 2, "tracking": 3, "smart_ppo": 4, "PPO_Genie": 5}
     jammer_types = ["random", "probabilistic", "sweeping", "tracking", "smart_ppo", "PPO_Genie"]
-    jammer_type = "smart_ppo"
+    jammer_type = "PPO_Genie"
+    # jammer_type = "smart_ppo"
     # jammer_type = "tracking"
 
     # relative_path = f"A_Architecture_Tests/gated_fusion_belief_module/test_1/0_receive_0_sense"
@@ -886,7 +887,8 @@ if __name__ == '__main__':
     # relative_path = f"temp_tests/alternate_belief_module/fh"
     # relative_path = f"A_Architecture_Tests/fusion/test_4/5_receive_0_sense"
     # relative_path = f"A_A_Tests_Maybe_Final/fusion/Standard/test_pts/0_receive_0_sense"
-    relative_path = f"A_A_A_Final_Tests/fusion/Hop_length_100/test/{jammer_type}/0_receive_5_sense"
+    # relative_path = f"A_A_A_Final_Tests/fusion/Hop_length_100/test/{jammer_type}/0_receive_5_sense"
+    relative_path = f"A_A_A_Final_Tests/fusion_with_obs_encoder/Standard/test/{jammer_type}/0_receive_5_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
