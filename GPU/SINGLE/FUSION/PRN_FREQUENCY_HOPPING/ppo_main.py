@@ -877,9 +877,10 @@ if __name__ == '__main__':
 
     jammer_types_idx = {"random": 0, "probabilistic": 1, "sweeping": 2, "tracking": 3, "smart_ppo": 4, "PPO_Genie": 5}
     jammer_types = ["random", "probabilistic", "sweeping", "tracking", "smart_ppo", "PPO_Genie"]
-    jammer_type = "PPO_Genie"
-    # jammer_type = "smart_ppo"
+    # jammer_type = "PPO_Genie"
+    jammer_type = "smart_ppo"
     # jammer_type = "tracking"
+    # jammer_type = "3_sweeping"
 
     # relative_path = f"A_Architecture_Tests/gated_fusion_belief_module/test_1/0_receive_0_sense"
     # relative_path = f"A_Architecture_Tests/a1_belief_module/test_1_pts/0_receive_5_sense"
@@ -888,7 +889,9 @@ if __name__ == '__main__':
     # relative_path = f"A_Architecture_Tests/fusion/test_4/5_receive_0_sense"
     # relative_path = f"A_A_Tests_Maybe_Final/fusion/Standard/test_pts/0_receive_0_sense"
     # relative_path = f"A_A_A_Final_Tests/fusion/Hop_length_100/test/{jammer_type}/0_receive_5_sense"
-    relative_path = f"A_A_A_Final_Tests/fusion_with_obs_encoder/Standard/test/{jammer_type}/0_receive_5_sense"
+
+    # relative_path = f"A_A_A_Final_Tests/fusion_with_obs_encoder/Standard/test_pts/{jammer_type}/0_receive_5_sense"
+    relative_path = f"A_A_A_Final_Tests/fusion_with_obs_encoder/Channels_100/test_pts/{jammer_type}/2_receive_0_sense"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
@@ -916,6 +919,11 @@ if __name__ == '__main__':
         if jammer_type == "sweeping":
             sweep_1 = Jammer(behavior = "sweep", channel = 2, sweep_interval = 1, device = device)
             list_of_other_users.append(sweep_1)
+            jammer_behavior = "naive"
+ 
+        if jammer_type == "3_sweeping":
+            sweep_2 = Jammer(behavior = "sweep", channel = 2, sweep_interval = 3, device = device)
+            list_of_other_users.append(sweep_2)
             jammer_behavior = "naive"
 
         if jammer_type == "tracking":
