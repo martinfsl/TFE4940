@@ -6,10 +6,10 @@ from constants import *
 ### Plotting the results
 #################################################################################
 
-def save_results_plot(tx_average_rewards, rx_average_rewards, probability_tx_channel_selected, probability_rx_channel_selected, jammer_type, filepath = None):
+def save_results_plot(tx_average_rewards, rx_average_rewards, probability_channel_selected, jammer_type, filepath = None):
     plt.figure(figsize=(12, 8))
 
-    plt.subplot(2, 2, 1)
+    plt.subplot(3, 1, 1)
     plt.plot(tx_average_rewards)
     # plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
     plt.xlabel("Episode")
@@ -17,7 +17,7 @@ def save_results_plot(tx_average_rewards, rx_average_rewards, probability_tx_cha
     plt.title("Tx average reward over episodes during training")
     plt.legend()
 
-    plt.subplot(2, 2, 2)
+    plt.subplot(3, 1, 2)
     plt.plot(rx_average_rewards)
     # plt.axvline(x=2*DQN_BATCH_SIZE, color='r', linestyle='--', label='2*Batch Size (Here training begins)')
     plt.xlabel("Episode")
@@ -25,17 +25,11 @@ def save_results_plot(tx_average_rewards, rx_average_rewards, probability_tx_cha
     plt.title("Rx average reward over episodes during training")
     plt.legend()
     
-    plt.subplot(2, 2, 3)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected)
+    plt.subplot(3, 1, 3)
+    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_channel_selected)
     plt.xlabel("Channel")
     plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Tx during testing")
-
-    plt.subplot(2, 2, 4)
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_rx_channel_selected)
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Rx during testing")
+    plt.title("Probability of channel selection during testing")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"PPO algorithm, {NUM_CHANNELS} channels, 1 {jammer_type}")
@@ -68,28 +62,16 @@ def save_jammer_results_plot(jammer_average_rewards, filepath = None):
 ### Plotting the probability of selections
 #################################################################################
 
-def save_probability_selection(probability_tx_channel_selected, probability_rx_channel_selected, probability_jammer_channel_selected, jammer_type, filepath = None):
+def save_probability_selection(probability_channel_selected, probability_jammer_channel_selected, jammer_type, filepath = None):
     plt.figure(figsize=(8, 4))
 
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_tx_channel_selected)
+    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_channel_selected)
     plt.xlabel("Channel")
     plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Tx during testing")
+    plt.title("Probability of channel selection during testing")
 
     if filepath is not None:
-        plt.savefig(f"{filepath}/probability_tx_channel_selected.png")
-
-        plt.close()
-
-    plt.figure(figsize=(8, 4))
-
-    plt.bar(np.arange(1, NUM_CHANNELS+1, 1), probability_rx_channel_selected)
-    plt.xlabel("Channel")
-    plt.ylabel("Probability of channel selection")
-    plt.title("Probability of channel selection for Rx during testing")
-
-    if filepath is not None:
-        plt.savefig(f"{filepath}/probability_rx_channel_selected.png")
+        plt.savefig(f"{filepath}/probability_channel_selected.png")
 
         plt.close()
 
@@ -159,58 +141,26 @@ def save_results_smart_jammer(tx_average_rewards, rx_average_rewards, jammer_ave
 ### Plotting the actor and critic losses
 #################################################################################
 
-def save_results_losses(tx_actor_losses, tx_critic_losses, tx_belief_losses, tx_entropy_losses,
-                        rx_actor_losses, rx_critic_losses, rx_belief_losses, rx_entropy_losses,
-                        filepath = None):
+def save_results_losses(actor_losses, critic_losses, entropy_losses, filepath = None):
     plt.figure(figsize=(12, 8))
 
-    plt.subplot(4, 2, 1)
-    plt.plot(tx_actor_losses)
+    plt.subplot(3, 1, 1)
+    plt.plot(actor_losses)
     plt.xlabel("Episode")
     plt.ylabel("Actor Loss")
-    plt.title("Actor Loss over episodes during training for Tx")
+    plt.title("Actor Loss over episodes during training")
 
-    plt.subplot(4, 2, 2)
-    plt.plot(tx_critic_losses)
+    plt.subplot(3, 1, 2)
+    plt.plot(critic_losses)
     plt.xlabel("Episode")
     plt.ylabel("Critic Loss")
-    plt.title("Critic Loss over episodes during training for Tx")
+    plt.title("Critic Loss over episodes during training")
 
-    plt.subplot(4, 2, 3)
-    plt.plot(tx_belief_losses)
-    plt.xlabel("Episode")
-    plt.ylabel("Belief Loss")
-    plt.title("Belief Loss over episodes during training for Tx")
-
-    plt.subplot(4, 2, 4)
-    plt.plot(tx_entropy_losses)
+    plt.subplot(3, 1, 3)
+    plt.plot(entropy_losses)
     plt.xlabel("Episode")
     plt.ylabel("Entropy Loss")
-    plt.title("Entropy Loss over episodes during training for Tx")
-
-    plt.subplot(4, 2, 5)
-    plt.plot(rx_actor_losses)
-    plt.xlabel("Episode")
-    plt.ylabel("Actor Loss")
-    plt.title("Actor Loss over episodes during training for Rx")
-
-    plt.subplot(4, 2, 6)
-    plt.plot(rx_critic_losses)
-    plt.xlabel("Episode")
-    plt.ylabel("Critic Loss")
-    plt.title("Critic Loss over episodes during training for Rx")
-
-    plt.subplot(4, 2, 7)
-    plt.plot(rx_belief_losses)
-    plt.xlabel("Episode")
-    plt.ylabel("Belief Loss")
-    plt.title("Belief Loss over episodes during training for Rx")
-
-    plt.subplot(4, 2, 8)
-    plt.plot(rx_entropy_losses)
-    plt.xlabel("Episode")
-    plt.ylabel("Entropy Loss")
-    plt.title("Entropy Loss over episodes during training for Rx")
+    plt.title("Entropy Loss over episodes during training")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"PPO algorithm")
@@ -272,34 +222,26 @@ def save_channel_selection_training(tx_channel_selection, rx_channel_selection, 
 ### Plotting the channel selection
 #################################################################################
 
-def save_channel_selection(tx_channel_selection_training, rx_channel_selection_training, jammer_channel_selection_training,
-                           tx_channel_selection_testing, rx_channel_selection_testing, jammer_channel_selection_testing,
+def save_channel_selection(channel_selection_training, jammer_channel_selection_training,
+                           channel_selection_testing, jammer_channel_selection_testing,
                            filepath = None):
     plt.figure(figsize=(12, 8))
-    plt.subplot(2, 2, 1)
-    plt.plot(tx_channel_selection_training)
+    plt.subplot(3, 1, 1)
+    plt.plot(channel_selection_training)
     plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Hop")
     plt.ylabel("Channel")
-    plt.title("Tx channel selection during training")
+    plt.title("Channel selection during training")
 
-    plt.subplot(2, 2, 2)
-    plt.plot(rx_channel_selection_training)
-    plt.ylim([-1, NUM_CHANNELS])
-    plt.xlabel("Hop")
-    plt.ylabel("Channel")
-    plt.title("Rx channel selection during training")
-
-    plt.subplot(2, 2, 3)
+    plt.subplot(3, 1, 2)
     plt.plot(jammer_channel_selection_training)
     plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Hop")
     plt.ylabel("Channel")
     plt.title("Jammer channel selection during training")
 
-    plt.subplot(2, 2, 4)
-    plt.plot(tx_channel_selection_training, label = "Tx")
-    plt.plot(rx_channel_selection_training, label = "Rx")
+    plt.subplot(3, 1, 3)
+    plt.plot(channel_selection_training, label = "Tx-Rx agent")
     plt.plot(jammer_channel_selection_training, label = "Jammer")
     plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Hop")
@@ -317,21 +259,14 @@ def save_channel_selection(tx_channel_selection_training, rx_channel_selection_t
         plt.close()
 
     plt.figure(figsize=(12, 8))
-    plt.subplot(2, 2, 1)
-    plt.plot(tx_channel_selection_testing)
+    plt.subplot(3, 1, 1)
+    plt.plot(channel_selection_testing)
     plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Hop")
     plt.ylabel("Channel")
-    plt.title("Tx channel selection during testing")
+    plt.title("Channel selection during testing")
 
-    plt.subplot(2, 2, 2)
-    plt.plot(rx_channel_selection_testing)
-    plt.ylim([-1, NUM_CHANNELS])
-    plt.xlabel("Hop")
-    plt.ylabel("Channel")
-    plt.title("Rx channel selection during testing")
-
-    plt.subplot(2, 2, 3)
+    plt.subplot(3, 1, 2)
     plt.plot(jammer_channel_selection_testing)
     plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Hop")
@@ -339,8 +274,7 @@ def save_channel_selection(tx_channel_selection_training, rx_channel_selection_t
     plt.title("Jammer channel selection during testing")
 
     plt.subplot(2, 2, 4)
-    plt.plot(tx_channel_selection_testing, label = "Tx")
-    plt.plot(rx_channel_selection_testing, label = "Rx")
+    plt.plot(channel_selection_testing, label = "Tx-Rx agent")
     plt.plot(jammer_channel_selection_testing, label = "Jammer")
     plt.ylim([-1, NUM_CHANNELS])
     plt.xlabel("Hop")
@@ -361,61 +295,28 @@ def save_channel_selection(tx_channel_selection_training, rx_channel_selection_t
 ### Plotting the pattern selection
 #################################################################################
 
-def save_seed_selection(tx_seed_selection_training, rx_seed_selection_training,
-                           tx_seed_selection_testing, rx_seed_selection_testing, filepath = None):
+def save_seed_selection(seed_selection_training, seed_selection_testing, filepath = None):
     plt.figure(figsize=(12, 8))
-    plt.subplot(3, 2, 1)
-    plt.plot(tx_seed_selection_training)
-    plt.ylim([-1, NUM_SEEDS])
-    plt.xlabel("Episode")
-    plt.ylabel("Seed")
-    plt.title("Tx seed selection during training")
-
-    plt.subplot(3, 2, 2)
-    plt.plot(rx_seed_selection_training)
-    plt.ylim([-1, NUM_SEEDS])
-    plt.xlabel("Episode")
-    plt.ylabel("Seed")
-    plt.title("Rx seed selection during training")
-
-    plt.subplot(3, 2, 3)
-    plt.plot(tx_seed_selection_training, label = "Tx")
-    plt.plot(rx_seed_selection_training, label = "Rx")
+    plt.subplot(2, 1, 1)
+    plt.plot(seed_selection_training)
     plt.ylim([-1, NUM_SEEDS])
     plt.xlabel("Episode")
     plt.ylabel("Seed")
     plt.title("Seed selection during training")
-    plt.legend()
 
-    plt.subplot(3, 2, 4)
-    plt.plot(tx_seed_selection_testing)
-    plt.ylim([-1, NUM_SEEDS])
-    plt.xlabel("Episode")
-    plt.ylabel("Seed")
-    plt.title("Tx seed selection during testing")
-
-    plt.subplot(3, 2, 5)
-    plt.plot(rx_seed_selection_testing)
-    plt.ylim([-1, NUM_SEEDS])
-    plt.xlabel("Episode")
-    plt.ylabel("Seed")
-    plt.title("Rx seed selection during testing")
-
-    plt.subplot(3, 2, 6)
-    plt.plot(tx_seed_selection_testing, label = "Tx")
-    plt.plot(rx_seed_selection_testing, label = "Rx")
+    plt.subplot(2, 1, 2)
+    plt.plot(seed_selection_testing)
     plt.ylim([-1, NUM_SEEDS])
     plt.xlabel("Episode")
     plt.ylabel("Seed")
     plt.title("Seed selection during testing")
-    plt.legend()
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.suptitle(f"PPO algorithm")
     # plt.show()
 
     if filepath is not None:
-        plt.savefig(f"{filepath}/tx_rx_seed_selection.png")
+        plt.savefig(f"{filepath}/seed_selection.png")
 
         plt.close()
 
@@ -423,57 +324,42 @@ def save_seed_selection(tx_seed_selection_training, rx_seed_selection_training,
 ### Plotting the seed selection with jammer selection
 #################################################################################
 
-def save_seed_selection_jammer(tx_seed_training, rx_seed_training, jammer_seed_training, 
-                               tx_seed_testing, rx_seed_testing, jammer_seed_testing, filepath = None):
+def save_seed_selection_jammer(seed_training, jammer_seed_training, seed_testing, jammer_seed_testing, filepath = None):
     plt.figure(figsize=(12, 8))
-    plt.subplot(4, 2, 1)
-    plt.plot(tx_seed_training)
+    plt.subplot(3, 2, 1)
+    plt.plot(seed_training)
     plt.xlabel("Episode")
     plt.ylabel("Seed")
-    plt.title("Tx seed selection during training")
+    plt.title("Seed selection during training")
 
-    plt.subplot(4, 2, 2)
-    plt.plot(rx_seed_training)
-    plt.xlabel("Episode")
-    plt.ylabel("Seed")
-    plt.title("Rx seed selection during training")
-
-    plt.subplot(4, 2, 3)
+    plt.subplot(3, 2, 2)
     plt.plot(jammer_seed_training)
     plt.xlabel("Episode")
     plt.ylabel("Seed")
     plt.title("Jammer seed selection during training")
 
-    plt.subplot(4, 2, 4)
-    plt.plot(tx_seed_training, label = "Tx")
-    plt.plot(rx_seed_training, label = "Rx")
+    plt.subplot(3, 2, 3)
+    plt.plot(seed_training, label = "Tx-Rx agent")
     plt.plot(jammer_seed_training, label = "Jammer")
     plt.xlabel("Episode")
     plt.ylabel("Seed")
     plt.title("Seed selection during training")
     plt.legend()
 
-    plt.subplot(4, 2, 5)
-    plt.plot(tx_seed_testing)
+    plt.subplot(3, 2, 4)
+    plt.plot(seed_testing)
     plt.xlabel("Episode")
     plt.ylabel("Seed")
-    plt.title("Tx seed selection during testing")
+    plt.title("Seed selection during testing")
 
-    plt.subplot(4, 2, 6)
-    plt.plot(rx_seed_testing)
-    plt.xlabel("Episode")
-    plt.ylabel("Seed")
-    plt.title("Rx seed selection during testing")
-
-    plt.subplot(4, 2, 7)
+    plt.subplot(3, 2, 5)
     plt.plot(jammer_seed_testing)
     plt.xlabel("Episode")
     plt.ylabel("Seed")
     plt.title("Jammer seed selection during testing")
 
-    plt.subplot(4, 2, 8)
-    plt.plot(tx_seed_testing, label = "Tx")
-    plt.plot(rx_seed_testing, label = "Rx")
+    plt.subplot(3, 2, 6)
+    plt.plot(seed_testing, label = "Tx-Rx agent")
     plt.plot(jammer_seed_testing, label = "Jammer")
     plt.xlabel("Episode")
     plt.ylabel("Seed")
