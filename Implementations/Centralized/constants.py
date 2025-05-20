@@ -4,9 +4,9 @@ import numpy as np
 ### Defining constants
 #################################################################################
 
-NUM_CHANNELS = 100 # Number of channels in the system
+NUM_CHANNELS = 20 # Number of channels in the system
 NUM_EXTRA_ACTIONS = 0 # Number of extra channels that the Tx and Rx can sense
-NUM_EXTRA_RECEIVE = 2 # Number of extra channels that the Rx can receive on
+NUM_EXTRA_RECEIVE = 0 # Number of extra channels that the Rx can receive on
 
 # Hyperparameters
 LEARNING_RATE = 0.0005
@@ -86,7 +86,7 @@ REWARD_DIVERSE = 0 # Reward for choosing a pattern that has not been used in the
 NUM_PREV_PATTERNS = 2 # Number of previous patterns to consider for the penalty
 
 # Frequency-Hopping parameters
-NUM_HOPS = 1
+NUM_HOPS = 5
 if NUM_HOPS == 1:
     NUM_SEEDS = NUM_CHANNELS
 else:
