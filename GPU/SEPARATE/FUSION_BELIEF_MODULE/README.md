@@ -1,1 +1,0 @@
-This implementation has the observed action of the other agent added to the input of the prediction network, i.e. the prediction observation
