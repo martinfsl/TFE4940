@@ -86,7 +86,7 @@ REWARD_DIVERSE = 0 # Reward for choosing a pattern that has not been used in the
 NUM_PREV_PATTERNS = 2 # Number of previous patterns to consider for the penalty
 
 # Frequency-Hopping parameters
-NUM_HOPS = 5
+NUM_HOPS = 1
 if NUM_HOPS == 1:
     NUM_SEEDS = NUM_CHANNELS
 else:

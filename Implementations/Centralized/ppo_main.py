@@ -621,7 +621,7 @@ if __name__ == '__main__':
 
     # relative_path = f"A_A_A_Final_Tests/fusion_with_obs_encoder/Standard/test_pts/{jammer_type}/0_receive_5_sense"
     # relative_path = f"A_A_A_Final_Tests/fusion_with_obs_encoder/Channels_100/test_pts/{jammer_type}/2_receive_0_sense"
-    relative_path = f"A_A_A_Final_Tests/centralized/Standard/test/{jammer_type}"
+    relative_path = f"A_A_A_Final_Tests/centralized/Standard/test_pts/{jammer_type}"
     if not os.path.exists(relative_path):
         os.makedirs(relative_path)
 
